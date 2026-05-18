@@ -634,12 +634,10 @@ class App {
         if (this.currentTool === 'regionSelect') {
             this.currentTool = 'smartCut';
             this.processor.regionSelector.destroy();
-            this.handleToolSelect(this.currentTool);
             this.showNotification('已取消框选', 'info');
         } else {
             this.currentTool = 'regionSelect';
             this.processor.regionSelector.clearSelection();
-            this.handleToolSelect(this.currentTool);
             this.showNotification('请在图片上框选要处理的区域', 'info');
         }
     }
@@ -650,12 +648,9 @@ class App {
     handleRegionSelectStart(x, y) {
         if (this.currentTool !== 'regionSelect') return;
         
-        const scale = this.zoomManager.scale;
-        const offsetX = this.zoomManager.offsetX;
-        const offsetY = this.zoomManager.offsetY;
-        
-        const canvasX = (x - offsetX) / scale;
-        const canvasY = (y - offsetY) / scale;
+        const canvasPos = this.zoomManager.screenToCanvas(x, y);
+        const canvasX = canvasPos.x;
+        const canvasY = canvasPos.y;
         
         this.processor.regionSelector.startSelection(canvasX, canvasY);
     }
@@ -666,12 +661,9 @@ class App {
     handleRegionSelectUpdate(x, y) {
         if (this.currentTool !== 'regionSelect') return;
         
-        const scale = this.zoomManager.scale;
-        const offsetX = this.zoomManager.offsetX;
-        const offsetY = this.zoomManager.offsetY;
-        
-        const canvasX = (x - offsetX) / scale;
-        const canvasY = (y - offsetY) / scale;
+        const canvasPos = this.zoomManager.screenToCanvas(x, y);
+        const canvasX = canvasPos.x;
+        const canvasY = canvasPos.y;
         
         this.processor.regionSelector.updateSelection(canvasX, canvasY);
     }
