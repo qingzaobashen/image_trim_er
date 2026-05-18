@@ -171,6 +171,8 @@ body {
 .btn-full {
     width: 100%;
     justify-content: center;
+    margin-top: 7px;
+    margin-bottom: 7px;
 }
 
 /* ==================== 主要内容区域 ==================== */
@@ -275,6 +277,7 @@ body {
     font-size: 13px;
     color: var(--text-secondary);
     margin-bottom: 8px;
+    margin-top: 8px;
 }
 
 .param-item input[type="range"] {

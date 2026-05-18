@@ -58,6 +58,7 @@ class App {
 
         this.minAreaThresholdInput = document.getElementById('minAreaThreshold');
         this.removeSmallRegionsBtn = document.getElementById('removeSmallRegionsBtn');
+        this.框选去除噪点Btn = document.getElementById('框选去除噪点Btn');
 
         this.applySmartCutBtn = document.getElementById('applySmartCut');
         this.clearSelectionBtn = document.getElementById('clearSelection');
@@ -102,6 +103,7 @@ class App {
 
         this.minAreaThresholdInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.removeSmallRegionsBtn.addEventListener('click', () => this.handleRemoveSmallRegions());
+        this.框选去除噪点Btn.addEventListener('click', () => this.handle框选去除噪点());
 
         this.applySmartCutBtn.addEventListener('click', () => this.handleApplySmartCut());
         this.clearSelectionBtn.addEventListener('click', () => this.handleClearSelection());
@@ -334,6 +336,15 @@ class App {
             return;
         }
 
+        if (this.currentTool === 'regionSelect') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            
+            this.handleRegionSelectStart(screenX, screenY);
+            return;
+        }
+
         if (this.currentTool !== 'brush') return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
@@ -358,6 +369,16 @@ class App {
      */
     handleCanvasMouseMove(e) {
         if (!this.isImageLoaded || this.isLoading) return;
+
+        if (this.currentTool === 'regionSelect') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            
+            this.handleRegionSelectUpdate(screenX, screenY);
+            return;
+        }
+
         if (this.currentTool !== 'brush') return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
@@ -377,6 +398,12 @@ class App {
      */
     handleCanvasMouseUp() {
         if (!this.isImageLoaded) return;
+
+        if (this.currentTool === 'regionSelect') {
+            this.handleRegionSelectEnd();
+            return;
+        }
+
         if (this.currentTool !== 'brush') return;
 
         if (!this.processor.brushTool.isDrawing) {
@@ -595,6 +622,80 @@ class App {
             `已移除 ${result.removedRegions} 个小区域，共 ${result.removedPixels} 像素`,
             'success'
         );
+    }
+
+    /**
+     * 处理框选去除噪点
+     */
+    handle框选去除噪点() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        if (this.currentTool === 'regionSelect') {
+            this.currentTool = 'smartCut';
+            this.processor.regionSelector.destroy();
+            this.handleToolSelect(this.currentTool);
+            this.showNotification('已取消框选', 'info');
+        } else {
+            this.currentTool = 'regionSelect';
+            this.processor.regionSelector.clearSelection();
+            this.handleToolSelect(this.currentTool);
+            this.showNotification('请在图片上框选要处理的区域', 'info');
+        }
+    }
+
+    /**
+     * 处理框选开始
+     */
+    handleRegionSelectStart(x, y) {
+        if (this.currentTool !== 'regionSelect') return;
+        
+        const scale = this.zoomManager.scale;
+        const offsetX = this.zoomManager.offsetX;
+        const offsetY = this.zoomManager.offsetY;
+        
+        const canvasX = (x - offsetX) / scale;
+        const canvasY = (y - offsetY) / scale;
+        
+        this.processor.regionSelector.startSelection(canvasX, canvasY);
+    }
+
+    /**
+     * 处理框选更新
+     */
+    handleRegionSelectUpdate(x, y) {
+        if (this.currentTool !== 'regionSelect') return;
+        
+        const scale = this.zoomManager.scale;
+        const offsetX = this.zoomManager.offsetX;
+        const offsetY = this.zoomManager.offsetY;
+        
+        const canvasX = (x - offsetX) / scale;
+        const canvasY = (y - offsetY) / scale;
+        
+        this.processor.regionSelector.updateSelection(canvasX, canvasY);
+    }
+
+    /**
+     * 处理框选结束
+     */
+    handleRegionSelectEnd() {
+        if (this.currentTool !== 'regionSelect') return;
+        
+        const rect = this.processor.regionSelector.endSelection();
+        
+        if (rect) {
+            const minArea = parseInt(this.minAreaThresholdInput.value);
+            const result = this.processor.removeSmallRegionsInArea(minArea, rect);
+            
+            this.updateButtons();
+            this.showNotification(
+                `框选区域内已移除 ${result.removedRegions} 个小区域，共 ${result.removedPixels} 像素`,
+                'success'
+            );
+        }
+        
+        this.processor.regionSelector.clearSelection();
     }
 
     /**

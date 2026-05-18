@@ -7,6 +7,7 @@ import * as canvasUtils from './utils/canvasUtils.js';
 import { SmartCutTool } from './tools/smartCut.js';
 import { MagicWandTool } from './tools/magicWand.js';
 import { BrushTool, EraserTool } from './tools/brush.js';
+import { RegionSelector } from './tools/regionSelector.js';
 import { SelectionHistory } from './utils/selectionHistory.js';
 
 /**
@@ -32,6 +33,7 @@ export class ImageProcessor {
         this.magicWandTool = new MagicWandTool(mainCanvas, overlayCanvas);
         this.brushTool = new BrushTool(overlayCanvas);
         this.eraserTool = new EraserTool(overlayCanvas);
+        this.regionSelector = new RegionSelector(overlayCanvas, mainCanvas);
     }
 
     /**
@@ -398,6 +400,86 @@ export class ImageProcessor {
                 removedPixels += region.length;
                 
                 for (const pixelIdx of region) {
+                    imageData.data[pixelIdx * 4 + 3] = 0;
+                }
+            }
+        }
+
+        canvasUtils.putImageData(this.mainCanvas, imageData);
+        this.saveToHistory();
+
+        return {
+            removedRegions,
+            removedPixels,
+            totalRegions: regions.length
+        };
+    }
+
+    /**
+     * 去除指定区域的小区域（噪点）
+     * @param {number} minArea - 最小区域阈值（像素数）
+     * @param {Object} region - 区域 {x, y, width, height}
+     * @returns {{removedRegions: number, removedPixels: number}} 处理统计信息
+     */
+    removeSmallRegionsInArea(minArea = 100, region = null) {
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        const imageData = canvasUtils.getImageData(this.mainCanvas);
+        
+        const visited = new Uint8ClampedArray(width * height);
+        const regions = [];
+        
+        const minX = region ? region.x : 0;
+        const minY = region ? region.y : 0;
+        const maxX = region ? region.x + region.width : width;
+        const maxY = region ? region.y + region.height : height;
+        
+        for (let y = minY; y < maxY; y++) {
+            for (let x = minX; x < maxX; x++) {
+                const idx = y * width + x;
+                
+                if (visited[idx]) continue;
+                
+                const alphaIdx = idx * 4 + 3;
+                if (imageData.data[alphaIdx] > 128) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visited[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visited[nidx] && imageData.data[nidx * 4 + 3] > 128) {
+                                    visited[nidx] = 1;
+                                    queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    regions.push(regionPixels);
+                }
+            }
+        }
+
+        let removedRegions = 0;
+        let removedPixels = 0;
+
+        for (const regionPixels of regions) {
+            if (regionPixels.length < minArea) {
+                removedRegions++;
+                removedPixels += regionPixels.length;
+                
+                for (const pixelIdx of regionPixels) {
                     imageData.data[pixelIdx * 4 + 3] = 0;
                 }
             }
