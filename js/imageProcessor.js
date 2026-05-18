@@ -351,20 +351,25 @@ export class ImageProcessor {
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
         
-        const visited = new Uint8ClampedArray(width * height);
-        const regions = [];
+        let removedOpaqueRegions = 0;   // 移除的不透明区域（透明噪点）
+        let removedOpaquePixels = 0;
+        let removedTransparentRegions = 0;  // 移除的透明区域（不透明噪点）
+        let removedTransparentPixels = 0;
+        
+        // 第一步：处理不透明区域（alpha > 128）中的小透明区域
+        const visitedOpaque = new Uint8ClampedArray(width * height);
         
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const idx = y * width + x;
                 
-                if (visited[idx]) continue;
+                if (visitedOpaque[idx]) continue;
                 
                 const alphaIdx = idx * 4 + 3;
                 if (imageData.data[alphaIdx] > 128) {
                     const regionPixels = [];
                     const queue = [[x, y]];
-                    visited[idx] = 1;
+                    visitedOpaque[idx] = 1;
                     
                     while (queue.length > 0) {
                         const [cx, cy] = queue.shift();
@@ -378,29 +383,71 @@ export class ImageProcessor {
                             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                                 const nidx = ny * width + nx;
                                 
-                                if (!visited[nidx] && imageData.data[nidx * 4 + 3] > 128) {
-                                    visited[nidx] = 1;
+                                if (!visitedOpaque[nidx] && imageData.data[nidx * 4 + 3] > 128) {
+                                    visitedOpaque[nidx] = 1;
                                     queue.push([nx, ny]);
                                 }
                             }
                         }
                     }
                     
-                    regions.push(regionPixels);
+                    // 移除小的不透明区域（透明噪点）
+                    if (regionPixels.length < minArea) {
+                        removedOpaqueRegions++;
+                        removedOpaquePixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            imageData.data[pixelIdx * 4 + 3] = 0;
+                        }
+                    }
                 }
             }
         }
-
-        let removedRegions = 0;
-        let removedPixels = 0;
-
-        for (const region of regions) {
-            if (region.length < minArea) {
-                removedRegions++;
-                removedPixels += region.length;
+        
+        // 第二步：处理透明区域（alpha <= 128）中的小不透明区域（白色噪点）
+        const visitedTransparent = new Uint8ClampedArray(width * height);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
                 
-                for (const pixelIdx of region) {
-                    imageData.data[pixelIdx * 4 + 3] = 0;
+                if (visitedTransparent[idx]) continue;
+                
+                const alphaIdx = idx * 4 + 3;
+                if (imageData.data[alphaIdx] <= 128) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visitedTransparent[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visitedTransparent[nidx] && imageData.data[nidx * 4 + 3] <= 128) {
+                                    visitedTransparent[nidx] = 1;
+                                    queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 移除小的透明区域（不透明噪点/白色噪点）
+                    if (regionPixels.length < minArea) {
+                        removedTransparentRegions++;
+                        removedTransparentPixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            imageData.data[pixelIdx * 4 + 3] = 0;
+                        }
+                    }
                 }
             }
         }
@@ -409,9 +456,12 @@ export class ImageProcessor {
         this.saveToHistory();
 
         return {
-            removedRegions,
-            removedPixels,
-            totalRegions: regions.length
+            removedRegions: removedOpaqueRegions + removedTransparentRegions,
+            removedPixels: removedOpaquePixels + removedTransparentPixels,
+            removedOpaqueRegions,
+            removedOpaquePixels,
+            removedTransparentRegions,
+            removedTransparentPixels
         };
     }
 
@@ -426,25 +476,32 @@ export class ImageProcessor {
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
         
-        const visited = new Uint8ClampedArray(width * height);
-        const regions = [];
+        let removedOpaqueRegions = 0;
+        let removedOpaquePixels = 0;
+        let removedTransparentRegions = 0;
+        let removedTransparentPixels = 0;
+        let removedDarkRegions = 0;  // 新增：深色噪点区域
+        let removedDarkPixels = 0;
         
         const minX = region ? region.x : 0;
         const minY = region ? region.y : 0;
         const maxX = region ? region.x + region.width : width;
         const maxY = region ? region.y + region.height : height;
         
+        // 第一步：处理不透明区域（alpha > 128）中的小透明区域
+        const visitedOpaque = new Uint8ClampedArray(width * height);
+        
         for (let y = minY; y < maxY; y++) {
             for (let x = minX; x < maxX; x++) {
                 const idx = y * width + x;
                 
-                if (visited[idx]) continue;
+                if (visitedOpaque[idx]) continue;
                 
                 const alphaIdx = idx * 4 + 3;
                 if (imageData.data[alphaIdx] > 128) {
                     const regionPixels = [];
                     const queue = [[x, y]];
-                    visited[idx] = 1;
+                    visitedOpaque[idx] = 1;
                     
                     while (queue.length > 0) {
                         const [cx, cy] = queue.shift();
@@ -458,29 +515,132 @@ export class ImageProcessor {
                             if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) {
                                 const nidx = ny * width + nx;
                                 
-                                if (!visited[nidx] && imageData.data[nidx * 4 + 3] > 128) {
-                                    visited[nidx] = 1;
+                                if (!visitedOpaque[nidx] && imageData.data[nidx * 4 + 3] > 128) {
+                                    visitedOpaque[nidx] = 1;
                                     queue.push([nx, ny]);
                                 }
                             }
                         }
                     }
                     
-                    regions.push(regionPixels);
+                    // 移除小的不透明区域（透明噪点）
+                    if (regionPixels.length < minArea) {
+                        removedOpaqueRegions++;
+                        removedOpaquePixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            imageData.data[pixelIdx * 4 + 3] = 0;
+                        }
+                    }
                 }
             }
         }
-
-        let removedRegions = 0;
-        let removedPixels = 0;
-
-        for (const regionPixels of regions) {
-            if (regionPixels.length < minArea) {
-                removedRegions++;
-                removedPixels += regionPixels.length;
+        
+        // 第二步：处理透明区域（alpha <= 128）中的小不透明区域（白色噪点）
+        const visitedTransparent = new Uint8ClampedArray(width * height);
+        
+        for (let y = minY; y < maxY; y++) {
+            for (let x = minX; x < maxX; x++) {
+                const idx = y * width + x;
                 
-                for (const pixelIdx of regionPixels) {
-                    imageData.data[pixelIdx * 4 + 3] = 0;
+                if (visitedTransparent[idx]) continue;
+                
+                const alphaIdx = idx * 4 + 3;
+                if (imageData.data[alphaIdx] <= 128) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visitedTransparent[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visitedTransparent[nidx] && imageData.data[nidx * 4 + 3] <= 128) {
+                                    visitedTransparent[nidx] = 1;
+                                    queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 移除小的透明区域（不透明噪点/白色噪点）
+                    if (regionPixels.length < minArea) {
+                        removedTransparentRegions++;
+                        removedTransparentPixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            imageData.data[pixelIdx * 4 + 3] = 0;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 第三步：处理深色噪点（alpha > 128 但 RGB 值都很低）
+        const visitedDark = new Uint8ClampedArray(width * height);
+        
+        for (let y = minY; y < maxY; y++) {
+            for (let x = minX; x < maxX; x++) {
+                const idx = y * width + x;
+                
+                if (visitedDark[idx]) continue;
+                
+                const alphaIdx = idx * 4 + 3;
+                const r = imageData.data[idx * 4];
+                const g = imageData.data[idx * 4 + 1];
+                const b = imageData.data[idx * 4 + 2];
+                
+                // 检测深色像素：alpha > 128 且 RGB 平均值 < 50
+                if (imageData.data[alphaIdx] > 128 && (r + g + b) / 3 < 50) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visitedDark[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visitedDark[nidx]) {
+                                    const nr = imageData.data[nidx * 4];
+                                    const ng = imageData.data[nidx * 4 + 1];
+                                    const nb = imageData.data[nidx * 4 + 2];
+                                    const nAlpha = imageData.data[nidx * 4 + 3];
+                                    
+                                    // 连接条件：alpha > 128 且 RGB 平均值 < 50
+                                    if (nAlpha > 128 && (nr + ng + nb) / 3 < 50) {
+                                        visitedDark[nidx] = 1;
+                                        queue.push([nx, ny]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 移除小的深色区域（深色噪点）
+                    if (regionPixels.length < minArea) {
+                        removedDarkRegions++;
+                        removedDarkPixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            imageData.data[pixelIdx * 4 + 3] = 0;
+                        }
+                    }
                 }
             }
         }
@@ -489,9 +649,145 @@ export class ImageProcessor {
         this.saveToHistory();
 
         return {
-            removedRegions,
-            removedPixels,
-            totalRegions: regions.length
+            removedRegions: removedOpaqueRegions + removedTransparentRegions + removedDarkRegions,
+            removedPixels: removedOpaquePixels + removedTransparentPixels + removedDarkPixels,
+            removedOpaqueRegions,
+            removedOpaquePixels,
+            removedTransparentRegions,
+            removedTransparentPixels,
+            removedDarkRegions,
+            removedDarkPixels
+        };
+    }
+
+    /**
+     * 去除选区中的小区域（噪点）
+     * @param {number} minArea - 最小区域阈值（像素数）
+     * @returns {{removedRegions: number, removedPixels: number}} 处理统计信息
+     */
+    removeSmallRegionsFromSelection(minArea = 100) {
+        if (!this.currentMask || this.currentMask.every(v => v === 0)) {
+            return {
+                removedRegions: 0,
+                removedPixels: 0,
+                totalRegions: 0
+            };
+        }
+
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        
+        // 统计两种噪点
+        let removedSelectedRegions = 0;    // 已选区域中的未选噪点（深色）
+        let removedSelectedPixels = 0;
+        let removedUnselectedRegions = 0;  // 未选区域中的已选噪点（白色）
+        let removedUnselectedPixels = 0;
+        
+        // 第一步：处理已选区域（currentMask > 0）中的小未选区域
+        const visitedSelected = new Uint8ClampedArray(width * height);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                
+                if (visitedSelected[idx]) continue;
+                
+                if (this.currentMask[idx] > 0) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visitedSelected[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visitedSelected[nidx] && this.currentMask[nidx] > 0) {
+                                    visitedSelected[nidx] = 1;
+                                    queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 移除小的已选区域（深色噪点）
+                    if (regionPixels.length < minArea) {
+                        removedSelectedRegions++;
+                        removedSelectedPixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            this.currentMask[pixelIdx] = 0;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 第二步：处理未选区域（currentMask === 0）中的小已选区域（白色噪点）
+        const visitedUnselected = new Uint8ClampedArray(width * height);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                
+                if (visitedUnselected[idx]) continue;
+                
+                if (this.currentMask[idx] === 0) {
+                    const regionPixels = [];
+                    const queue = [[x, y]];
+                    visitedUnselected[idx] = 1;
+                    
+                    while (queue.length > 0) {
+                        const [cx, cy] = queue.shift();
+                        const cidx = cy * width + cx;
+                        regionPixels.push(cidx);
+                        
+                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                            const nx = cx + dx;
+                            const ny = cy + dy;
+                            
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                const nidx = ny * width + nx;
+                                
+                                if (!visitedUnselected[nidx] && this.currentMask[nidx] === 0) {
+                                    visitedUnselected[nidx] = 1;
+                                    queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 移除小的未选区域（白色噪点）
+                    if (regionPixels.length < minArea) {
+                        removedUnselectedRegions++;
+                        removedUnselectedPixels += regionPixels.length;
+                        
+                        for (const pixelIdx of regionPixels) {
+                            this.currentMask[pixelIdx] = 255;
+                        }
+                    }
+                }
+            }
+        }
+
+        this.renderSelection();
+        this.selectionHistory.save(this.currentMask);
+
+        return {
+            removedRegions: removedSelectedRegions + removedUnselectedRegions,
+            removedPixels: removedSelectedPixels + removedUnselectedPixels,
+            removedSelectedRegions,
+            removedSelectedPixels,
+            removedUnselectedRegions,
+            removedUnselectedPixels,
+            totalRegions: removedSelectedRegions + removedUnselectedRegions
         };
     }
 

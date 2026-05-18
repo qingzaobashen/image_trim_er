@@ -64,6 +64,7 @@ class App {
         this.clearSelectionBtn = document.getElementById('clearSelection');
         this.invertSelectionBtn = document.getElementById('invertSelection');
         this.deleteSelectionBtn = document.getElementById('deleteSelection');
+        this.selectionDenoiseBtn = document.getElementById('selectionDenoiseBtn');
 
         this.imageSizeInfo = document.getElementById('imageSize');
         this.fileSizeInfo = document.getElementById('fileSize');
@@ -109,6 +110,7 @@ class App {
         this.clearSelectionBtn.addEventListener('click', () => this.handleClearSelection());
         this.invertSelectionBtn.addEventListener('click', () => this.handleInvertSelection());
         this.deleteSelectionBtn.addEventListener('click', () => this.handleDeleteSelection());
+        this.selectionDenoiseBtn.addEventListener('click', () => this.handleSelectionDenoise());
 
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
@@ -607,6 +609,24 @@ class App {
     }
 
     /**
+     * 处理选区降噪
+     */
+    handleSelectionDenoise() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        const minArea = parseInt(this.minAreaThresholdInput.value);
+        
+        const result = this.processor.removeSmallRegionsFromSelection(minArea);
+        
+        this.updateButtons();
+        this.showNotification(
+            `已选噪点：${result.removedSelectedRegions}个区域/${result.removedSelectedPixels}像素；未选噪点：${result.removedUnselectedRegions}个区域/${result.removedUnselectedPixels}像素`,
+            'success'
+        );
+    }
+
+    /**
      * 处理去除小区域（噪点）
      */
     handleRemoveSmallRegions() {
@@ -619,7 +639,7 @@ class App {
         
         this.updateButtons();
         this.showNotification(
-            `已移除 ${result.removedRegions} 个小区域，共 ${result.removedPixels} 像素`,
+            `透明噪点：${result.removedOpaqueRegions}个区域/${result.removedOpaquePixels}像素；不透明噪点：${result.removedTransparentRegions}个区域/${result.removedTransparentPixels}像素`,
             'success'
         );
     }
@@ -682,7 +702,7 @@ class App {
             
             this.updateButtons();
             this.showNotification(
-                `框选区域内已移除 ${result.removedRegions} 个小区域，共 ${result.removedPixels} 像素`,
+                `框选区：透明噪点${result.removedOpaqueRegions}个/${result.removedOpaquePixels}像素；不透明噪点${result.removedTransparentRegions}个/${result.removedTransparentPixels}像素；深色噪点${result.removedDarkRegions}个/${result.removedDarkPixels}像素`,
                 'success'
             );
         }

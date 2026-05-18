@@ -168,13 +168,13 @@
                                 <input type="range" id="minAreaThreshold" min="10" max="1000" value="100">
                                 <span class="param-value">100</span>
                             </div>
-                            <button class="btn btn-full" id="removeSmallRegionsBtn">
+                            <button class="btn btn-full" id="selectionDenoiseBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                    <path d="M2 17l10 5 10-5"/>
-                                    <path d="M2 12l10 5 10-5"/>
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M8 12h8"/>
+                                    <path d="M12 8v8"/>
                                 </svg>
-                                去除噪点
+                                选区降噪
                             </button>
                             <button class="btn btn-full" id="框选去除噪点Btn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
@@ -184,12 +184,22 @@
                                     <line x1="3" y1="9" x2="21" y2="9"/>
                                     <line x1="3" y1="15" x2="21" y2="15"/>
                                 </svg>
-                                框选去除噪点
+                                框选去噪
+                            </button>
+                            <button class="btn btn-full" id="removeSmallRegionsBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
+                                全图去噪
                             </button>
                             <div class="param-item">
                                 <div class="brush-hint">
                                     <p><strong>说明：</strong></p>
-                                    <p>• 自动识别并移除细碎的小区域</p>
+                                    <p>• <strong>选区降噪</strong>：抠图前清理选区噪点</p>
+                                    <p>• <strong>框选去噪</strong>：局部区域清理噪点</p>
+                                    <p>• <strong>全图去噪</strong>：抠图后清理图像噪点</p>
                                     <p>• 阈值越小，保留的区域越多</p>
                                     <p>• 建议值：50-200 像素</p>
                                 </div>
