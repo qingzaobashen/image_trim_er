@@ -56,6 +56,8 @@ class App {
         this.brushAddModeBtn = document.getElementById('brushAddMode');
         this.brushSubtractModeBtn = document.getElementById('brushSubtractMode');
 
+        this.shapeButtons = document.querySelectorAll('.shape-btn');
+
         this.minAreaThresholdInput = document.getElementById('minAreaThreshold');
         this.removeSmallRegionsBtn = document.getElementById('removeSmallRegionsBtn');
         this.框选去除噪点Btn = document.getElementById('框选去除噪点Btn');
@@ -101,6 +103,10 @@ class App {
 
         this.brushAddModeBtn.addEventListener('click', () => this.handleBrushModeChange('add'));
         this.brushSubtractModeBtn.addEventListener('click', () => this.handleBrushModeChange('subtract'));
+
+        this.shapeButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.handleShapeSelect(btn.dataset.shape));
+        });
 
         this.minAreaThresholdInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.removeSmallRegionsBtn.addEventListener('click', () => this.handleRemoveSmallRegions());
@@ -279,12 +285,23 @@ class App {
      */
     handleBrushModeChange(mode) {
         this.brushMode = mode;
-        
+
         this.brushAddModeBtn.classList.toggle('active', mode === 'add');
         this.brushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
-        
+
         const modeText = mode === 'add' ? '添加选区' : '取消选区';
         this.showNotification(`画笔模式：${modeText}`, 'info');
+    }
+
+    /**
+     * 处理形状选择
+     * @param {string} shape - 形状类型
+     */
+    handleShapeSelect(shape) {
+        this.shapeButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.shape === shape);
+        });
+        this.processor.setShapeType(shape);
     }
 
     /**
@@ -347,6 +364,19 @@ class App {
             return;
         }
 
+        if (this.currentTool === 'shapeCut') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            
+            const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
+            const x = canvasPos.x;
+            const y = canvasPos.y;
+            
+            this.processor.startShapeDrawing(x, y);
+            return;
+        }
+
         if (this.currentTool !== 'brush') return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
@@ -381,12 +411,25 @@ class App {
             return;
         }
 
+        if (this.currentTool === 'shapeCut') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+
+            const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
+            const x = canvasPos.x;
+            const y = canvasPos.y;
+
+            this.processor.updateShapeDrawing(x, y);
+            return;
+        }
+
         if (this.currentTool !== 'brush') return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
-        
+
         const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
         const x = canvasPos.x;
         const y = canvasPos.y;
@@ -403,6 +446,11 @@ class App {
 
         if (this.currentTool === 'regionSelect') {
             this.handleRegionSelectEnd();
+            return;
+        }
+
+        if (this.currentTool === 'shapeCut') {
+            this.processor.finishShapeDrawing();
             return;
         }
 
@@ -702,7 +750,7 @@ class App {
             
             this.updateButtons();
             this.showNotification(
-                `框选区：透明噪点${result.removedOpaqueRegions}个/${result.removedOpaquePixels}像素；不透明噪点${result.removedTransparentRegions}个/${result.removedTransparentPixels}像素；深色噪点${result.removedDarkRegions}个/${result.removedDarkPixels}像素`,
+                `框选区：透明噪点${result.removedOpaqueRegions}个/${result.removedOpaquePixels}像素；不透明噪点${result.removedTransparentRegions}个/${result.removedTransparentPixels}像素`,
                 'success'
             );
         }

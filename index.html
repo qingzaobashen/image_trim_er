@@ -80,6 +80,12 @@
                             </svg>
                             <span>画笔涂抹</span>
                         </button>
+                        <button class="tool-btn" data-tool="shapeCut" title="形状抠图">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            </svg>
+                            <span>形状抠图</span>
+                        </button>
                     </div>
                 </div>
 
@@ -157,6 +163,57 @@
                                     <p>• 添加模式：涂抹添加选区</p>
                                     <p>• 取消模式：涂抹取消选区</p>
                                     <p>• 按住 Alt 键临时切换模式</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 形状抠图参数 -->
+                        <div class="param-group" data-tool="shapeCut">
+                            <div class="param-item">
+                                <label>形状类型</label>
+                                <div class="shape-buttons">
+                                    <button class="shape-btn active" data-shape="rectangle" title="矩形">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        </svg>
+                                    </button>
+                                    <button class="shape-btn" data-shape="circle" title="圆形">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                        </svg>
+                                    </button>
+                                    <button class="shape-btn" data-shape="ellipse" title="椭圆">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <ellipse cx="12" cy="12" rx="10" ry="6"/>
+                                        </svg>
+                                    </button>
+                                    <button class="shape-btn" data-shape="petal" title="花瓣">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 2 C12 2, 16 8, 16 12 C16 16, 12 22, 12 22 C12 22, 8 16, 8 12 C8 8, 12 2, 12 2Z" fill="currentColor" opacity="0.3"/>
+                                            <path d="M12 2 C12 2, 16 8, 16 12 C16 16, 12 22, 12 22 C12 22, 8 16, 8 12 C8 8, 12 2, 12 2Z" transform="rotate(72 12 12)" fill="currentColor" opacity="0.3"/>
+                                            <path d="M12 2 C12 2, 16 8, 16 12 C16 16, 12 22, 12 22 C12 22, 8 16, 8 12 C8 8, 12 2, 12 2Z" transform="rotate(144 12 12)" fill="currentColor" opacity="0.3"/>
+                                            <path d="M12 2 C12 2, 16 8, 16 12 C16 16, 12 22, 12 22 C12 22, 8 16, 8 12 C8 8, 12 2, 12 2Z" transform="rotate(216 12 12)" fill="currentColor" opacity="0.3"/>
+                                            <path d="M12 2 C12 2, 16 8, 16 12 C16 16, 12 22, 12 22 C12 22, 8 16, 8 12 C8 8, 12 2, 12 2Z" transform="rotate(288 12 12)" fill="currentColor" opacity="0.3"/>
+                                        </svg>
+                                    </button>
+                                    <button class="shape-btn" data-shape="star" title="星形">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                        </svg>
+                                    </button>
+                                    <button class="shape-btn" data-shape="heart" title="心形">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="param-item">
+                                <div class="shape-hint">
+                                    <p><strong>提示：</strong></p>
+                                    <p>• 选择形状后在画布上拖动绘制</p>
+                                    <p>• 拖动时显示形状预览和尺寸</p>
+                                    <p>• 松开鼠标完成抠图</p>
                                 </div>
                             </div>
                         </div>

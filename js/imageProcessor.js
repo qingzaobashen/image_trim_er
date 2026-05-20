@@ -5,6 +5,7 @@
 
 import * as canvasUtils from './utils/canvasUtils.js';
 import { SmartCutTool } from './tools/smartCut.js';
+import { ShapeCutTool } from './tools/shapeCut.js';
 import { MagicWandTool } from './tools/magicWand.js';
 import { BrushTool, EraserTool } from './tools/brush.js';
 import { RegionSelector } from './tools/regionSelector.js';
@@ -24,12 +25,14 @@ export class ImageProcessor {
         this.overlayCanvas = overlayCanvas;
         this.originalImage = null;
         this.currentMask = null;
+        this.deletedPixelsRGB = null;
         this.history = [];
         this.historyIndex = -1;
         this.maxHistory = 50;
 
         this.selectionHistory = new SelectionHistory();
         this.smartCutTool = new SmartCutTool(mainCanvas, overlayCanvas);
+        this.shapeCutTool = new ShapeCutTool(mainCanvas, overlayCanvas);
         this.magicWandTool = new MagicWandTool(mainCanvas, overlayCanvas);
         this.brushTool = new BrushTool(overlayCanvas);
         this.eraserTool = new EraserTool(overlayCanvas);
@@ -62,6 +65,11 @@ export class ImageProcessor {
                     this.historyIndex = -1;
                     
                     this.saveToHistory();
+                    
+                    const imageData = canvasUtils.getImageData(this.mainCanvas);
+                            
+                    this.deletedPixelsRGB = new Uint8ClampedArray(img.width * img.height * 4);
+                    this.deletedPixelsRGB.set(imageData.data); //将整个图形数据记录下来
                     
                     resolve({
                         width: img.width,
@@ -107,6 +115,54 @@ export class ImageProcessor {
         this.currentMask = await this.smartCutTool.apply();
         this.renderSelection();
         this.saveToHistory();
+    }
+
+    /**
+     * 设置形状抠图类型
+     * @param {string} shapeType - 形状类型
+     */
+    setShapeType(shapeType) {
+        this.shapeCutTool.setShapeType(shapeType);
+    }
+
+    /**
+     * 开始形状抠图绘制
+     * @param {number} x - 起始X坐标
+     * @param {number} y - 起始Y坐标
+     */
+    startShapeDrawing(x, y) {
+        this.shapeCutTool.startDrawing(x, y);
+    }
+
+    /**
+     * 更新形状抠图绘制
+     * @param {number} x - 当前X坐标
+     * @param {number} y - 当前Y坐标
+     */
+    updateShapeDrawing(x, y) {
+        this.shapeCutTool.updateDrawing(x, y);
+    }
+
+    /**
+     * 完成形状抠图
+     * @returns {boolean} 是否成功
+     */
+    finishShapeDrawing() {
+        const mask = this.shapeCutTool.finishDrawing();
+        if (mask) {
+            this.currentMask = mask;
+            this.renderSelection();
+            this.selectionHistory.save(this.currentMask);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 取消形状抠图
+     */
+    cancelShapeDrawing() {
+        this.shapeCutTool.cancelDrawing();
     }
 
     /**
@@ -327,10 +383,12 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
-
         for (let i = 0; i < this.currentMask.length; i++) {
             if (this.currentMask[i] > 0) {
                 const index = i * 4;
+                // this.deletedPixelsRGB[i * 3] = imageData.data[index];
+                // this.deletedPixelsRGB[i * 3 + 1] = imageData.data[index + 1];
+                // this.deletedPixelsRGB[i * 3 + 2] = imageData.data[index + 2];
                 imageData.data[index + 3] = 0;
             }
         }
@@ -356,7 +414,7 @@ export class ImageProcessor {
         let removedTransparentRegions = 0;  // 移除的透明区域（不透明噪点）
         let removedTransparentPixels = 0;
         
-        // 第一步：处理不透明区域（alpha > 128）中的小透明区域
+        // 第一步：移除小的不透明噪点，即不透明像素数量小于minArea的联通区域
         const visitedOpaque = new Uint8ClampedArray(width * height);
         
         for (let y = 0; y < height; y++) {
@@ -391,20 +449,20 @@ export class ImageProcessor {
                         }
                     }
                     
-                    // 移除小的不透明区域（透明噪点）
+                    // 移除小的不透明区域，即不透明像素数量小于minArea的联通区域，即不透明噪点
                     if (regionPixels.length < minArea) {
                         removedOpaqueRegions++;
                         removedOpaquePixels += regionPixels.length;
                         
                         for (const pixelIdx of regionPixels) {
-                            imageData.data[pixelIdx * 4 + 3] = 0;
+                            imageData.data[pixelIdx * 4 + 3] = 0;  // 将其变为透明
                         }
                     }
                 }
             }
         }
         
-        // 第二步：处理透明区域（alpha <= 128）中的小不透明区域（白色噪点）
+        // 第二步：移除小的透明区域，即透明像素数量小于minArea的联通区域
         const visitedTransparent = new Uint8ClampedArray(width * height);
         
         for (let y = 0; y < height; y++) {
@@ -439,13 +497,18 @@ export class ImageProcessor {
                         }
                     }
                     
-                    // 移除小的透明区域（不透明噪点/白色噪点）
+                    // 移除小的透明区域，即透明像素数量小于minArea的联通区域
                     if (regionPixels.length < minArea) {
                         removedTransparentRegions++;
                         removedTransparentPixels += regionPixels.length;
                         
                         for (const pixelIdx of regionPixels) {
-                            imageData.data[pixelIdx * 4 + 3] = 0;
+                            if (this.deletedPixelsRGB && this.deletedPixelsRGB[pixelIdx * 4] !== undefined) {
+                                imageData.data[pixelIdx * 4] = this.deletedPixelsRGB[pixelIdx * 4];
+                                imageData.data[pixelIdx * 4 + 1] = this.deletedPixelsRGB[pixelIdx * 4 + 1];
+                                imageData.data[pixelIdx * 4 + 2] = this.deletedPixelsRGB[pixelIdx * 4 + 2];
+                            }
+                            imageData.data[pixelIdx * 4 + 3] = 255;  // 将其变为不透明
                         }
                     }
                 }
@@ -480,15 +543,13 @@ export class ImageProcessor {
         let removedOpaquePixels = 0;
         let removedTransparentRegions = 0;
         let removedTransparentPixels = 0;
-        let removedDarkRegions = 0;  // 新增：深色噪点区域
-        let removedDarkPixels = 0;
         
         const minX = region ? region.x : 0;
         const minY = region ? region.y : 0;
         const maxX = region ? region.x + region.width : width;
         const maxY = region ? region.y + region.height : height;
         
-        // 第一步：处理不透明区域（alpha > 128）中的小透明区域
+        // 第一步：找出小的不透明区域，即不透明像素数量小于minArea的联通区域
         const visitedOpaque = new Uint8ClampedArray(width * height);
         
         for (let y = minY; y < maxY; y++) {
@@ -523,20 +584,20 @@ export class ImageProcessor {
                         }
                     }
                     
-                    // 移除小的不透明区域（透明噪点）
+                    // 移除小的不透明噪点，即不透明像素数量小于minArea的联通区域
                     if (regionPixels.length < minArea) {
                         removedOpaqueRegions++;
                         removedOpaquePixels += regionPixels.length;
                         
                         for (const pixelIdx of regionPixels) {
-                            imageData.data[pixelIdx * 4 + 3] = 0;
+                            imageData.data[pixelIdx * 4 + 3] = 0;  // 将其变为透明
                         }
                     }
                 }
             }
         }
         
-        // 第二步：处理透明区域（alpha <= 128）中的小不透明区域（白色噪点）
+        // 第二步：找出小的透明区域，即透明像素数量小于minArea的联通区域
         const visitedTransparent = new Uint8ClampedArray(width * height);
         
         for (let y = minY; y < maxY; y++) {
@@ -571,74 +632,18 @@ export class ImageProcessor {
                         }
                     }
                     
-                    // 移除小的透明区域（不透明噪点/白色噪点）
+                    // 移除小的透明区域，即透明像素数量小于minArea的联通区域
                     if (regionPixels.length < minArea) {
                         removedTransparentRegions++;
                         removedTransparentPixels += regionPixels.length;
-                        
+
                         for (const pixelIdx of regionPixels) {
-                            imageData.data[pixelIdx * 4 + 3] = 0;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // 第三步：处理深色噪点（alpha > 128 但 RGB 值都很低）
-        const visitedDark = new Uint8ClampedArray(width * height);
-        
-        for (let y = minY; y < maxY; y++) {
-            for (let x = minX; x < maxX; x++) {
-                const idx = y * width + x;
-                
-                if (visitedDark[idx]) continue;
-                
-                const alphaIdx = idx * 4 + 3;
-                const r = imageData.data[idx * 4];
-                const g = imageData.data[idx * 4 + 1];
-                const b = imageData.data[idx * 4 + 2];
-                
-                // 检测深色像素：alpha > 128 且 RGB 平均值 < 50
-                if (imageData.data[alphaIdx] > 128 && (r + g + b) / 3 < 50) {
-                    const regionPixels = [];
-                    const queue = [[x, y]];
-                    visitedDark[idx] = 1;
-                    
-                    while (queue.length > 0) {
-                        const [cx, cy] = queue.shift();
-                        const cidx = cy * width + cx;
-                        regionPixels.push(cidx);
-                        
-                        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-                            const nx = cx + dx;
-                            const ny = cy + dy;
-                            
-                            if (nx >= minX && nx < maxX && ny >= minY && ny < maxY) {
-                                const nidx = ny * width + nx;
-                                
-                                if (!visitedDark[nidx]) {
-                                    const nr = imageData.data[nidx * 4];
-                                    const ng = imageData.data[nidx * 4 + 1];
-                                    const nb = imageData.data[nidx * 4 + 2];
-                                    const nAlpha = imageData.data[nidx * 4 + 3];
-                                    
-                                    // 连接条件：alpha > 128 且 RGB 平均值 < 50
-                                    if (nAlpha > 128 && (nr + ng + nb) / 3 < 50) {
-                                        visitedDark[nidx] = 1;
-                                        queue.push([nx, ny]);
-                                    }
-                                }
+                            if (this.deletedPixelsRGB && this.deletedPixelsRGB[pixelIdx * 4] !== undefined) {
+                                imageData.data[pixelIdx * 4] = this.deletedPixelsRGB[pixelIdx * 4];
+                                imageData.data[pixelIdx * 4 + 1] = this.deletedPixelsRGB[pixelIdx * 4 + 1];
+                                imageData.data[pixelIdx * 4 + 2] = this.deletedPixelsRGB[pixelIdx * 4 + 2];
                             }
-                        }
-                    }
-                    
-                    // 移除小的深色区域（深色噪点）
-                    if (regionPixels.length < minArea) {
-                        removedDarkRegions++;
-                        removedDarkPixels += regionPixels.length;
-                        
-                        for (const pixelIdx of regionPixels) {
-                            imageData.data[pixelIdx * 4 + 3] = 0;
+                            imageData.data[pixelIdx * 4 + 3] = 255;  // 将其变为不透明
                         }
                     }
                 }
@@ -649,14 +654,12 @@ export class ImageProcessor {
         this.saveToHistory();
 
         return {
-            removedRegions: removedOpaqueRegions + removedTransparentRegions + removedDarkRegions,
-            removedPixels: removedOpaquePixels + removedTransparentPixels + removedDarkPixels,
+            removedRegions: removedOpaqueRegions + removedTransparentRegions,
+            removedPixels: removedOpaquePixels + removedTransparentPixels,
             removedOpaqueRegions,
             removedOpaquePixels,
             removedTransparentRegions,
-            removedTransparentPixels,
-            removedDarkRegions,
-            removedDarkPixels
+            removedTransparentPixels
         };
     }
 
