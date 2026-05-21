@@ -4,6 +4,7 @@
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
+import { SelectionTransformManager, HandleType } from './selectionTransform.js';
 
 /**
  * 形状抠图类
@@ -18,13 +19,17 @@ export class ShapeCutTool {
         this.mainCanvas = mainCanvas;
         this.overlayCanvas = overlayCanvas;
         this.ctx = canvasUtils.getContext(this.overlayCanvas);
-        
+
         this.shapeType = 'rectangle';
         this.startX = 0;
         this.startY = 0;
         this.currentX = 0;
         this.currentY = 0;
         this.isDrawing = false;
+
+        this.transformManager = new SelectionTransformManager(overlayCanvas);
+        this.lastMask = null;
+        this.lastBounds = null;
     }
 
     /**
@@ -41,6 +46,7 @@ export class ShapeCutTool {
      * @param {number} y - 起始Y坐标
      */
     startDrawing(x, y) {
+        this.transformManager.clear();
         this.isDrawing = true;
         this.startX = x;
         this.startY = y;
@@ -55,24 +61,109 @@ export class ShapeCutTool {
      */
     updateDrawing(x, y) {
         if (!this.isDrawing) return;
-        
+
         this.currentX = x;
         this.currentY = y;
         this.drawPreview();
     }
 
     /**
-     * 结束绘制并应用抠图
-     * @returns {Uint8ClampedArray} 选区蒙版
+     * 结束绘制并显示选择框
+     * @returns {Object} 包含蒙版和边界信息
      */
     finishDrawing() {
         if (!this.isDrawing) return null;
-        
+
         this.isDrawing = false;
-        canvasUtils.clearCanvas(this.overlayCanvas);
-        
-        const mask = this.createShapeMask();
+
+        const bounds = this.getSelectionBounds();
+        if (!bounds || bounds.width < 5 || bounds.height < 5) {
+            canvasUtils.clearCanvas(this.overlayCanvas);
+            return null;
+        }
+
+        this.lastMask = this.createShapeMask();
+        this.lastBounds = bounds;
+
+        this.transformManager.setSelectionBounds(bounds);
+
+        return {
+            mask: this.lastMask,
+            bounds: bounds
+        };
+    }
+
+    /**
+     * 获取选区边界
+     * @returns {Object} 边界对象 {x, y, width, height}
+     */
+    getSelectionBounds() {
+        const x = Math.min(this.startX, this.currentX);
+        const y = Math.min(this.startY, this.currentY);
+        const width = Math.abs(this.currentX - this.startX);
+        const height = Math.abs(this.currentY - this.startY);
+
+        return { x, y, width, height };
+    }
+
+    /**
+     * 根据变换后的边界重新生成蒙版
+     * @param {Object} newBounds - 新的边界对象
+     * @returns {Uint8ClampedArray} 新的蒙版
+     */
+    updateMaskFromBounds(newBounds) {
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        const mask = new Uint8ClampedArray(width * height);
+
+        const shapeWidth = newBounds.width;
+        const shapeHeight = newBounds.height;
+
+        for (let py = 0; py < height; py++) {
+            for (let px = 0; px < width; px++) {
+                if (this.isPointInShape(px, py, newBounds.x, newBounds.y, shapeWidth, shapeHeight)) {
+                    mask[py * width + px] = 255;
+                }
+            }
+        }
+
+        this.lastMask = mask;
+        this.lastBounds = newBounds;
+
         return mask;
+    }
+
+    /**
+     * 获取变换管理器
+     * @returns {SelectionTransformManager}
+     */
+    getTransformManager() {
+        return this.transformManager;
+    }
+
+    /**
+     * 获取最后的蒙版
+     * @returns {Uint8ClampedArray}
+     */
+    getLastMask() {
+        return this.lastMask;
+    }
+
+    /**
+     * 清除选择框
+     */
+    clearSelection() {
+        this.transformManager.clear();
+        this.lastMask = null;
+        this.lastBounds = null;
+    }
+
+    /**
+     * 检查是否有激活的选择框
+     * @returns {boolean}
+     */
+    hasActiveSelection() {
+        return this.transformManager.isSelectionActive();
     }
 
     /**
@@ -126,7 +217,7 @@ export class ShapeCutTool {
     }
 
     /**
-     * 绘制矩形
+     * 绘制圆角矩形
      */
     drawRectangle(x, y, width, height) {
         const ctx = this.ctx;
@@ -134,9 +225,20 @@ export class ShapeCutTool {
         const ry = height >= 0 ? y : y + height;
         const rw = Math.abs(width);
         const rh = Math.abs(height);
-        
-        ctx.rect(rx, ry, rw, rh);
-        
+
+        const cornerRadius = Math.min(rw, rh) * 0.15;
+
+        ctx.moveTo(rx + cornerRadius, ry);
+        ctx.lineTo(rx + rw - cornerRadius, ry);
+        ctx.arcTo(rx + rw, ry, rx + rw, ry + cornerRadius, cornerRadius);
+        ctx.lineTo(rx + rw, ry + rh - cornerRadius);
+        ctx.arcTo(rx + rw, ry + rh, rx + rw - cornerRadius, ry + rh, cornerRadius);
+        ctx.lineTo(rx + cornerRadius, ry + rh);
+        ctx.arcTo(rx, ry + rh, rx, ry + rh - cornerRadius, cornerRadius);
+        ctx.lineTo(rx, ry + cornerRadius);
+        ctx.arcTo(rx, ry, rx + cornerRadius, ry, cornerRadius);
+        ctx.closePath();
+
         ctx.font = '14px Arial';
         ctx.fillStyle = '#6366f1';
         ctx.fillText(`${rw} × ${rh}`, rx + rw / 2 - 30, ry - 10);
@@ -194,7 +296,7 @@ export class ShapeCutTool {
 
         const petals = 8;
         const petalLength = Math.min(radiusX, radiusY) * 0.85;
-        const innerRadius = petalLength * 0.25;
+        const innerRadius = petalLength * 0.7;
 
         for (let i = 0; i < petals; i++) {
             const angle = (i * 2 * Math.PI / petals) - Math.PI / 2;
@@ -332,15 +434,45 @@ export class ShapeCutTool {
     }
 
     /**
-     * 判断点是否在矩形内
+     * 判断点是否在圆角矩形内
      */
     isPointInRectangle(px, py, x, y, width, height) {
         const rx = width >= 0 ? x : x + width;
         const ry = height >= 0 ? y : y + height;
         const rw = Math.abs(width);
         const rh = Math.abs(height);
-        
-        return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+
+        if (rw === 0 || rh === 0) return false;
+
+        const cornerRadius = Math.min(rw, rh) * 0.15;
+
+        if (px < rx || px > rx + rw || py < ry || py > ry + rh) {
+            return false;
+        }
+
+        if (px >= rx + cornerRadius && px <= rx + rw - cornerRadius) {
+            return true;
+        }
+        if (py >= ry + cornerRadius && py <= ry + rh - cornerRadius) {
+            return true;
+        }
+
+        const corners = [
+            { cx: rx + cornerRadius, cy: ry + cornerRadius },
+            { cx: rx + rw - cornerRadius, cy: ry + cornerRadius },
+            { cx: rx + cornerRadius, cy: ry + rh - cornerRadius },
+            { cx: rx + rw - cornerRadius, cy: ry + rh - cornerRadius }
+        ];
+
+        for (const corner of corners) {
+            const dx = px - corner.cx;
+            const dy = py - corner.cy;
+            if (dx * dx + dy * dy <= cornerRadius * cornerRadius) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -383,7 +515,7 @@ export class ShapeCutTool {
         const centerX = x + width / 2;
         const centerY = y + height / 2;
         const petalLength = Math.min(radiusX, radiusY) * 0.85;
-        const innerRadius = petalLength * 0.25;
+        const innerRadius = petalLength * 0.75;
 
         const dx = px - centerX;
         const dy = py - centerY;
@@ -444,7 +576,7 @@ export class ShapeCutTool {
 
         // 计算点的角度（弧度），范围 [0, 2π]
         // atan2 返回 [-π, π]，负值需要加 2π 转为正值
-        let angle = Math.atan2(dy, dx);
+        let angle = Math.atan2(dx, -dy); // 它用于计算从原点到点(x, y)的线与y轴正半轴之间顺时针的角度
         if (angle < 0) angle += Math.PI * 2;
 
         // points: 五角星有5个尖角
@@ -468,12 +600,14 @@ export class ShapeCutTool {
         // t=0 表示在尖角中线上（半径最大）
         // t=1 表示在内角边上（半径最小）
         const t = angularDist / (starAngle / 2);
+        const angNorm = t * Math.PI/2;
+        const ratio = Math.sin(angNorm);
 
         // maxRadius: 该角度下星形边界允许的最大半径
         // 在尖角中线方向（t=0），半径最大 = outerRadius
         // 在内角边方向（t=1），半径最小 = innerRadius
-        // 中间角度时，半径线性插值
-        const maxRadius = innerRadius + (outerRadius - innerRadius) * (1 - t);
+        // 中间角度时，半径线性插值，这个插值方法插出来是个弧形，应该改为直线
+        const maxRadius = innerRadius + (outerRadius - innerRadius) * (1 - ratio);
 
         // 判断点是否在星形边界内
         return distance <= maxRadius;

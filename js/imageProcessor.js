@@ -148,10 +148,11 @@ export class ImageProcessor {
      * @returns {boolean} 是否成功
      */
     finishShapeDrawing() {
-        const mask = this.shapeCutTool.finishDrawing();
-        if (mask) {
-            this.currentMask = mask;
+        const result = this.shapeCutTool.finishDrawing();
+        if (result && result.mask) {
+            this.currentMask = result.mask;
             this.renderSelection();
+            this.shapeCutTool.getTransformManager().draw();
             this.selectionHistory.save(this.currentMask);
             return true;
         }
@@ -163,6 +164,44 @@ export class ImageProcessor {
      */
     cancelShapeDrawing() {
         this.shapeCutTool.cancelDrawing();
+    }
+
+    /**
+     * 获取形状抠图变换管理器
+     * @returns {SelectionTransformManager}
+     */
+    getShapeTransformManager() {
+        return this.shapeCutTool.getTransformManager();
+    }
+
+    /**
+     * 检查形状抠图是否有激活的选择框
+     * @returns {boolean}
+     */
+    hasActiveShapeSelection() {
+        return this.shapeCutTool.hasActiveSelection();
+    }
+
+    /**
+     * 清除形状抠图选择框
+     */
+    clearShapeSelection() {
+        this.shapeCutTool.clearSelection();
+    }
+
+    /**
+     * 更新形状抠图蒙版（变换后）
+     * @param {Object} newBounds - 新的边界
+     * @returns {Uint8ClampedArray} 新的蒙版
+     */
+    updateShapeMaskFromBounds(newBounds) {
+        const mask = this.shapeCutTool.updateMaskFromBounds(newBounds);
+        if (mask) {
+            this.currentMask = mask;
+            this.renderSelection();
+            this.shapeCutTool.getTransformManager().draw();
+        }
+        return mask;
     }
 
     /**

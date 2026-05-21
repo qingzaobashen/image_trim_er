@@ -368,11 +368,19 @@ class App {
             const rect = this.canvasWrapper.getBoundingClientRect();
             const screenX = e.clientX - rect.left;
             const screenY = e.clientY - rect.top;
-            
+
             const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
             const x = canvasPos.x;
             const y = canvasPos.y;
-            
+
+            const transformManager = this.processor.getShapeTransformManager();
+            if (transformManager.isSelectionActive()) {
+                if (transformManager.startDrag(x, y)) {
+                    return;
+                }
+            }
+
+            this.processor.clearShapeSelection();
             this.processor.startShapeDrawing(x, y);
             return;
         }
@@ -420,6 +428,22 @@ class App {
             const x = canvasPos.x;
             const y = canvasPos.y;
 
+            const transformManager = this.processor.getShapeTransformManager();
+
+            if (transformManager.isCurrentlyDragging()) {
+                const newBounds = transformManager.updateDrag(x, y, e.shiftKey);
+                if (newBounds) {
+                    this.processor.updateShapeMaskFromBounds(newBounds);
+                }
+                return;
+            }
+
+            if (transformManager.isSelectionActive()) {
+                const handleType = transformManager.hitTest(x, y);
+                this.overlayCanvas.style.cursor = transformManager.getCursor(handleType);
+                return;
+            }
+
             this.processor.updateShapeDrawing(x, y);
             return;
         }
@@ -450,6 +474,15 @@ class App {
         }
 
         if (this.currentTool === 'shapeCut') {
+            const transformManager = this.processor.getShapeTransformManager();
+            if (transformManager.isCurrentlyDragging()) {
+                const finalBounds = transformManager.endDrag();
+                if (finalBounds) {
+                    this.processor.updateShapeMaskFromBounds(finalBounds);
+                    this.processor.selectionHistory.save(this.processor.currentMask);
+                }
+                return;
+            }
             this.processor.finishShapeDrawing();
             return;
         }
