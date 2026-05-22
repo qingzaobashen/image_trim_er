@@ -62,6 +62,16 @@ class App {
         this.removeSmallRegionsBtn = document.getElementById('removeSmallRegionsBtn');
         this.框选去除噪点Btn = document.getElementById('框选去除噪点Btn');
 
+        this.smoothEdgesBtn = document.getElementById('smoothEdgesBtn');
+        this.smoothEdgesParams = document.getElementById('smoothEdgesParams');
+        this.smoothEdgesSlider = document.getElementById('smoothEdgesSlider');
+        this.smoothEdgesValue = document.getElementById('smoothEdgesValue');
+
+        this.shadowIntensityInput = document.getElementById('shadowIntensity');
+        this.shadowMaxDistanceInput = document.getElementById('shadowMaxDistance');
+        this.shadowSensitivityInput = document.getElementById('shadowSensitivity');
+        this.applyShadowProcessBtn = document.getElementById('applyShadowProcess');
+
         this.applySmartCutBtn = document.getElementById('applySmartCut');
         this.clearSelectionBtn = document.getElementById('clearSelection');
         this.invertSelectionBtn = document.getElementById('invertSelection');
@@ -117,6 +127,16 @@ class App {
         this.invertSelectionBtn.addEventListener('click', () => this.handleInvertSelection());
         this.deleteSelectionBtn.addEventListener('click', () => this.handleDeleteSelection());
         this.selectionDenoiseBtn.addEventListener('click', () => this.handleSelectionDenoise());
+
+        this.smoothEdgesBtn.addEventListener('click', () => this.handleSmoothEdges());
+        this.smoothEdgesSlider.addEventListener('input', (e) => {
+            this.smoothEdgesValue.textContent = e.target.value;
+        });
+
+        this.shadowIntensityInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.shadowMaxDistanceInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.shadowSensitivityInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.applyShadowProcessBtn.addEventListener('click', () => this.handleShadowProcess());
 
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
@@ -723,6 +743,71 @@ class App {
             `透明噪点：${result.removedOpaqueRegions}个区域/${result.removedOpaquePixels}像素；不透明噪点：${result.removedTransparentRegions}个区域/${result.removedTransparentPixels}像素`,
             'success'
         );
+    }
+
+    /**
+     * 处理边缘光滑
+     */
+    handleSmoothEdges() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        const strength = parseInt(this.smoothEdgesSlider.value);
+        
+        this.showLoading('边缘光滑处理中...');
+        
+        setTimeout(() => {
+            try {
+                const success = this.processor.smoothEdges(strength);
+                if (success) {
+                    this.updateButtons();
+                    this.showNotification(`边缘光滑处理完成（强度：${strength}）`, 'success');
+                } else {
+                    this.showNotification('边缘光滑处理失败', 'error');
+                }
+            } catch (error) {
+                console.error('边缘光滑处理失败:', error);
+                this.showNotification('边缘光滑处理失败', 'error');
+            } finally {
+                this.hideLoading();
+            }
+        }, 10);
+    }
+
+    /**
+     * 处理阴影识别与半透明化
+     */
+    handleShadowProcess() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        const intensity = parseInt(this.shadowIntensityInput.value);
+        const maxDistance = parseInt(this.shadowMaxDistanceInput.value);
+        const sensitivity = parseInt(this.shadowSensitivityInput.value);
+
+        this.showLoading('阴影处理中...');
+
+        setTimeout(() => {
+            try {
+                const success = this.processor.processShadows({
+                    intensity,
+                    maxDistance,
+                    sensitivity
+                });
+
+                if (success) {
+                    this.updateButtons();
+                    this.showNotification('阴影处理完成', 'success');
+                } else {
+                    this.showNotification('没有活跃的选区，请先进行抠图', 'warning');
+                }
+            } catch (error) {
+                console.error('阴影处理失败:', error);
+                this.showNotification('阴影处理失败', 'error');
+            } finally {
+                this.hideLoading();
+            }
+        }, 10);
     }
 
     /**

@@ -10,6 +10,8 @@ import { MagicWandTool } from './tools/magicWand.js';
 import { BrushTool, EraserTool } from './tools/brush.js';
 import { RegionSelector } from './tools/regionSelector.js';
 import { SelectionHistory } from './utils/selectionHistory.js';
+import { EdgeSmoother } from './tools/edgeSmoother.js';
+import { ShadowProcessor } from './tools/shadowProcessor.js';
 
 /**
  * 图像处理器类
@@ -37,6 +39,8 @@ export class ImageProcessor {
         this.brushTool = new BrushTool(overlayCanvas);
         this.eraserTool = new EraserTool(overlayCanvas);
         this.regionSelector = new RegionSelector(overlayCanvas, mainCanvas);
+        this.edgeSmoother = new EdgeSmoother(mainCanvas);
+        this.shadowProcessor = new ShadowProcessor(mainCanvas);
     }
 
     /**
@@ -831,6 +835,68 @@ export class ImageProcessor {
             removedUnselectedPixels,
             totalRegions: removedSelectedRegions + removedUnselectedRegions
         };
+    }
+
+    /**
+     * 边缘光滑处理
+     * @param {number} strength - 光滑强度 (1-10)
+     * @returns {boolean} 是否成功
+     */
+    smoothEdges(strength = 3) {
+        const success = this.edgeSmoother.smooth(strength);
+        if (success) {
+            this.saveToHistory();
+        }
+        return success;
+    }
+
+    /**
+     * 处理阴影（将当前选区的阴影转为半透明）
+     * @param {Object} options - 阴影处理参数
+     * @param {number} options.intensity - 阴影强度 0-100
+     * @param {number} options.maxDistance - 最大阴影距离（像素）
+     * @param {number} options.sensitivity - 阴影敏感度 0-100
+     * @returns {boolean} 是否成功
+     */
+    processShadows(options = {}) {
+        if (!this.currentMask || this.currentMask.every(v => v === 0)) {
+            console.warn('没有活跃的选区，无法处理阴影');
+            return false;
+        }
+
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+
+        // 先恢复原始图像（确保阴影检测基于原始白底图）
+        if (this.deletedPixelsRGB) {
+            const originalData = new ImageData(
+                new Uint8ClampedArray(this.deletedPixelsRGB),
+                width,
+                height
+            );
+            canvasUtils.putImageData(this.mainCanvas, originalData);
+        }
+
+        // 将当前蒙版转为纯二值（确保只有0和255）
+        const binaryMask = new Uint8ClampedArray(this.currentMask.length);
+        for (let i = 0; i < this.currentMask.length; i++) {
+            binaryMask[i] = this.currentMask[i] > 0 ? 255 : 0;
+        }
+
+        // 处理阴影，获得带alpha的蒙版
+        const alphaMask = this.shadowProcessor.process(binaryMask, options);
+        
+        // 应用阴影到图像
+        this.shadowProcessor.applyToCanvas(alphaMask);
+        
+        // 更新当前蒙版为alpha蒙版（支持后续操作）
+        this.currentMask = alphaMask;
+        
+        // 清除覆盖层（因为阴影已经应用到主画布）
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        
+        this.saveToHistory();
+        return true;
     }
 
     /**
