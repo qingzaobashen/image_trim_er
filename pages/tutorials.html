@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="智能抠图工具的完整使用教程，包含智能抠图、魔术棒、画笔涂抹、形状抠图等功能的详细操作指南。">
+    <title>图片处理教程 - 智能抠图工具</title>
+    <link rel="stylesheet" href="../css/pages.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="page-nav">
+        <a href="../index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>智能抠图</span>
+        </a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                首页
+            </a></li>
+            <li><a href="tutorials.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                教程
+            </a></li>
+            <li><a href="about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                关于我们
+            </a></li>
+            <li><a href="contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                联系我们
+            </a></li>
+        </ul>
+        <button class="nav-mobile-toggle" id="navMobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <!-- 页面主体 -->
+    <main class="page-main">
+        <div class="page-header">
+            <h1>图片处理教程</h1>
+            <p>从零开始学习智能抠图，掌握专业级图像处理技巧</p>
+        </div>
+
+        <!-- 教程列表 -->
+        <div class="tutorials-grid">
+            <a href="articles/article-smartcut.html" class="tutorial-card">
+                <div class="tutorial-thumbnail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span class="tutorial-badge">入门</span>
+                </div>
+                <div class="tutorial-content">
+                    <h3>智能抠图入门完全指南</h3>
+                    <p>学习如何使用智能抠图工具的自动选择、颜色聚类、边缘检测和人体分割四种模式，快速掌握一键抠图的核心技巧。</p>
+                    <div class="tutorial-meta">
+                        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 约15分钟</span>
+                        <span>2025-05-28</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="articles/article-magicwand.html" class="tutorial-card">
+                <div class="tutorial-thumbnail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8l1.4 1.4M17.8 6.2l1.4-1.4M3 21l9-9M12.2 6.2l-1.4-1.4"/></svg>
+                    <span class="tutorial-badge">进阶</span>
+                </div>
+                <div class="tutorial-content">
+                    <h3>魔术棒工具使用技巧详解</h3>
+                    <p>深入了解魔术棒工具的洪水填充算法，掌握容差值调节、连续区域选择、多选累加等高级操作，实现精准选区控制。</p>
+                    <div class="tutorial-meta">
+                        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 约12分钟</span>
+                        <span>2025-05-28</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="articles/article-brush.html" class="tutorial-card">
+                <div class="tutorial-thumbnail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                    <span class="tutorial-badge">进阶</span>
+                </div>
+                <div class="tutorial-content">
+                    <h3>画笔涂抹精细调整实战</h3>
+                    <p>掌握画笔工具的大小、硬度、模式调节，学习如何使用添加/取消模式精确修边，配合缩放功能实现像素级精细调整。</p>
+                    <div class="tutorial-meta">
+                        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 约10分钟</span>
+                        <span>2025-05-28</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="articles/article-shapecut.html" class="tutorial-card">
+                <div class="tutorial-thumbnail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                    <span class="tutorial-badge">进阶</span>
+                </div>
+                <div class="tutorial-content">
+                    <h3>形状抠图完全指南</h3>
+                    <p>学习矩形、圆形、椭圆、花瓣、星形、心形六种形状抠图的使用方法，以及选区变换控制点的拖动调整技巧。</p>
+                    <div class="tutorial-meta">
+                        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 约10分钟</span>
+                        <span>2025-05-28</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="articles/article-edge.html" class="tutorial-card">
+                <div class="tutorial-thumbnail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    <span class="tutorial-badge">高级</span>
+                </div>
+                <div class="tutorial-content">
+                    <h3>图像去噪与边缘处理进阶</h3>
+                    <p>掌握选区降噪、框选去噪、全图去噪三种去噪策略，学习边缘光滑处理和阴影识别技术，获得专业级输出效果。</p>
+                    <div class="tutorial-meta">
+                        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 约18分钟</span>
+                        <span>2025-05-28</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- 快速入门 -->
+        <div class="content-card" style="margin-top: 48px;">
+            <h2>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                快速入门
+            </h2>
+            <p>如果您是第一次使用智能抠图工具，建议按照以下步骤快速上手：</p>
+            <ol>
+                <li><strong>上传图片</strong>：点击首页的"选择图片"按钮，上传您需要处理的图片（支持 JPG、PNG、WebP 格式）</li>
+                <li><strong>选择工具</strong>：左侧工具栏中选择"智能抠图"，点击"应用智能抠图"按钮自动识别主体</li>
+                <li><strong>精细调整</strong>：使用"画笔涂抹"工具对边缘进行精细修正，添加或取消不需要的选区部分</li>
+                <li><strong>删除背景</strong>：确认选区无误后，点击"删除选区"移除背景，保留透明主体</li>
+                <li><strong>下载保存</strong>：点击"下载图片"按钮，将处理后的 PNG 图片保存到本地</li>
+            </ol>
+            <p>更详细的操作说明请参考上方的完整教程文章。</p>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="page-footer">
+        <div class="footer-inner">
+            <div>
+                <div class="footer-brand">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    智能抠图
+                </div>
+                <p class="footer-desc">免费的在线智能抠图工具，支持多种抠图算法，所有处理在浏览器本地完成，保护您的隐私安全。</p>
+            </div>
+            <div class="footer-column">
+                <h4>产品</h4>
+                <ul>
+                    <li><a href="../index.html">在线抠图</a></li>
+                    <li><a href="tutorials.html">使用教程</a></li>
+                    <li><a href="../doc/architecture.md">技术文档</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>支持</h4>
+                <ul>
+                    <li><a href="about.html">关于我们</a></li>
+                    <li><a href="contact.html">联系我们</a></li>
+                    <li><a href="privacy.html">隐私政策</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>资源</h4>
+                <ul>
+                    <li><a href="tutorials.html">图片处理教程</a></li>
+                    <li><a href="../README.md">项目说明</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2024-2025 智能抠图工具. 保留所有权利。</span>
+            <span><a href="privacy.html">隐私政策</a> &middot; <a href="contact.html">联系我们</a></span>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('navMobileToggle').addEventListener('click', () => {
+            document.getElementById('navLinks').classList.toggle('open');
+        });
+    </script>
+</body>
+</html>

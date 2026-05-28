@@ -41,7 +41,7 @@ export class ShadowProcessor {
         // Step 1: 检测背景色
         this.bgColor = this.detectBackgroundColor(imageData);
         const bgBrightness = (this.bgColor.r + this.bgColor.g + this.bgColor.b) / 3;
-        
+        console.log("背景色:", this.bgColor);
         // Step 2: 计算精确的前景边缘距离图
         const distanceMap = this.computeDistanceMap(mask, width, height);
         
@@ -64,7 +64,7 @@ export class ShadowProcessor {
                 const idx = y * width + x;
                 
                 // 跳过前景像素
-                if (mask[idx] > 0) continue;
+                if (mask[idx] > 0) continue;   // TODO: 这里跳过了前景像素点，那有什么意义？看来还是没理解我的意思
                 
                 const distance = distanceMap[idx];
                 

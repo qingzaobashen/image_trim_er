@@ -27,7 +27,7 @@ export class ImageProcessor {
         this.overlayCanvas = overlayCanvas;
         this.originalImage = null;
         this.currentMask = null;
-        this.deletedPixelsRGB = null;
+        this.originImgBackup = null;
         this.history = [];
         this.historyIndex = -1;
         this.maxHistory = 50;
@@ -72,8 +72,8 @@ export class ImageProcessor {
                     
                     const imageData = canvasUtils.getImageData(this.mainCanvas);
                             
-                    this.deletedPixelsRGB = new Uint8ClampedArray(img.width * img.height * 4);
-                    this.deletedPixelsRGB.set(imageData.data); //将整个图形数据记录下来
+                    this.originImgBackup = new Uint8ClampedArray(img.width * img.height * 4);
+                    this.originImgBackup.set(imageData.data); //将整个原始图形数据记录下来，以备回退和恢复的需求
                     
                     resolve({
                         width: img.width,
@@ -429,10 +429,7 @@ export class ImageProcessor {
         for (let i = 0; i < this.currentMask.length; i++) {
             if (this.currentMask[i] > 0) {
                 const index = i * 4;
-                // this.deletedPixelsRGB[i * 3] = imageData.data[index];
-                // this.deletedPixelsRGB[i * 3 + 1] = imageData.data[index + 1];
-                // this.deletedPixelsRGB[i * 3 + 2] = imageData.data[index + 2];
-                imageData.data[index + 3] = 0;
+                imageData.data[index + 3] = 1;   // 仅将选中区域的alpha通道设为0，实现透明效果，但canvas会自动将该区域的像素设为0
             }
         }
 
@@ -546,10 +543,10 @@ export class ImageProcessor {
                         removedTransparentPixels += regionPixels.length;
                         
                         for (const pixelIdx of regionPixels) {
-                            if (this.deletedPixelsRGB && this.deletedPixelsRGB[pixelIdx * 4] !== undefined) {
-                                imageData.data[pixelIdx * 4] = this.deletedPixelsRGB[pixelIdx * 4];
-                                imageData.data[pixelIdx * 4 + 1] = this.deletedPixelsRGB[pixelIdx * 4 + 1];
-                                imageData.data[pixelIdx * 4 + 2] = this.deletedPixelsRGB[pixelIdx * 4 + 2];
+                            if (this.originImgBackup && this.originImgBackup[pixelIdx * 4] !== undefined) {
+                                imageData.data[pixelIdx * 4] = this.originImgBackup[pixelIdx * 4];
+                                imageData.data[pixelIdx * 4 + 1] = this.originImgBackup[pixelIdx * 4 + 1];
+                                imageData.data[pixelIdx * 4 + 2] = this.originImgBackup[pixelIdx * 4 + 2];
                             }
                             imageData.data[pixelIdx * 4 + 3] = 255;  // 将其变为不透明
                         }
@@ -681,10 +678,10 @@ export class ImageProcessor {
                         removedTransparentPixels += regionPixels.length;
 
                         for (const pixelIdx of regionPixels) {
-                            if (this.deletedPixelsRGB && this.deletedPixelsRGB[pixelIdx * 4] !== undefined) {
-                                imageData.data[pixelIdx * 4] = this.deletedPixelsRGB[pixelIdx * 4];
-                                imageData.data[pixelIdx * 4 + 1] = this.deletedPixelsRGB[pixelIdx * 4 + 1];
-                                imageData.data[pixelIdx * 4 + 2] = this.deletedPixelsRGB[pixelIdx * 4 + 2];
+                            if (this.originImgBackup && this.originImgBackup[pixelIdx * 4] !== undefined) {
+                                imageData.data[pixelIdx * 4] = this.originImgBackup[pixelIdx * 4];
+                                imageData.data[pixelIdx * 4 + 1] = this.originImgBackup[pixelIdx * 4 + 1];
+                                imageData.data[pixelIdx * 4 + 2] = this.originImgBackup[pixelIdx * 4 + 2];
                             }
                             imageData.data[pixelIdx * 4 + 3] = 255;  // 将其变为不透明
                         }
@@ -868,9 +865,9 @@ export class ImageProcessor {
         const height = this.mainCanvas.height;
 
         // 先恢复原始图像（确保阴影检测基于原始白底图）
-        if (this.deletedPixelsRGB) {
+        if (this.originImgBackup) {
             const originalData = new ImageData(
-                new Uint8ClampedArray(this.deletedPixelsRGB),
+                new Uint8ClampedArray(this.originImgBackup),
                 width,
                 height
             );
@@ -880,7 +877,7 @@ export class ImageProcessor {
         // 将当前蒙版转为纯二值（确保只有0和255）
         const binaryMask = new Uint8ClampedArray(this.currentMask.length);
         for (let i = 0; i < this.currentMask.length; i++) {
-            binaryMask[i] = this.currentMask[i] > 0 ? 255 : 0;
+            binaryMask[i] = this.currentMask[i] > 0 ? 0 : 255;      // currentMask中选中的区域为255，即要抠掉的区域为255，对应alpha应该为0；
         }
 
         // 处理阴影，获得带alpha的蒙版
