@@ -157,7 +157,7 @@ export class ImageProcessor {
             this.currentMask = result.mask;
             this.renderSelection();
             this.shapeCutTool.getTransformManager().draw();
-            this.selectionHistory.save(this.currentMask);
+            this.saveToHistory();
             return true;
         }
         return false;
@@ -821,7 +821,7 @@ export class ImageProcessor {
         }
 
         this.renderSelection();
-        this.selectionHistory.save(this.currentMask);
+        this.saveToHistory();
 
         return {
             removedRegions: removedSelectedRegions + removedUnselectedRegions,
@@ -877,7 +877,7 @@ export class ImageProcessor {
         // 将当前蒙版转为纯二值（确保只有0和255）
         const binaryMask = new Uint8ClampedArray(this.currentMask.length);
         for (let i = 0; i < this.currentMask.length; i++) {
-            binaryMask[i] = this.currentMask[i] > 0 ? 0 : 255;      // currentMask中选中的区域为255，即要抠掉的区域为255，对应alpha应该为0；
+            binaryMask[i] = this.currentMask[i] > 0 ? 0 : 255;      // currentMask中选中的区域为255，所以要反过来，对应alpha应该为0；
         }
 
         // 处理阴影，获得带alpha的蒙版
