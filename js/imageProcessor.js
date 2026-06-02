@@ -32,6 +32,10 @@ export class ImageProcessor {
         this.historyIndex = -1;
         this.maxHistory = 50;
 
+        this.shadowMask = null;
+        this.edgeData = null;
+        this.isShadowBrushActive = false;
+
         this.selectionHistory = new SelectionHistory();
         this.smartCutTool = new SmartCutTool(mainCanvas, overlayCanvas);
         this.shapeCutTool = new ShapeCutTool(mainCanvas, overlayCanvas);
@@ -65,6 +69,9 @@ export class ImageProcessor {
                     canvasUtils.clearCanvas(this.overlayCanvas);
                     
                     this.currentMask = new Uint8ClampedArray(img.width * img.height);
+                    this.shadowMask = new Uint8ClampedArray(img.width * img.height);
+                    this.edgeData = null;
+                    this.isShadowBrushActive = false;
                     this.history = [];
                     this.historyIndex = -1;
                     
@@ -399,6 +406,9 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         this.currentMask = new Uint8ClampedArray(width * height);
+        this.shadowMask = new Uint8ClampedArray(width * height);
+        this.edgeData = null;
+        this.isShadowBrushActive = false;
         this.selectionHistory.clear();
         canvasUtils.clearCanvas(this.overlayCanvas);
         this.saveToHistory();
@@ -848,23 +858,151 @@ export class ImageProcessor {
     }
 
     /**
-     * 处理阴影（将当前选区的阴影转为半透明）
-     * @param {Object} options - 阴影处理参数
-     * @param {number} options.intensity - 阴影强度 0-100
-     * @param {number} options.maxDistance - 最大阴影距离（像素）
-     * @param {number} options.sensitivity - 阴影敏感度 0-100
+     * 执行边缘检测
+     * 使用Canny算法检测物体轮廓，结果存储到this.edgeData
+     * 从原始图像数据检测，确保即使背景已被抠除也能正确检测边缘
      * @returns {boolean} 是否成功
      */
-    processShadows(options = {}) {
+    detectEdges() {
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        let imageData;
+        if (this.originImgBackup) {
+            imageData = new ImageData(
+                new Uint8ClampedArray(this.originImgBackup),
+                width,
+                height
+            );
+        } else {
+            imageData = canvasUtils.getImageData(this.mainCanvas);
+        }
+        this.edgeData = this.shadowProcessor.detectEdges(imageData);
+        this.renderSelection();
+        return true;
+    }
+
+    /**
+     * 执行阴影检测
+     * 根据当前前景蒙版和边缘检测结果，识别物体边缘外的阴影区域
+     * @param {Object} options - 阴影检测参数
+     * @param {number} options.maxDistance - 最大阴影距离（像素）
+     * @param {number} options.shadowDiff - 阴影差异度 0-100
+     * @returns {boolean} 是否成功
+     */
+    detectShadows(options = {}) {
         if (!this.currentMask || this.currentMask.every(v => v === 0)) {
-            console.warn('没有活跃的选区，无法处理阴影');
+            console.warn('没有活跃的选区，无法检测阴影');
             return false;
         }
 
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
 
-        // 先恢复原始图像（确保阴影检测基于原始白底图）
+        let currentCanvasData = null;
+        if (this.originImgBackup) {
+            currentCanvasData = canvasUtils.getImageData(this.mainCanvas);
+            const originalData = new ImageData(
+                new Uint8ClampedArray(this.originImgBackup),
+                width,
+                height
+            );
+            canvasUtils.putImageData(this.mainCanvas, originalData);
+        }
+
+        if (!this.edgeData) {
+            this.detectEdges();
+        }
+
+        const binaryMask = new Uint8ClampedArray(this.currentMask.length);
+        for (let i = 0; i < this.currentMask.length; i++) {
+            binaryMask[i] = this.currentMask[i] > 0 ? 255 : 0; // currentMask中选中的区域为255；
+        }
+
+        this.shadowMask = this.shadowProcessor.detectShadows(binaryMask, this.edgeData, options);
+
+        if (currentCanvasData) {
+            canvasUtils.putImageData(this.mainCanvas, currentCanvasData);
+        }
+
+        this.renderSelection();
+        return true;
+    }
+
+    /**
+     * 开始阴影画笔绘制
+     * 清空overlay canvas以避免已有选区渲染干扰画笔蒙版识别
+     * @param {number} x - X坐标
+     * @param {number} y - Y坐标
+     * @param {number} size - 画笔大小
+     * @param {number} hardness - 画笔硬度
+     * @param {string} mode - 模式 ('add' 添加阴影 / 'subtract' 取消阴影)
+     * @param {number} scale - 当前缩放比例
+     */
+    startShadowBrush(x, y, size = 20, hardness = 50, mode = 'add', scale = 1) {
+        this.isShadowBrushActive = true;
+        const canvasSize = size / scale;
+        this.brushTool.setSize(canvasSize);
+        this.brushTool.setHardness(hardness);
+        this.brushTool.setMode(mode);
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        this.brushTool.startDrawing(x, y);
+    }
+
+    /**
+     * 阴影画笔绘制
+     * @param {number} x - X坐标
+     * @param {number} y - Y坐标
+     * @param {number} scale - 当前缩放比例
+     */
+    shadowBrushDraw(x, y, scale = 1) {
+        this.brushTool.draw(x, y);
+    }
+
+    /**
+     * 停止阴影画笔绘制
+     * 将画笔结果应用到阴影蒙版，然后重新渲染选区
+     */
+    stopShadowBrush() {
+        if (!this.isShadowBrushActive) return;
+
+        this.brushTool.stopDrawing();
+        const brushMask = this.brushTool.getBrushMask();
+
+        if (!this.shadowMask) {
+            const width = this.mainCanvas.width;
+            const height = this.mainCanvas.height;
+            this.shadowMask = new Uint8ClampedArray(width * height);
+        }
+
+        const currentMode = this.brushTool.mode;
+        for (let i = 0; i < brushMask.length; i++) {
+            if (currentMode === 'add' && brushMask[i] === 255) {
+                this.shadowMask[i] = 255;
+            } else if (currentMode === 'subtract' && brushMask[i] === 128) {
+                this.shadowMask[i] = 0;
+            }
+        }
+
+        this.brushTool.clear();
+        this.isShadowBrushActive = false;
+        this.renderSelection();
+    }
+
+    /**
+     * 应用阴影处理
+     * 紫色选区（前景）完全抠除，粉色选区（阴影）半透明抠除
+     * @param {number} intensity - 阴影透明度 0-100
+     * @returns {boolean} 是否成功
+     */
+    applyShadowProcess(intensity = 60) {
+        if (!this.currentMask || this.currentMask.every(v => v === 0)) {
+            console.warn('没有活跃的选区，无法应用阴影处理');
+            return false;
+        }
+
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+
         if (this.originImgBackup) {
             const originalData = new ImageData(
                 new Uint8ClampedArray(this.originImgBackup),
@@ -874,30 +1012,38 @@ export class ImageProcessor {
             canvasUtils.putImageData(this.mainCanvas, originalData);
         }
 
-        // 将当前蒙版转为纯二值（确保只有0和255）
-        const binaryMask = new Uint8ClampedArray(this.currentMask.length);
+        const foregroundMask = new Uint8ClampedArray(this.currentMask.length);
         for (let i = 0; i < this.currentMask.length; i++) {
-            binaryMask[i] = this.currentMask[i] > 0 ? 0 : 255;      // currentMask中选中的区域为255，所以要反过来，对应alpha应该为0；
+            foregroundMask[i] = this.currentMask[i] > 0 ? 255 : 0;
         }
 
-        // 处理阴影，获得带alpha的蒙版
-        const alphaMask = this.shadowProcessor.process(binaryMask, options);
-        
-        // 应用阴影到图像
-        this.shadowProcessor.applyToCanvas(alphaMask);
-        
-        // 更新当前蒙版为alpha蒙版（支持后续操作）
-        this.currentMask = alphaMask;
-        
-        // 清除覆盖层（因为阴影已经应用到主画布）
+        let shadowAlphaMask = new Uint8ClampedArray(width * height);
+
+        if (this.shadowMask && !this.shadowMask.every(v => v === 0)) {
+            shadowAlphaMask = this.shadowProcessor.calculateShadowAlpha(
+                this.shadowMask,
+                foregroundMask,
+                intensity
+            );
+        }
+
+        this.shadowProcessor.applyToCanvas(foregroundMask, shadowAlphaMask);
+
+        this.currentMask = new Uint8ClampedArray(width * height);
+        this.shadowMask = new Uint8ClampedArray(width * height);
+        this.edgeData = null;
+        this.isShadowBrushActive = false;
+
         canvasUtils.clearCanvas(this.overlayCanvas);
-        
         this.saveToHistory();
         return true;
     }
 
     /**
      * 渲染选区
+     * 紫色(99,102,241) = 前景抠除选区
+     * 粉色(236,72,153) = 阴影选区
+     * 青色细线(0,200,255) = 边缘检测轮廓
      */
     renderSelection() {
         canvasUtils.clearCanvas(this.overlayCanvas);
@@ -911,6 +1057,30 @@ export class ImageProcessor {
                 imageData.data[index + 1] = 102;
                 imageData.data[index + 2] = 241;
                 imageData.data[index + 3] = 128;
+            }
+        }
+
+        if (this.shadowMask) {
+            for (let i = 0; i < this.shadowMask.length; i++) {
+                if (this.shadowMask[i] > 0 && this.currentMask[i] === 0) {
+                    const index = i * 4;
+                    imageData.data[index] = 236;
+                    imageData.data[index + 1] = 72;
+                    imageData.data[index + 2] = 153;
+                    imageData.data[index + 3] = 128;
+                }
+            }
+        }
+
+        if (this.edgeData) {
+            for (let i = 0; i < this.edgeData.length; i++) {
+                if (this.edgeData[i] > 0 && this.currentMask[i] === 0 && (!this.shadowMask || this.shadowMask[i] === 0)) {
+                    const index = i * 4;
+                    imageData.data[index] = 0;
+                    imageData.data[index + 1] = 200;
+                    imageData.data[index + 2] = 255;
+                    imageData.data[index + 3] = 200;
+                }
             }
         }
 
@@ -1023,6 +1193,9 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         this.currentMask = new Uint8ClampedArray(width * height);
+        this.shadowMask = new Uint8ClampedArray(width * height);
+        this.edgeData = null;
+        this.isShadowBrushActive = false;
         
         this.saveToHistory();
     }

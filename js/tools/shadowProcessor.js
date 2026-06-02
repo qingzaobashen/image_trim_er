@@ -1,14 +1,24 @@
 /**
  * 阴影处理工具模块
  * 提供白底图阴影识别与半透明过渡处理功能
- * 核心逻辑：在前景蒙版的边缘像素中识别阴影，将其设为半透明
+ * 
+ * 核心流程：
+ * 1. 边缘检测：使用Canny算法检测物体轮廓，用于区分物体和阴影
+ * 2. 阴影检测：在背景区域（物体边缘以外）识别阴影像素
+ * 3. 阴影画笔：手动调整阴影选区（涂抹新增/取消）
+ * 4. 应用处理：紫色选区完全抠除，粉色阴影选区半透明抠除
+ * 
+ * 选区颜色约定：
+ * - 紫色(99,102,241)：前景抠除选区（完全抠除）
+ * - 粉色(236,72,153)：阴影选区（半透明抠除）
+ * - 细线(0,200,255)：边缘检测轮廓线
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
 
 /**
  * 阴影处理器类
- * 用于识别前景物体边缘的阴影并计算半透明alpha值
+ * 用于识别物体边缘外的阴影区域并计算半透明alpha值
  */
 export class ShadowProcessor {
     /**
@@ -18,153 +28,273 @@ export class ShadowProcessor {
     constructor(mainCanvas) {
         this.mainCanvas = mainCanvas;
         this.bgColor = null;
+        this.edgeData = null;
     }
 
     /**
-     * 处理阴影
-     * 在前景蒙版中识别边缘阴影像素，将其从255降为半透明
-     * @param {Uint8ClampedArray} mask - 当前二值蒙版（255=前景，0=背景）
-     * @param {Object} options - 处理参数
-     * @param {number} options.intensity - 阴影强度 0-100
-     * @param {number} options.maxDistance - 最大阴影距离（像素）
-     * @param {number} options.sensitivity - 阴影敏感度 0-100
-     * @returns {Uint8ClampedArray} 带alpha值的灰度蒙版（0-255）
+     * 检测物体边缘轮廓（Canny边缘检测）
+     * 检测图片中物体的连续轮廓，特别关注物体与背景的边界
+     * @param {ImageData} imageData - 图像数据
+     * @returns {Uint8ClampedArray} 边缘图（255=边缘，0=非边缘）
      */
-    process(mask, options = {}) {
-        const intensity = (options.intensity ?? 50) / 100;
+    detectEdges(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+
+        const gray = new Float32Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+            const idx = i * 4;
+            gray[i] = imageData.data[idx] * 0.299 +
+                      imageData.data[idx + 1] * 0.587 +
+                      imageData.data[idx + 2] * 0.114;
+        }
+
+        const blurred = this.applyGaussianBlur(gray, width, height, 1.4);
+
+        const gradient = new Float32Array(width * height);
+        const direction = new Float32Array(width * height);
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const tl = blurred[(y - 1) * width + (x - 1)];
+                const tc = blurred[(y - 1) * width + x];
+                const tr = blurred[(y - 1) * width + (x + 1)];
+                const ml = blurred[y * width + (x - 1)];
+                const mr = blurred[y * width + (x + 1)];
+                const bl = blurred[(y + 1) * width + (x - 1)];
+                const bc = blurred[(y + 1) * width + x];
+                const br = blurred[(y + 1) * width + (x + 1)];
+
+                const gx = -tl + tr - 2 * ml + 2 * mr - bl + br;
+                const gy = -tl - 2 * tc - tr + bl + 2 * bc + br;
+
+                gradient[idx] = Math.sqrt(gx * gx + gy * gy);
+                direction[idx] = Math.atan2(gy, gx);
+            }
+        }
+
+        const suppressed = new Float32Array(width * height);
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const angle = direction[idx];
+                const mag = gradient[idx];
+
+                const normAngle = ((angle % Math.PI) + Math.PI) % Math.PI;
+                let neighbor1 = 0, neighbor2 = 0;
+
+                if ((normAngle >= 0 && normAngle < Math.PI / 8) ||
+                    (normAngle >= 7 * Math.PI / 8 && normAngle < Math.PI)) {
+                    neighbor1 = gradient[idx - 1];
+                    neighbor2 = gradient[idx + 1];
+                } else if (normAngle >= Math.PI / 8 && normAngle < 3 * Math.PI / 8) {
+                    neighbor1 = gradient[(y - 1) * width + (x + 1)];
+                    neighbor2 = gradient[(y + 1) * width + (x - 1)];
+                } else if (normAngle >= 3 * Math.PI / 8 && normAngle < 5 * Math.PI / 8) {
+                    neighbor1 = gradient[(y - 1) * width + x];
+                    neighbor2 = gradient[(y + 1) * width + x];
+                } else {
+                    neighbor1 = gradient[(y - 1) * width + (x - 1)];
+                    neighbor2 = gradient[(y + 1) * width + (x + 1)];
+                }
+
+                if (mag >= neighbor1 && mag >= neighbor2) {
+                    suppressed[idx] = mag;
+                }
+            }
+        }
+
+        const edges = new Uint8ClampedArray(width * height);
+        const highThreshold = 40;
+        const lowThreshold = 15;
+
+        for (let i = 0; i < suppressed.length; i++) {
+            if (suppressed[i] >= highThreshold) {
+                edges[i] = 255;
+            }
+        }
+
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    if (edges[idx] === 255) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                const nidx = (y + dy) * width + (x + dx);
+                                if (suppressed[nidx] >= lowThreshold && edges[nidx] === 0) {
+                                    edges[nidx] = 255;
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        this.edgeData = edges;
+        return edges;
+    }
+
+    /**
+     * 应用高斯模糊
+     * @param {Float32Array} gray - 灰度数组
+     * @param {number} width - 宽度
+     * @param {number} height - 高度
+     * @param {number} sigma - 标准差
+     * @returns {Float32Array} 模糊后的数组
+     */
+    applyGaussianBlur(gray, width, height, sigma) {
+        const kernelSize = Math.ceil(sigma * 6) | 1;
+        const halfSize = Math.floor(kernelSize / 2);
+        const kernel = new Float32Array(kernelSize);
+
+        let sum = 0;
+        for (let i = 0; i < kernelSize; i++) {
+            const x = i - halfSize;
+            kernel[i] = Math.exp(-(x * x) / (2 * sigma * sigma));
+            sum += kernel[i];
+        }
+        for (let i = 0; i < kernelSize; i++) {
+            kernel[i] /= sum;
+        }
+
+        const temp = new Float32Array(width * height);
+        const result = new Float32Array(width * height);
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let val = 0;
+                for (let i = 0; i < kernelSize; i++) {
+                    const nx = x + i - halfSize;
+                    if (nx >= 0 && nx < width) {
+                        val += gray[y * width + nx] * kernel[i];
+                    }
+                }
+                temp[y * width + x] = val;
+            }
+        }
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let val = 0;
+                for (let i = 0; i < kernelSize; i++) {
+                    const ny = y + i - halfSize;
+                    if (ny >= 0 && ny < height) {
+                        val += temp[ny * width + x] * kernel[i];
+                    }
+                }
+                result[y * width + x] = val;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 检测阴影区域（在背景区域中，物体边缘以外）
+     * 根据边缘检测结果和背景蒙版，识别物体边缘外侧的阴影像素
+     * @param {Uint8ClampedArray} mask - 当前背景蒙版（255=背景/已选中，0=前景）
+     * @param {Uint8ClampedArray} edges - 边缘检测结果（255=边缘，0=非边缘）
+     * @param {Object} options - 处理参数
+     * @param {number} options.maxDistance - 最大阴影距离（像素）
+     * @param {number} options.shadowDiff - 阴影差异度 0-100
+     * @returns {Uint8ClampedArray} 阴影蒙版（255=阴影，0=非阴影）
+     */
+    detectShadows(mask, edges, options = {}) {
         const maxDistance = options.maxDistance ?? 60;
-        const sensitivity = (options.sensitivity ?? 50) / 100;
+        const shadowDiff = options.shadowDiff; //(options.shadowDiff ?? 50) / 100;
 
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
 
-        // Step 1: 检测背景色
         this.bgColor = this.detectBackgroundColor(imageData);
         const bgBrightness = (this.bgColor.r + this.bgColor.g + this.bgColor.b) / 3;
 
-        // Step 2: 计算前景像素到最近背景像素的距离图
-        // 距离 = 0：前景中心（远离背景）
-        // 距离 = 1,2,3...：前景边缘（靠近背景）
-        const distanceMap = this.computeForegroundDistanceMap(mask, width, height);
+        const distanceMap = this.computeBackgroundDistanceMap(mask, width, height);
 
-        // Step 3: 分析前景主体颜色（用于区分主体和阴影）
-        const fgColor = this.detectForegroundColor(imageData, mask, this.bgColor);
-        console.log("前景主体颜色:", fgColor);
-        // Step 4: 在前景像素中识别阴影并计算alpha
-        const alphaMask = new Uint8ClampedArray(width * height);
+        const minColorDiff = 5 + (1 - shadowDiff) * 20;
+        const maxColorDiff = Math.min(120, shadowDiff); //Math.min(120, bgBrightness * 0.45);
 
-        // 先填充背景和前景基础值
-        for (let i = 0; i < mask.length; i++) {
-            alphaMask[i] = mask[i]; // 0 或 255
-        }
-
-        // 阴影检测参数
-        const maxShadowDiff = Math.min(100, bgBrightness * 0.4); // 最大颜色差异阈值
-        const minShadowDiff = 3 + (1 - sensitivity) * 20; // 最小差异阈值
+        const shadowMask = new Uint8ClampedArray(width * height);
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const idx = y * width + x;
-
-                // 只处理前景像素
-                if (mask[idx] === 0) continue;
+                //跳过已有的背景区域
+                if (mask[idx] > 0) continue;
 
                 const distance = distanceMap[idx];
 
-                // 距离太大的像素（前景中心）不可能是阴影
-                if (distance > maxDistance) continue;
+                if (distance <= 0 || distance > maxDistance) continue;
 
                 const pixel = canvasUtils.getPixelColor(imageData, x, y);
 
-                // 计算与背景色的差异
                 const colorDiff = canvasUtils.colorDistance(pixel, this.bgColor);
 
-                // 差异太大：前景主体本身的颜色
-                if (colorDiff > maxShadowDiff) continue;
+                //if (colorDiff < minColorDiff) continue; // 必须注释这里，因为和背景相近才说明是阴影
 
-                // 检查是否为中性灰（阴影特征：R≈G≈B）
+                if (colorDiff > maxColorDiff) continue;
+
                 const grayness = this.calculateGrayness(pixel);
-                if (grayness < 0.5) continue; // 不够灰，是彩色主体
+                if (grayness < 0.5) continue;
 
-                // 检查亮度：阴影不应该比背景亮，比如高光
                 const pixelBrightness = (pixel.r + pixel.g + pixel.b) / 3;
-                if (pixelBrightness > bgBrightness * 0.999) continue; 
+                if (pixelBrightness > bgBrightness) continue;
 
-                // 计算与前景主体颜色的差异
-                // 如果像素颜色很接近主体色，说明是主体边缘而非阴影
-                const fgDistance = canvasUtils.colorDistance(pixel, fgColor);
-                if (fgDistance < minShadowDiff) continue; // 太接近主体色，不是阴影
-
-                // 综合判断：前景边缘 + 颜色接近背景 + 中性灰 + 较暗 = 阴影
-                // 计算基础alpha（基于颜色差异，差异越小越像阴影，alpha越小）
-                const alphaBase = 1 - Math.min(1, colorDiff / maxShadowDiff);
-
-                // 边缘衰减：离背景越近（distance越小），阴影越明显
-                const edgeFade = Math.max(0, 1 - (distance / maxDistance));
-
-                // 使用平滑的衰减曲线
-                const smoothFade = edgeFade * edgeFade * (3 - 2 * edgeFade);
-
-                // 最终alpha = 基础透明度 × 边缘衰减 × 强度
-                // alpha值越小越透明（阴影越淡）
-                const alpha = Math.round((1 - alphaBase * smoothFade * intensity) * 255);
-
-                // 限制范围，确保主体不会完全消失
-                alphaMask[idx] = Math.max(20, Math.min(255, alpha));
+                shadowMask[idx] = 255;
             }
         }
 
-        return alphaMask;
+        this.filterIsolatedShadow(shadowMask, width, height, 3);
+
+        return shadowMask;
     }
 
     /**
-     * 计算前景像素到最近背景像素的距离图
-     * @param {Uint8ClampedArray} mask - 二值蒙版
+     * 计算背景像素到最近前景边缘的距离图
+     * @param {Uint8ClampedArray} mask - 二值蒙版（255=前景，0=背景）
      * @param {number} width - 宽度
      * @param {number} height - 高度
-     * @returns {Float32Array} 距离图（前景像素到最近背景的距离，背景像素为0）
+     * @returns {Float32Array} 距离图
      */
-    computeForegroundDistanceMap(mask, width, height) {
+    computeBackgroundDistanceMap(mask, width, height) {
         const distanceMap = new Float32Array(width * height);
         const INF = width + height;
 
-        // 初始化：背景像素=0，前景像素=INF
         for (let i = 0; i < mask.length; i++) {
-            distanceMap[i] = mask[i] > 0 ? INF : 0;
+            distanceMap[i] = mask[i] > 0 ? 0 : INF;
         }
 
-        // 两次扫描的Distance Transform（8邻域）
-        // 第一次：从左到右，从上到下
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const idx = y * width + x;
-                if (mask[idx] === 0) continue;
+                if (mask[idx] > 0) continue;
 
                 let minDist = distanceMap[idx];
-
                 if (x > 0) minDist = Math.min(minDist, distanceMap[idx - 1] + 1);
                 if (y > 0) minDist = Math.min(minDist, distanceMap[idx - width] + 1);
                 if (x > 0 && y > 0) minDist = Math.min(minDist, distanceMap[idx - width - 1] + Math.SQRT2);
                 if (x < width - 1 && y > 0) minDist = Math.min(minDist, distanceMap[idx - width + 1] + Math.SQRT2);
-
                 distanceMap[idx] = minDist;
             }
         }
 
-        // 第二次：从右到左，从下到上
         for (let y = height - 1; y >= 0; y--) {
             for (let x = width - 1; x >= 0; x--) {
                 const idx = y * width + x;
-                if (mask[idx] === 0) continue;
+                if (mask[idx] > 0) continue;
 
                 let minDist = distanceMap[idx];
-
                 if (x < width - 1) minDist = Math.min(minDist, distanceMap[idx + 1] + 1);
                 if (y < height - 1) minDist = Math.min(minDist, distanceMap[idx + width] + 1);
                 if (x > 0 && y < height - 1) minDist = Math.min(minDist, distanceMap[idx + width - 1] + Math.SQRT2);
                 if (x < width - 1 && y < height - 1) minDist = Math.min(minDist, distanceMap[idx + width + 1] + Math.SQRT2);
-
                 distanceMap[idx] = minDist;
             }
         }
@@ -173,7 +303,38 @@ export class ShadowProcessor {
     }
 
     /**
-     * 检测背景色（从图像边缘采样）
+     * 过滤孤立的阴影像素（连通性过滤）
+     * @param {Uint8ClampedArray} shadowMask - 阴影蒙版
+     * @param {number} width - 宽度
+     * @param {number} height - 高度
+     * @param {number} minNeighbors - 最小邻居数
+     */
+    filterIsolatedShadow(shadowMask, width, height, minNeighbors) {
+        const temp = new Uint8ClampedArray(shadowMask);
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                if (temp[idx] === 0) continue;
+
+                let neighbors = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nidx = (y + dy) * width + (x + dx);
+                        if (temp[nidx] > 0) neighbors++;
+                    }
+                }
+
+                if (neighbors < minNeighbors) {
+                    shadowMask[idx] = 0;
+                }
+            }
+        }
+    }
+
+    /**
+     * 检测背景色（从图像边缘采样 + K-Means聚类）
      * @param {ImageData} imageData - 图像数据
      * @returns {Object} 背景颜色 {r, g, b}
      */
@@ -191,7 +352,6 @@ export class ShadowProcessor {
             colors.push(canvasUtils.getPixelColor(imageData, width - 3, Math.floor(i * height / sampleSize)));
         }
 
-        // 使用K-Means聚类
         const clusters = this.kMeansClustering(colors, 3, 10);
 
         let maxCluster = clusters[0];
@@ -202,43 +362,6 @@ export class ShadowProcessor {
         }
 
         return maxCluster.center;
-    }
-
-    /**
-     * 检测前景主体颜色（从前景中心采样）
-     * @param {ImageData} imageData - 图像数据
-     * @param {Uint8ClampedArray} mask - 二值蒙版
-     * @param {Object} bgColor - 背景颜色
-     * @returns {Object} 前景颜色 {r, g, b}
-     */
-    detectForegroundColor(imageData, mask, bgColor) {
-        const width = imageData.width;
-        const height = imageData.height;
-
-        let bestColor = { r: 128, g: 128, b: 128 };
-        let maxDistance = 0;
-        let count = 0;
-        const totalR = 0, totalG = 0, totalB = 0;
-
-        // 从前景像素中采样，找离背景色最远的颜色
-        const step = Math.max(1, Math.floor(Math.sqrt(mask.length) / 20));
-
-        for (let y = step; y < height - step; y += step) {
-            for (let x = step; x < width - step; x += step) {
-                const idx = y * width + x;
-                if (mask[idx] === 0) continue;
-
-                const pixel = canvasUtils.getPixelColor(imageData, x, y);
-                const distance = canvasUtils.colorDistance(pixel, bgColor);
-
-                if (distance > maxDistance && distance > 30) {
-                    maxDistance = distance;
-                    bestColor = pixel;
-                }
-            }
-        }
-
-        return bestColor;
     }
 
     /**
@@ -316,33 +439,72 @@ export class ShadowProcessor {
             Math.abs(pixel.g - avg),
             Math.abs(pixel.b - avg)
         );
-
         return Math.max(0, 1 - maxDiff / 60);
     }
 
     /**
-     * 应用阴影蒙版到图像（直接修改mainCanvas）
-     * @param {Uint8ClampedArray} alphaMask - 带alpha的蒙版
-     * @param {boolean} preview - 是否为预览模式
+     * 计算阴影区域的alpha值
+     * 根据颜色差异和距离衰减计算每个阴影像素的半透明度
+     * @param {Uint8ClampedArray} shadowMask - 阴影蒙版
+     * @param {Uint8ClampedArray} mask - 前景蒙版（255=前景，0=背景）
+     * @param {number} intensity - 阴影透明度 0-100
+     * @returns {Uint8ClampedArray} alpha蒙版（每个阴影像素的alpha值 0-255）
      */
-    applyToCanvas(alphaMask, preview = false) {
+    calculateShadowAlpha(shadowMask, mask, intensity) {
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        const imageData = canvasUtils.getImageData(this.mainCanvas);
+        const intensityFactor = intensity / 100;
+
+        const distanceMap = this.computeBackgroundDistanceMap(mask, width, height);
+        let maxDist = 1;
+        for (let i = 0; i < distanceMap.length; i++) {
+            if (distanceMap[i] > maxDist) maxDist = distanceMap[i];
+        }
+
+        const alphaMask = new Uint8ClampedArray(width * height);
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+
+                if (shadowMask[idx] === 0) continue;
+
+                const pixel = canvasUtils.getPixelColor(imageData, x, y);
+                const colorDiff = canvasUtils.colorDistance(pixel, this.bgColor);
+                const distance = distanceMap[idx];
+
+                const alphaBase = Math.min(1, colorDiff / 80);
+
+                const edgeFade = Math.max(0, 1 - distance / maxDist);
+                const smoothFade = edgeFade * edgeFade * (3 - 2 * edgeFade);
+
+                const alpha = alphaBase * smoothFade * intensityFactor;
+                alphaMask[idx] = Math.round(alpha * 255);
+            }
+        }
+
+        return alphaMask;
+    }
+
+    /**
+     * 应用阴影处理到画布
+     * 紫色选区（foregroundMask>0）完全抠除，粉色选区（shadowAlphaMask>0）半透明抠除，其余保持原样
+     * @param {Uint8ClampedArray} foregroundMask - 前景蒙版（紫色选区，255=待完全抠除的区域）
+     * @param {Uint8ClampedArray} shadowAlphaMask - 阴影alpha蒙版（粉色选区，0-255灰度值表示抠除程度）
+     */
+    applyToCanvas(foregroundMask, shadowAlphaMask) {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
 
-        for (let i = 0; i < alphaMask.length; i++) {
-            const alpha = alphaMask[i];
+        for (let i = 0; i < foregroundMask.length; i++) {
             const idx = i * 4;
 
-            if (alpha === 255) {
-                // 前景主体：保持原样（不透明）
-                imageData.data[idx + 3] = 255;
-            } else if (alpha === 0) {
-                // 纯背景：完全透明
+            if (foregroundMask[i] > 0) {
                 imageData.data[idx + 3] = 0;
-            } else {
-                // 阴影区域：半透明
-                imageData.data[idx + 3] = alpha;
+            } else if (shadowAlphaMask[i] > 0) {
+                imageData.data[idx + 3] = 255 - shadowAlphaMask[i];
             }
         }
 

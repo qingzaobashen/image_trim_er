@@ -300,11 +300,14 @@
                     </div>
                     <div class="tool-params">
                         <div class="param-group" data-tool="shadowProcess">
-                            <div class="param-item">
-                                <label>阴影透明度</label>
-                                <input type="range" id="shadowIntensity" min="0" max="100" value="60">
-                                <span class="param-value">60</span>
-                            </div>
+                            <button class="btn btn-full" id="detectEdgesBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
+                                边缘检测
+                            </button>
                             <div class="param-item">
                                 <label>最大阴影距离</label>
                                 <input type="range" id="shadowMaxDistance" min="10" max="150" value="60">
@@ -312,23 +315,73 @@
                             </div>
                             <div class="param-item">
                                 <label>阴影差异度</label>
-                                <input type="range" id="shadowSensitivity" min="0" max="100" value="50">
+                                <input type="range" id="shadowDiff" min="0" max="100" value="50">
                                 <span class="param-value">50</span>
                             </div>
-                            <button class="btn btn-full" id="applyShadowProcess">
+                            <button class="btn btn-full" id="detectShadowsBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
-                                    <path d="M12 3c-1.5 0-2.5 1-3 2s-1 2-1 3c0 2 1 3 2 4s2 2 2 4c0 1-.5 2-1 3s-1.5 2-3 2"/>
-                                    <path d="M12 3c1.5 0 2.5 1 3 2s1 2 1 3c0 2-1 3-2 4s-2 2-2 4c0 1 .5 2 1 3s1.5 2 3 2"/>
+                                    <circle cx="12" cy="12" r="10" opacity="0.3"/>
+                                    <ellipse cx="12" cy="12" rx="8" ry="4" transform="rotate(-30 12 12)" opacity="0.5"/>
+                                </svg>
+                                阴影检测
+                            </button>
+                            <div class="param-item">
+                                <label>阴影画笔模式</label>
+                                <div class="brush-mode-buttons">
+                                    <button class="mode-btn active" id="shadowBrushAddMode" title="涂抹添加阴影选区">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="16"/>
+                                            <line x1="8" y1="12" x2="16" y2="12"/>
+                                        </svg>
+                                        <span>添加</span>
+                                    </button>
+                                    <button class="mode-btn" id="shadowBrushSubtractMode" title="涂抹取消阴影选区">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="8" y1="12" x2="16" y2="12"/>
+                                        </svg>
+                                        <span>取消</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="param-item">
+                                <label>阴影画笔大小</label>
+                                <input type="range" id="shadowBrushSize" min="5" max="100" value="20">
+                                <span class="param-value">20</span>
+                            </div>
+                            <div class="param-item">
+                                <label>阴影画笔硬度</label>
+                                <input type="range" id="shadowBrushHardness" min="0" max="100" value="50">
+                                <span class="param-value">50</span>
+                            </div>
+                            <div class="param-item">
+                                <label>阴影透明度</label>
+                                <input type="range" id="shadowIntensity" min="0" max="100" value="60">
+                                <span class="param-value">60</span>
+                            </div>
+                            <button class="btn btn-full btn-primary" id="applyShadowProcess">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
+                                    <path d="M5 12l5 5L20 7"/>
                                 </svg>
                                 应用阴影处理
                             </button>
                             <div class="param-item">
                                 <div class="brush-hint">
-                                    <p><strong>说明：</strong></p>
-                                    <p>• 先完成抠图，再使用此功能</p>
-                                    <p>• 阴影透明度：控制阴影透明度</p>
-                                    <p>• 阴影距离：控制阴影延伸范围</p>
-                                    <p>• 阴影差异度：阴影色与主体色的最小差异</p>
+                                    <p><strong>操作流程：</strong></p>
+                                    <p>1. 先用智能抠图/魔法棒确定紫色选区</p>
+                                    <p>2. 点击"边缘检测"检测物体轮廓</p>
+                                    <p>3. 调整参数后点击"阴影检测"</p>
+                                    <p>4. 用阴影画笔调整粉色阴影选区</p>
+                                    <p>5. 点击"应用阴影处理"完成</p>
+                                </div>
+                            </div>
+                            <div class="param-item">
+                                <div class="brush-hint">
+                                    <p><strong>选区说明：</strong></p>
+                                    <p>• <span style="color:#6366f1">紫色</span> = 完全抠除区域</p>
+                                    <p>• <span style="color:#ec4899">粉色</span> = 阴影半透明区域</p>
+                                    <p>• <span style="color:#00c8ff">青色细线</span> = 边缘轮廓</p>
                                 </div>
                             </div>
                         </div>

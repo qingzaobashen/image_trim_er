@@ -69,8 +69,15 @@ class App {
 
         this.shadowIntensityInput = document.getElementById('shadowIntensity');
         this.shadowMaxDistanceInput = document.getElementById('shadowMaxDistance');
-        this.shadowSensitivityInput = document.getElementById('shadowSensitivity');
+        this.shadowDiffInput = document.getElementById('shadowDiff');
+        this.detectEdgesBtn = document.getElementById('detectEdgesBtn');
+        this.detectShadowsBtn = document.getElementById('detectShadowsBtn');
+        this.shadowBrushAddModeBtn = document.getElementById('shadowBrushAddMode');
+        this.shadowBrushSubtractModeBtn = document.getElementById('shadowBrushSubtractMode');
+        this.shadowBrushSizeInput = document.getElementById('shadowBrushSize');
+        this.shadowBrushHardnessInput = document.getElementById('shadowBrushHardness');
         this.applyShadowProcessBtn = document.getElementById('applyShadowProcess');
+        this.shadowBrushMode = 'add';
 
         this.applySmartCutBtn = document.getElementById('applySmartCut');
         this.clearSelectionBtn = document.getElementById('clearSelection');
@@ -135,8 +142,14 @@ class App {
 
         this.shadowIntensityInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.shadowMaxDistanceInput.addEventListener('input', (e) => this.updateParamValue(e));
-        this.shadowSensitivityInput.addEventListener('input', (e) => this.updateParamValue(e));
-        this.applyShadowProcessBtn.addEventListener('click', () => this.handleShadowProcess());
+        this.shadowDiffInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.shadowBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.shadowBrushHardnessInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.detectEdgesBtn.addEventListener('click', () => this.handleDetectEdges());
+        this.detectShadowsBtn.addEventListener('click', () => this.handleDetectShadows());
+        this.shadowBrushAddModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('add'));
+        this.shadowBrushSubtractModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('subtract'));
+        this.applyShadowProcessBtn.addEventListener('click', () => this.handleApplyShadowProcess());
 
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
@@ -280,7 +293,7 @@ class App {
             group.classList.toggle('active', group.dataset.tool === tool);
         });
 
-        if (tool === 'brush') {
+        if (tool === 'brush' || tool === 'shadowProcess') {
             this.overlayCanvas.style.cursor = 'crosshair';
         } else {
             this.overlayCanvas.style.cursor = 'crosshair';
@@ -405,7 +418,7 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush') return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
@@ -414,6 +427,15 @@ class App {
         const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
         const x = canvasPos.x;
         const y = canvasPos.y;
+
+        if (this.currentTool === 'shadowProcess') {
+            const size = parseInt(this.shadowBrushSizeInput.value);
+            const hardness = parseInt(this.shadowBrushHardnessInput.value);
+            const mode = e.altKey ? (this.shadowBrushMode === 'add' ? 'subtract' : 'add') : this.shadowBrushMode;
+            const scale = this.zoomManager.getScale();
+            this.processor.startShadowBrush(x, y, size, hardness, mode, scale);
+            return;
+        }
 
         const size = parseInt(this.brushSizeInput.value);
         const hardness = parseInt(this.brushHardnessInput.value);
@@ -468,7 +490,7 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush') return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
@@ -478,6 +500,11 @@ class App {
         const x = canvasPos.x;
         const y = canvasPos.y;
         const scale = this.zoomManager.getScale();
+
+        if (this.processor.isShadowBrushActive) {
+            this.processor.shadowBrushDraw(x, y, scale);
+            return;
+        }
 
         this.processor.brushDraw(x, y, scale);
     }
@@ -507,7 +534,13 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush') return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
+
+        if (this.processor.isShadowBrushActive) {
+            this.processor.stopShadowBrush();
+            this.updateButtons();
+            return;
+        }
 
         if (!this.processor.brushTool.isDrawing) {
             return;
@@ -775,31 +808,108 @@ class App {
     }
 
     /**
-     * 处理阴影识别与半透明化
+     * 处理边缘检测
      */
-    handleShadowProcess() {
+    handleDetectEdges() {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
 
-        const intensity = parseInt(this.shadowIntensityInput.value);
-        const maxDistance = parseInt(this.shadowMaxDistanceInput.value);
-        const sensitivity = parseInt(this.shadowSensitivityInput.value);
-
-        this.showLoading('阴影处理中...');
+        this.showLoading('边缘检测中...');
 
         setTimeout(() => {
             try {
-                const success = this.processor.processShadows({
-                    intensity,
+                const success = this.processor.detectEdges();
+                if (success) {
+                    this.showNotification('边缘检测完成，青色细线为物体轮廓', 'success');
+                } else {
+                    this.showNotification('边缘检测失败', 'error');
+                }
+            } catch (error) {
+                console.error('边缘检测失败:', error);
+                this.showNotification('边缘检测失败', 'error');
+            } finally {
+                this.hideLoading();
+            }
+        }, 10);
+    }
+
+    /**
+     * 处理阴影检测
+     */
+    handleDetectShadows() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
+            this.showNotification('请先使用智能抠图或魔法棒确定紫色选区', 'warning');
+            return;
+        }
+
+        const maxDistance = parseInt(this.shadowMaxDistanceInput.value);
+        const shadowDiff = parseInt(this.shadowDiffInput.value);
+
+        this.showLoading('阴影检测中...');
+
+        setTimeout(() => {
+            try {
+                const success = this.processor.detectShadows({
                     maxDistance,
-                    sensitivity
+                    shadowDiff
                 });
+
+                if (success) {
+                    this.showNotification('阴影检测完成，粉色区域为阴影选区', 'success');
+                } else {
+                    this.showNotification('没有活跃的选区，请先进行抠图', 'warning');
+                }
+            } catch (error) {
+                console.error('阴影检测失败:', error);
+                this.showNotification('阴影检测失败', 'error');
+            } finally {
+                this.hideLoading();
+            }
+        }, 10);
+    }
+
+    /**
+     * 处理阴影画笔模式切换
+     * @param {string} mode - 模式 ('add' 或 'subtract')
+     */
+    handleShadowBrushModeChange(mode) {
+        this.shadowBrushMode = mode;
+
+        this.shadowBrushAddModeBtn.classList.toggle('active', mode === 'add');
+        this.shadowBrushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
+
+        const modeText = mode === 'add' ? '添加阴影选区' : '取消阴影选区';
+        this.showNotification(`阴影画笔模式：${modeText}`, 'info');
+    }
+
+    /**
+     * 应用阴影处理
+     */
+    handleApplyShadowProcess() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
+            this.showNotification('请先使用智能抠图或魔法棒确定紫色选区', 'warning');
+            return;
+        }
+
+        const intensity = parseInt(this.shadowIntensityInput.value);
+
+        this.showLoading('应用阴影处理中...');
+
+        setTimeout(() => {
+            try {
+                const success = this.processor.applyShadowProcess(intensity);
 
                 if (success) {
                     this.updateButtons();
                     this.showNotification('阴影处理完成', 'success');
                 } else {
-                    this.showNotification('没有活跃的选区，请先进行抠图', 'warning');
+                    this.showNotification('阴影处理失败', 'error');
                 }
             } catch (error) {
                 console.error('阴影处理失败:', error);
