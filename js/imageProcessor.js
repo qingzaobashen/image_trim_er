@@ -876,7 +876,19 @@ export class ImageProcessor {
         } else {
             imageData = canvasUtils.getImageData(this.mainCanvas);
         }
+        // 优先使用OpenCV版本，不可用时回退到手写版本
+        //if (this.shadowProcessor.isOpenCVReady()) {
+        //        this.edgeData = this.shadowProcessor.detectEdgesWithOpenCV(imageData, {
+        //        lowThreshold: 5,
+        //        highThreshold: 40,
+        //        blurKernelSize: 3,
+        //        blurSigma: 0
+        //    });
+        //} else {
+        //    this.edgeData = this.shadowProcessor.detectEdges(imageData);
+        //}
         this.edgeData = this.shadowProcessor.detectEdges(imageData);
+        // this.edgeData = this.shadowProcessor.connectEdgeCurves(this.edgeData, width, height);
         this.renderSelection();
         return true;
     }
@@ -1037,6 +1049,25 @@ export class ImageProcessor {
         canvasUtils.clearCanvas(this.overlayCanvas);
         this.saveToHistory();
         return true;
+    }
+    
+    testRenderSelection(data,overlayCanvas) {
+        canvasUtils.clearCanvas(overlayCanvas);
+        const ctx = canvasUtils.getContext(overlayCanvas);
+        const imageData = ctx.createImageData(overlayCanvas.width, overlayCanvas.height);
+        if (data) {
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] > 0) {
+                    const index = i * 4;
+                    imageData.data[index] = 0;
+                    imageData.data[index + 1] = 200;
+                    imageData.data[index + 2] = 255;
+                    imageData.data[index + 3] = 200;
+                }
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
     }
 
     /**
