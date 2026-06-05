@@ -561,7 +561,6 @@ class App {
                 const finalBounds = transformManager.endDrag();
                 if (finalBounds) {
                     this.processor.updateShapeMaskFromBounds(finalBounds);
-                    this.processor.selectionHistory.save(this.processor.currentMask);
                 }
                 return;
             }
@@ -691,8 +690,7 @@ class App {
         
         this.processor.originalImage = null;
         this.processor.currentMask = null;
-        this.processor.history = [];
-        this.processor.historyIndex = -1;
+        this.processor.undoRedoManager.clear();
         this.processor.selectionHistory.clear();
         
         this.imageSizeInfo.textContent = '-';

@@ -13,6 +13,7 @@ import { SelectionHistory } from './utils/selectionHistory.js';
 import { EdgeSmoother } from './tools/edgeSmoother.js';
 import { ShadowProcessor } from './tools/shadowProcessor.js';
 import { EdgeBrushTool } from './tools/edgeBrush.js';
+import { UndoRedoManager } from './utils/undoRedoManager.js';
 
 /**
  * 图像处理器类
@@ -29,9 +30,9 @@ export class ImageProcessor {
         this.originalImage = null;
         this.currentMask = null;
         this.originImgBackup = null;
-        this.history = [];
-        this.historyIndex = -1;
-        this.maxHistory = 50;
+
+        // 统一撤销/重做管理器（最多50步完整状态快照）
+        this.undoRedoManager = new UndoRedoManager(50);
 
         this.shadowMask = null;
         this.edgeData = null;
@@ -77,8 +78,7 @@ export class ImageProcessor {
                     this.isShadowBrushActive = false;
                     this.isEdgeBrushActive = false;
                     this.edgeBrush.reset();
-                    this.history = [];
-                    this.historyIndex = -1;
+                    this.undoRedoManager.clear();
                     
                     this.saveToHistory();
                     
@@ -1230,57 +1230,91 @@ export class ImageProcessor {
     }
 
     /**
-     * 保存到历史记录
+     * 保存完整应用状态到统一的撤销/重做历史记录
+     * 包含：主画布图像数据、选区蒙版、阴影蒙版、边缘数据、选区历史状态
      */
     saveToHistory() {
-        const state = {
-            imageData: canvasUtils.getImageData(this.mainCanvas),
-            mask: new Uint8ClampedArray(this.currentMask)
-        };
-
-        if (this.historyIndex < this.history.length - 1) {
-            this.history = this.history.slice(0, this.historyIndex + 1);
-        }
-
-        this.history.push(state);
-
-        if (this.history.length > this.maxHistory) {
-            this.history.shift();
-        } else {
-            this.historyIndex++;
-        }
+        const snapshot = UndoRedoManager.createSnapshot({
+            getImageData: () => canvasUtils.getImageData(this.mainCanvas),
+            getMask: () => new Uint8ClampedArray(this.currentMask),
+            getShadowMask: () => this.shadowMask ? new Uint8ClampedArray(this.shadowMask) : null,
+            getEdgeData: () => this.edgeData ? new Uint8ClampedArray(this.edgeData) : null,
+            getSelectionHistoryState: () => this.selectionHistory.serialize()
+        });
+        this.undoRedoManager.push(snapshot);
     }
 
     /**
-     * 撤销
+     * 撤销：恢复完整应用状态到上一步
      * @returns {boolean} 是否成功
      */
     undo() {
-        if (this.historyIndex <= 0) return false;
+        const snapshot = this.undoRedoManager.undo();
+        if (!snapshot) return false;
 
-        this.historyIndex--;
-        const state = this.history[this.historyIndex];
-        
-        canvasUtils.putImageData(this.mainCanvas, state.imageData);
-        this.currentMask = new Uint8ClampedArray(state.mask);
-        this.renderSelection();
+        UndoRedoManager.restoreSnapshot(snapshot, {
+            restoreImageData: (imageData) => {
+                canvasUtils.putImageData(this.mainCanvas, imageData);
+            },
+            restoreMask: (mask) => {
+                this.currentMask = new Uint8ClampedArray(mask);
+            },
+            restoreShadowMask: (shadowMask) => {
+                this.shadowMask = shadowMask ? new Uint8ClampedArray(shadowMask) : null;
+            },
+            restoreEdgeData: (edgeData) => {
+                this.edgeData = edgeData ? new Uint8ClampedArray(edgeData) : null;
+                // 同步边缘画笔的数据引用
+                if (this.edgeData) {
+                    const width = this.mainCanvas.width;
+                    const height = this.mainCanvas.height;
+                    this.edgeBrush.setEdgeData(this.edgeData, width, height);
+                }
+            },
+            restoreSelectionHistory: (state) => {
+                this.selectionHistory.deserialize(state);
+            },
+            onRestoreComplete: () => {
+                this.renderSelection();
+            }
+        });
 
         return true;
     }
 
     /**
-     * 重做
+     * 重做：恢复完整应用状态到下一步
      * @returns {boolean} 是否成功
      */
     redo() {
-        if (this.historyIndex >= this.history.length - 1) return false;
+        const snapshot = this.undoRedoManager.redo();
+        if (!snapshot) return false;
 
-        this.historyIndex++;
-        const state = this.history[this.historyIndex];
-        
-        canvasUtils.putImageData(this.mainCanvas, state.imageData);
-        this.currentMask = new Uint8ClampedArray(state.mask);
-        this.renderSelection();
+        UndoRedoManager.restoreSnapshot(snapshot, {
+            restoreImageData: (imageData) => {
+                canvasUtils.putImageData(this.mainCanvas, imageData);
+            },
+            restoreMask: (mask) => {
+                this.currentMask = new Uint8ClampedArray(mask);
+            },
+            restoreShadowMask: (shadowMask) => {
+                this.shadowMask = shadowMask ? new Uint8ClampedArray(shadowMask) : null;
+            },
+            restoreEdgeData: (edgeData) => {
+                this.edgeData = edgeData ? new Uint8ClampedArray(edgeData) : null;
+                if (this.edgeData) {
+                    const width = this.mainCanvas.width;
+                    const height = this.mainCanvas.height;
+                    this.edgeBrush.setEdgeData(this.edgeData, width, height);
+                }
+            },
+            restoreSelectionHistory: (state) => {
+                this.selectionHistory.deserialize(state);
+            },
+            onRestoreComplete: () => {
+                this.renderSelection();
+            }
+        });
 
         return true;
     }
@@ -1290,7 +1324,7 @@ export class ImageProcessor {
      * @returns {boolean}
      */
     canUndo() {
-        return this.historyIndex > 0;
+        return this.undoRedoManager.canUndo();
     }
 
     /**
@@ -1298,7 +1332,7 @@ export class ImageProcessor {
      * @returns {boolean}
      */
     canRedo() {
-        return this.historyIndex < this.history.length - 1;
+        return this.undoRedoManager.canRedo();
     }
 
     /**

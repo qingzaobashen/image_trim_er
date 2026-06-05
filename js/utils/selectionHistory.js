@@ -170,7 +170,7 @@ export class SelectionHistory {
     }
 
     /**
-     * 获取所有操作的摘要
+ * 获取所有操作的摘要
      * @returns {Array} 操作摘要列表
      */
     getOperationSummary() {
@@ -180,5 +180,42 @@ export class SelectionHistory {
             metadata: item.metadata,
             timestamp: item.timestamp
         }));
+    }
+
+    /**
+     * 序列化当前状态（用于统一撤销/重做管理器的快照存储）
+     * @returns {Object} 序列化状态对象
+     */
+    serialize() {
+        return {
+            history: this.history.map(item => ({
+                mask: Array.from(item.mask),
+                operationType: item.operationType,
+                metadata: item.metadata,
+                timestamp: item.timestamp
+            })),
+            currentIndex: this.currentIndex,
+            maxHistory: this.maxHistory
+        };
+    }
+
+    /**
+     * 从序列化状态恢复（用于统一撤销/重做管理器的状态恢复）
+     * @param {Object} state - 序列化状态对象
+     */
+    deserialize(state) {
+        if (!state || !state.history) {
+            this.clear();
+            return;
+        }
+
+        this.history = state.history.map(item => ({
+            mask: new Uint8ClampedArray(item.mask),
+            operationType: item.operationType,
+            metadata: item.metadata || {},
+            timestamp: item.timestamp || 0
+        }));
+        this.currentIndex = state.currentIndex;
+        this.maxHistory = state.maxHistory || 50;
     }
 }

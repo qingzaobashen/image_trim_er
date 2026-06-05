@@ -22,6 +22,7 @@
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
+import { UndoRedoManager } from '../utils/undoRedoManager.js';
 
 /**
  * 边缘画笔工具类
@@ -58,10 +59,8 @@ export class EdgeBrushTool {
         // 阴影处理器引用（用于复用Canny边缘检测算法）
         this.shadowProcessor = null;
 
-        // 历史记录（至少支持10步，实际支持20步）
-        this.history = [];
-        this.historyIndex = -1;
-        this.maxHistory = 20;
+        // 统一撤销/重做管理器（至少支持10步，实际支持20步）
+        this.history = new UndoRedoManager(20);
     }
 
     /**
@@ -417,21 +416,9 @@ export class EdgeBrushTool {
     saveToHistory() {
         if (!this.edgeData) return;
 
-        // 清除当前索引之后的历史记录（新操作会覆盖重做历史）
-        if (this.historyIndex < this.history.length - 1) {
-            this.history = this.history.slice(0, this.historyIndex + 1);
-        }
-
-        // 保存edgeData的深拷贝
+        // 保存edgeData的深拷贝到统一管理器
         const snapshot = new Uint8ClampedArray(this.edgeData);
         this.history.push(snapshot);
-
-        // 限制历史记录数量
-        if (this.history.length > this.maxHistory) {
-            this.history.shift();
-        } else {
-            this.historyIndex++;
-        }
     }
 
     /**
@@ -439,12 +426,10 @@ export class EdgeBrushTool {
      * @returns {boolean} 是否成功撤销
      */
     undo() {
-        if (this.historyIndex <= 0) return false;
+        const snapshot = this.history.undo();
+        if (!snapshot) return false;
 
-        this.historyIndex--;
-        const snapshot = this.history[this.historyIndex];
         this.edgeData.set(snapshot);
-
         return true;
     }
 
@@ -453,12 +438,10 @@ export class EdgeBrushTool {
      * @returns {boolean} 是否成功重做
      */
     redo() {
-        if (this.historyIndex >= this.history.length - 1) return false;
+        const snapshot = this.history.redo();
+        if (!snapshot) return false;
 
-        this.historyIndex++;
-        const snapshot = this.history[this.historyIndex];
         this.edgeData.set(snapshot);
-
         return true;
     }
 
@@ -467,7 +450,7 @@ export class EdgeBrushTool {
      * @returns {boolean}
      */
     canUndo() {
-        return this.historyIndex > 0;
+        return this.history.canUndo();
     }
 
     /**
@@ -475,7 +458,7 @@ export class EdgeBrushTool {
      * @returns {boolean}
      */
     canRedo() {
-        return this.historyIndex < this.history.length - 1;
+        return this.history.canRedo();
     }
 
     /**
@@ -483,7 +466,7 @@ export class EdgeBrushTool {
      * @returns {number} 当前索引（0-based）
      */
     getHistoryStepCount() {
-        return this.historyIndex + 1;
+        return this.history.getStepCount();
     }
 
     /**
@@ -491,7 +474,7 @@ export class EdgeBrushTool {
      * @returns {number}
      */
     getHistoryTotalCount() {
-        return this.history.length;
+        return this.history.getTotalCount();
     }
 
     /**
@@ -499,8 +482,7 @@ export class EdgeBrushTool {
      * 清空历史记录和绘制状态
      */
     reset() {
-        this.history = [];
-        this.historyIndex = -1;
+        this.history.clear();
         this.isDrawing = false;
         this.edgeData = null;
         this.edgeDataWidth = 0;
