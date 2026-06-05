@@ -164,10 +164,10 @@ export class ShadowProcessor {
         // ==================== 步骤5：双阈值检测 ====================
         // 使用两个阈值将像素分为三类：强边缘、弱边缘、非边缘
         const edges = new Uint8ClampedArray(width * height);
-        const highThreshold = 40; // 高阈值：确定是边缘
-        const lowThreshold = 15;   // 低阈值：可能是边缘
+        const highThreshold = 60; // 高阈值：确定是边缘
+        const lowThreshold = 20;   // 低阈值：可能是边缘
 
-        // 第一遍：标记所有强边缘（梯度幅值 >= 高阈值）
+        // 第一遍：标记所有强边缘（梯度幅值 >= 高阈值）// gz: 跳过suppressed，因为它会把一些弱边缘干掉
         for (let i = 0; i < gradient.length; i++) {
             if (gradient[i] >= highThreshold) {
                 edges[i] = 255; // 标记为边缘
@@ -188,8 +188,8 @@ export class ShadowProcessor {
                     // 如果当前像素已经是强边缘
                     if (edges[idx] === 255) {
                         // 检查8邻域
-                        for (let dy = -1; dy <= 1; dy++) {
-                            for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -2; dy <= 2; dy++) {
+                            for (let dx = -2; dx <= 2; dx++) {
                                 const nidx = (y + dy) * width + (x + dx);
                                 // 如果邻居是弱边缘（低阈值 <= 梯度 < 高阈值）且尚未标记为边缘
                                 if (gradient[nidx] >= lowThreshold && edges[nidx] === 0) {
@@ -265,8 +265,8 @@ export class ShadowProcessor {
         // 将RGBA彩色图转为单通道灰度图
         // cvtColor是OpenCV的颜色空间转换函数
         // COLOR_RGBA2GRAY = 将RGBA转为灰度（内部使用加权平均：0.299R + 0.587G + 0.114B）
-        const gray = new cv.Mat();
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        //const gray = new cv.Mat();
+        //cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);  // gz: 不用灰度图，针对白底的边缘检测会更好
 
         // ==================== 步骤3：高斯模糊去噪 ====================
         // 使用高斯滤波器平滑灰度图，消除噪声干扰
@@ -276,7 +276,7 @@ export class ShadowProcessor {
         //   - new cv.Size(ksize, ksize)：高斯核尺寸（必须为正奇数）
         //   - sigmaX：X方向标准差，0表示由核大小自动计算
         const blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(blurKernelSize, blurKernelSize), blurSigma);
+        cv.GaussianBlur(src, blurred, new cv.Size(blurKernelSize, blurKernelSize), blurSigma);
 
         // ==================== 步骤4：Canny边缘检测 ====================
         // OpenCV的Canny函数内部自动完成：
@@ -302,7 +302,7 @@ export class ShadowProcessor {
         // OpenCV.js使用WebAssembly管理内存，Mat对象不会自动垃圾回收
         // 必须手动调用delete()释放，否则会导致内存泄漏
         src.delete();
-        gray.delete();
+        //gray.delete();
         blurred.delete();
         edges.delete();
 
@@ -547,73 +547,203 @@ export class ShadowProcessor {
     }
 
     /**
-     * 计算边缘感知的距离图
-     * 从前景边界像素出发，BFS向外生长，遇到边缘曲线则停止
-     * 确保阴影检测不会越过物体边界
+     * 构建张力闭合的边缘障碍图
+     * 对边缘曲线进行膨胀操作以闭合微小空隙，防止洪水算法渗透穿过边界
+     *
+     * 张力机制原理：
+     * 边缘检测算法（Canny）可能因图像噪声、光照变化等因素产生1~3像素的微小断裂
+     * 这些断裂在洪水填充时会导致算法"渗透"到边界另一侧，产生错误的阴影区域
+     * 张力机制通过对边缘进行小范围膨胀，让相邻边缘像素之间产生"张力连接"
+     * 将微小空隙自动闭合，同时保留前景边界像素作为洪水填充的入口
+     *
+     * 膨胀策略：
+     * - 使用圆形结构元素（欧氏距离），膨胀半径 = tensionRadius
+     * - 膨胀后边缘变厚，间隙被填充，形成连续闭合的障碍墙
+     * - 最后清除前景边界位置的障碍标记，确保种子点可以正常扩散
+     *
+     * @param {Uint8ClampedArray} edgeCurves - 原始边缘曲线（255=边缘，0=非边缘）
+     * @param {Uint8ClampedArray} foregroundBoundary - 前景边界（255=边界像素）
+     * @param {number} width - 图像宽度
+     * @param {number} height - 图像高度
+     * @param {number} tensionRadius - 张力半径（膨胀像素数），默认2
+     * @returns {Uint8ClampedArray} 张力闭合后的边缘障碍图（255=障碍，0=可通过）
+     */
+    buildTensionBarrier(edgeCurves, foregroundBoundary, width, height, tensionRadius = 2) {
+        // 拷贝原始边缘曲线，避免修改原数组
+        const barrier = new Uint8ClampedArray(edgeCurves);
+
+        // 对边缘进行膨胀操作，闭合微小空隙
+        // 膨胀：将每个边缘像素的 tensionRadius 邻域内的像素也标记为边缘
+        // 效果：1像素宽的边缘线 → (1 + 2*tensionRadius) 像素宽
+        // 间隙小于 2*tensionRadius 像素的断裂会被自动闭合
+        this.morphDilate(barrier, width, height, tensionRadius);
+
+        // 清除前景边界像素上的障碍标记
+        // 前景边界是洪水填充的种子点位置，必须保持可通行
+        // 如果不清除，膨胀后的边缘会覆盖种子点，导致洪水无法开始扩散
+        for (let i = 0; i < foregroundBoundary.length; i++) {
+            if (foregroundBoundary[i] > 0) {
+                barrier[i] = 0; // 将种子点位置重置为可通过
+            }
+        }
+
+        return barrier;
+    }
+
+    /**
+     * 计算边缘感知的距离图（洪水算法 + 张力机制）
+     *
+     * 算法流程：
+     * Phase 1 — 提取前景边界：找到前景蒙版中与背景相邻的像素，作为洪水填充的种子点
+     * Phase 2 — 构建张力障碍图：对边缘曲线进行膨胀闭合微小空隙，形成连续障碍墙
+     * Phase 3 — 洪水填充（Flood Fill）：从种子点出发，使用队列驱动的BFS向背景区域扩散
+     *           遇到张力障碍墙时停止，确保洪水不会渗透到边界另一侧
+     *
+     * 洪水算法（Flood Fill）原理：
+     * - 类比：将水从种子点倒入，水会自动流向所有连通的低洼区域
+     * - 实现：从种子点开始，逐层向外扩展，访问所有可达的背景像素
+     * - 障碍：张力障碍墙像水坝一样阻挡洪水，确保水不会越过边界
+     * - 距离：记录每个像素到最近种子点的最短路径长度
+     *
+     * 张力机制解决的问题：
+     * 当边缘检测产生1~3像素的微小断裂时，普通洪水会从断裂处渗透到边界另一侧
+     * 张力机制通过膨胀边缘闭合断裂，让洪水被阻挡在正确的区域内
+     *
      * @param {Uint8ClampedArray} mask - 二值蒙版（255=前景/选中，0=背景）
      * @param {Uint8ClampedArray} edgeCurves - 连接后的边缘曲线（255=边缘，0=非边缘）
-     * @param {number} width - 宽度
-     * @param {number} height - 高度
-     * @param {number} maxDistance - 最大阴影距离
-     * @returns {Float32Array} 距离图（INF=不可达，被边缘曲线阻断）
+     * @param {number} width - 图像宽度
+     * @param {number} height - 图像高度
+     * @param {number} maxDistance - 最大阴影距离（像素）
+     * @param {number} [tensionRadius=2] - 张力半径，控制微小空隙闭合能力
+     * @returns {Float32Array} 距离图（INF=不可达/被障碍阻断，数值=到最近种子点的距离）
      */
-    computeEdgeAwareDistanceMap(mask, edgeCurves, width, height, maxDistance) {
+    computeEdgeAwareDistanceMap(mask, edgeCurves, width, height, maxDistance, tensionRadius = 2) {
+        // ====================================================================
+        // Phase 1: 提取前景边界作为洪水填充的种子点
+        // ====================================================================
+        // 前景边界 = 前景像素中至少有一个邻居是背景的像素
+        // 这些边界像素是阴影检测的"起点"，阴影从这里向外生长
+        // 例如：杯子轮廓边缘的外侧就是前景边界
+        const foregroundBoundary = this.extractForegroundBoundary(mask, width, height);
+
+        // ====================================================================
+        // Phase 2: 构建张力闭合的障碍墙
+        // ====================================================================
+        // 对边缘曲线进行膨胀，闭合微小断裂，形成连续的障碍墙
+        // 张力半径 tensionRadius 控制闭合能力：
+        //   - tensionRadius=1: 闭合1~2像素的间隙
+        //   - tensionRadius=2: 闭合3~4像素的间隙
+        //   - tensionRadius=3: 闭合5~6像素的间隙
+        const barrier = this.buildTensionBarrier(
+            edgeCurves, foregroundBoundary, width, height, tensionRadius
+        );
+
+        // ====================================================================
+        // Phase 3: 洪水填充 — 从种子点扩散，遇到障碍墙停止
+        // ====================================================================
+
+        // 定义"无穷大"距离值，表示像素不可达
+        // 使用 width + height 作为 INF，保证大于任何可能的实际距离
         const INF = width + height;
+
+        // 距离图：存储每个背景像素到最近种子点的最短距离
+        // 初始化为 INF（不可达），后续通过洪水填充更新
         const distanceMap = new Float32Array(width * height);
         distanceMap.fill(INF);
 
+        // 访问标记：记录像素是否已被洪水填充处理过
+        // 0=未访问，1=已访问（已在队列中或已处理完毕）
         const visited = new Uint8ClampedArray(width * height);
 
-        const foregroundBoundary = this.extractForegroundBoundary(mask, width, height);
-
+        // ==================== 初始化种子点队列 ====================
+        // 使用数组模拟队列，head指针标识队首，避免频繁shift操作
         const queue = [];
+
+        // 遍历所有像素，将前景边界像素加入种子队列
         for (let i = 0; i < foregroundBoundary.length; i++) {
             if (foregroundBoundary[i] > 0) {
+                // 种子点到自身的距离为0
                 distanceMap[i] = 0;
+                // 标记为已访问
                 visited[i] = 1;
+                // 种子点入队
                 queue.push(i);
             }
         }
 
-        const dx8 = [-1, 1, 0, 0, -1, -1, 1, 1];
-        const dy8 = [0, 0, -1, 1, -1, 1, -1, 1];
+        // ==================== 定义8邻域方向和距离权重 ====================
+        // 8邻域：上、下、左、右 + 4个对角线方向
+        const dx8 = [-1, 1, 0, 0, -1, -1, 1, 1];  // X方向偏移
+        const dy8 = [0, 0, -1, 1, -1, 1, -1, 1];  // Y方向偏移
+
+        // 距离权重：水平/垂直步长为1，对角线步长为√2≈1.414
         const dist8 = [1, 1, 1, 1, Math.SQRT2, Math.SQRT2, Math.SQRT2, Math.SQRT2];
 
-        let head = 0;
+        // ==================== 洪水填充主循环 ====================
+        let head = 0; // 队首指针
+
         while (head < queue.length) {
+            // 从队列取出一个像素（FIFO，保证按距离层序处理）
             const idx = queue[head++];
+
+            // 将一维索引转换为二维坐标
             const x = idx % width;
             const y = Math.floor(idx / width);
+
+            // 当前像素的距离值
             const currentDist = distanceMap[idx];
 
+            // 距离剪枝：如果当前距离已达到最大阴影距离，不再向外扩散
+            // 这是性能优化，避免计算超出用户关心范围的像素
             if (currentDist >= maxDistance) continue;
 
+            // 遍历8个方向的邻居像素
             for (let d = 0; d < 8; d++) {
-                const nx = x + dx8[d];
-                const ny = y + dy8[d];
+                const nx = x + dx8[d]; // 邻居X坐标
+                const ny = y + dy8[d]; // 邻居Y坐标
 
+                // 图像边界检查：确保邻居坐标在有效范围内
                 if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
 
+                // 计算邻居的一维索引
                 const nidx = ny * width + nx;
 
+                // 已访问检查：每个像素只处理一次
                 if (visited[nidx]) continue;
 
+                // 前景像素检查：阴影只在背景区域中生长
+                // mask[nidx] > 0 表示该像素属于前景（已被用户选中），不进入
                 if (mask[nidx] > 0) continue;
 
-                if (edgeCurves[nidx] > 0 && foregroundBoundary[nidx] === 0) {
+                // ============ 张力障碍墙检查（核心阻断逻辑） ============
+                // 如果邻居像素在张力障碍墙中，洪水停止向该方向扩散
+                // barrier[nidx] > 0 表示该像素已被膨胀后的边缘覆盖
+                // 标记为已访问（防止重复检查），但不加入队列
+                // 相当于在障碍墙处设置了一道不可逾越的"水坝"
+                if (barrier[nidx] > 0) {
                     visited[nidx] = 1;
-                    continue;
+                    continue; // 不扩散，洪水在此停止
                 }
 
+                // ============ 计算新距离并更新距离图 ============
+                // 新距离 = 当前距离 + 移动步长
                 const newDist = currentDist + dist8[d];
+
+                // 如果新距离更短（找到更优路径），则更新
                 if (newDist < distanceMap[nidx]) {
+                    // 更新邻居的距离值
                     distanceMap[nidx] = newDist;
+                    // 标记为已访问
                     visited[nidx] = 1;
+                    // 邻居入队，等待后续处理
                     queue.push(nidx);
                 }
             }
         }
 
+        // 洪水填充结束
+        // - distanceMap[i] 为具体数值：该像素是可达的阴影候选区域
+        // - distanceMap[i] 为 INF：该像素不可达（被障碍墙阻断或超出范围）
         return distanceMap;
     }
 
@@ -658,12 +788,13 @@ export class ShadowProcessor {
 
     /**
      * 检测阴影区域（在背景区域中，物体边缘以外）
-     * 使用边缘感知距离变换，从前景边界向外生长，遇到边缘曲线则停止
+     * 使用洪水算法 + 张力机制的距离变换，从前景边界向外生长，遇到边缘障碍墙则停止
      * @param {Uint8ClampedArray} mask - 当前前景蒙版（255=前景/选中，0=背景）
      * @param {Uint8ClampedArray} edges - 边缘检测结果（255=边缘，0=非边缘）
      * @param {Object} options - 处理参数
      * @param {number} options.maxDistance - 最大阴影距离（像素）
      * @param {number} options.shadowDiff - 阴影差异度 0-100
+     * @param {number} [options.tensionRadius=2] - 张力半径，控制微小空隙闭合能力
      * @returns {Uint8ClampedArray} 阴影蒙版（255=阴影，0=非阴影）
      */
     detectShadows(mask, edges, options = {}) {
@@ -681,7 +812,7 @@ export class ShadowProcessor {
         const edgeCurves = edges;
 
         const distanceMap = this.computeEdgeAwareDistanceMap(
-            mask, edgeCurves, width, height, maxDistance
+            mask, edgeCurves, width, height, maxDistance, options.tensionRadius ?? 2
         );
 
         const minColorDiff = 5 + (1 - shadowDiff / 100) * 20;

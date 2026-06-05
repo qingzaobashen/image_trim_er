@@ -1,0 +1,7 @@
+{
+    "accessibility.accessibleView.closeOnKeyPress": true,
+    "accessibility.verbosity.hover": false,
+    "accessibility.verbosity.notification": false,
+    "accessibility.verbosity.terminalChatOutput": false,
+    "accessibility.verbosity.walkthrough": false
+}

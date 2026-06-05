@@ -877,17 +877,20 @@ export class ImageProcessor {
             imageData = canvasUtils.getImageData(this.mainCanvas);
         }
         // 优先使用OpenCV版本，不可用时回退到手写版本
-        //if (this.shadowProcessor.isOpenCVReady()) {
-        //        this.edgeData = this.shadowProcessor.detectEdgesWithOpenCV(imageData, {
-        //        lowThreshold: 5,
-        //        highThreshold: 40,
-        //        blurKernelSize: 3,
-        //        blurSigma: 0
-        //    });
-        //} else {
-        //    this.edgeData = this.shadowProcessor.detectEdges(imageData);
-        //}
-        this.edgeData = this.shadowProcessor.detectEdges(imageData);
+        if (this.shadowProcessor.isOpenCVReady()) {
+               this.edgeData = this.shadowProcessor.detectEdgesWithOpenCV(imageData, {
+               lowThreshold: 5,
+               highThreshold: 40,
+               blurKernelSize: 3,
+               blurSigma: 0
+           });
+        } else {
+           this.edgeData = this.shadowProcessor.detectEdges(imageData);
+        }
+        //this.edgeData = this.shadowProcessor.computeEdgeAwareDistanceMap(
+        //    this.currentMask, this.edgeData, width, height, 60
+        //);
+        // this.edgeData = this.shadowProcessor.detectEdges(imageData);
         // this.edgeData = this.shadowProcessor.connectEdgeCurves(this.edgeData, width, height);
         this.renderSelection();
         return true;
@@ -896,9 +899,11 @@ export class ImageProcessor {
     /**
      * 执行阴影检测
      * 根据当前前景蒙版和边缘检测结果，识别物体边缘外的阴影区域
+     * 使用洪水算法 + 张力机制，从前景边界向外扩散，遇到边缘障碍墙则停止
      * @param {Object} options - 阴影检测参数
      * @param {number} options.maxDistance - 最大阴影距离（像素）
      * @param {number} options.shadowDiff - 阴影差异度 0-100
+     * @param {number} [options.tensionRadius=2] - 张力半径，控制微小空隙闭合能力
      * @returns {boolean} 是否成功
      */
     detectShadows(options = {}) {
