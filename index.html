@@ -326,6 +326,49 @@
                                 阴影检测
                             </button>
                             <div class="param-item">
+                                <label>边缘画笔</label>
+                                <div class="brush-mode-buttons">
+                                    <button class="mode-btn active" id="edgeBrushAddMode" title="正画笔：涂抹区域检测边缘并描绘">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="16"/>
+                                            <line x1="8" y1="12" x2="16" y2="12"/>
+                                        </svg>
+                                        <span>正画笔</span>
+                                    </button>
+                                    <button class="mode-btn" id="edgeBrushSubtractMode" title="负画笔：涂抹区域抹除边缘">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="8" y1="12" x2="16" y2="12"/>
+                                        </svg>
+                                        <span>负画笔</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="param-item">
+                                <label>边缘画笔大小</label>
+                                <input type="range" id="edgeBrushSize" min="1" max="50" value="10">
+                                <span class="param-value">10</span>
+                            </div>
+                            <div class="param-item">
+                                <div class="button-group">
+                                    <button class="btn btn-small" id="edgeBrushUndoBtn" title="撤销边缘画笔操作">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                                            <path d="M3 10h10a5 5 0 0 1 0 10H9"/>
+                                            <path d="M7 6l-4 4 4 4"/>
+                                        </svg>
+                                        撤销
+                                    </button>
+                                    <button class="btn btn-small" id="edgeBrushRedoBtn" title="重做边缘画笔操作">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                                            <path d="M21 10H11a5 5 0 0 0 0 10h4"/>
+                                            <path d="M17 6l4 4-4 4"/>
+                                        </svg>
+                                        重做
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="param-item">
                                 <label>阴影画笔模式</label>
                                 <div class="brush-mode-buttons">
                                     <button class="mode-btn active" id="shadowBrushAddMode" title="涂抹添加阴影选区">

@@ -79,6 +79,14 @@ class App {
         this.applyShadowProcessBtn = document.getElementById('applyShadowProcess');
         this.shadowBrushMode = 'add';
 
+        this.edgeBrushAddModeBtn = document.getElementById('edgeBrushAddMode');
+        this.edgeBrushSubtractModeBtn = document.getElementById('edgeBrushSubtractMode');
+        this.edgeBrushSizeInput = document.getElementById('edgeBrushSize');
+        this.edgeBrushUndoBtn = document.getElementById('edgeBrushUndoBtn');
+        this.edgeBrushRedoBtn = document.getElementById('edgeBrushRedoBtn');
+        this.edgeBrushMode = 'add';
+        this.isEdgeBrushMode = false; // 是否处于边缘画笔模式（与阴影画笔模式互斥）
+
         this.applySmartCutBtn = document.getElementById('applySmartCut');
         this.clearSelectionBtn = document.getElementById('clearSelection');
         this.invertSelectionBtn = document.getElementById('invertSelection');
@@ -150,6 +158,12 @@ class App {
         this.shadowBrushAddModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('add'));
         this.shadowBrushSubtractModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('subtract'));
         this.applyShadowProcessBtn.addEventListener('click', () => this.handleApplyShadowProcess());
+
+        this.edgeBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.edgeBrushAddModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('add'));
+        this.edgeBrushSubtractModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('subtract'));
+        this.edgeBrushUndoBtn.addEventListener('click', () => this.handleEdgeBrushUndo());
+        this.edgeBrushRedoBtn.addEventListener('click', () => this.handleEdgeBrushRedo());
 
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
@@ -276,6 +290,12 @@ class App {
         this.undoBtn.disabled = !this.processor.canUndo();
         this.redoBtn.disabled = !this.processor.canRedo();
         this.downloadBtn.disabled = !this.isImageLoaded;
+
+        // 更新边缘画笔撤销/重做按钮状态
+        if (this.edgeBrushUndoBtn && this.edgeBrushRedoBtn) {
+            this.edgeBrushUndoBtn.disabled = !this.processor.edgeBrush.canUndo();
+            this.edgeBrushRedoBtn.disabled = !this.processor.edgeBrush.canRedo();
+        }
     }
 
     /**
@@ -418,7 +438,7 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
@@ -429,6 +449,16 @@ class App {
         const y = canvasPos.y;
 
         if (this.currentTool === 'shadowProcess') {
+            // 如果处于边缘画笔模式，使用边缘画笔
+            if (this.isEdgeBrushMode) {
+                const size = parseInt(this.edgeBrushSizeInput.value);
+                const hardness = 50; // 边缘画笔硬度固定
+                const mode = e.altKey ? (this.edgeBrushMode === 'add' ? 'subtract' : 'add') : this.edgeBrushMode;
+                const scale = this.zoomManager.getScale();
+                this.processor.startEdgeBrush(x, y, size, hardness, mode, scale);
+                return;
+            }
+
             const size = parseInt(this.shadowBrushSizeInput.value);
             const hardness = parseInt(this.shadowBrushHardnessInput.value);
             const mode = e.altKey ? (this.shadowBrushMode === 'add' ? 'subtract' : 'add') : this.shadowBrushMode;
@@ -490,7 +520,7 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
@@ -503,6 +533,11 @@ class App {
 
         if (this.processor.isShadowBrushActive) {
             this.processor.shadowBrushDraw(x, y, scale);
+            return;
+        }
+
+        if (this.processor.isEdgeBrushActive) {
+            this.processor.edgeBrushDraw(x, y, scale);
             return;
         }
 
@@ -534,10 +569,16 @@ class App {
             return;
         }
 
-        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive) return;
+        if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
 
         if (this.processor.isShadowBrushActive) {
             this.processor.stopShadowBrush();
+            this.updateButtons();
+            return;
+        }
+
+        if (this.processor.isEdgeBrushActive) {
+            this.processor.stopEdgeBrush();
             this.updateButtons();
             return;
         }
@@ -820,6 +861,11 @@ class App {
             try {
                 const success = this.processor.detectEdges();
                 if (success) {
+                    // 重置边缘画笔模式状态
+                    this.isEdgeBrushMode = false;
+                    this.edgeBrushAddModeBtn.classList.remove('active');
+                    this.edgeBrushSubtractModeBtn.classList.remove('active');
+                    this.updateButtons();
                     this.showNotification('边缘检测完成，青色细线为物体轮廓', 'success');
                 } else {
                     this.showNotification('边缘检测失败', 'error');
@@ -877,12 +923,65 @@ class App {
      */
     handleShadowBrushModeChange(mode) {
         this.shadowBrushMode = mode;
+        this.isEdgeBrushMode = false; // 退出边缘画笔模式
 
         this.shadowBrushAddModeBtn.classList.toggle('active', mode === 'add');
         this.shadowBrushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
 
+        // 退出边缘画笔模式，取消边缘画笔按钮的激活状态
+        this.edgeBrushAddModeBtn.classList.remove('active');
+        this.edgeBrushSubtractModeBtn.classList.remove('active');
+
         const modeText = mode === 'add' ? '添加阴影选区' : '取消阴影选区';
         this.showNotification(`阴影画笔模式：${modeText}`, 'info');
+    }
+
+    /**
+     * 处理边缘画笔模式切换
+     * 切换到边缘画笔模式时，自动退出阴影画笔模式
+     * @param {string} mode - 模式（'add'=正画笔 / 'subtract'=负画笔）
+     */
+    handleEdgeBrushModeChange(mode) {
+        this.edgeBrushMode = mode;
+        this.isEdgeBrushMode = true; // 进入边缘画笔模式
+
+        this.edgeBrushAddModeBtn.classList.toggle('active', mode === 'add');
+        this.edgeBrushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
+
+        // 退出阴影画笔模式，取消阴影画笔按钮的激活状态
+        this.shadowBrushAddModeBtn.classList.remove('active');
+        this.shadowBrushSubtractModeBtn.classList.remove('active');
+
+        const modeText = mode === 'add' ? '正画笔（描绘边缘）' : '负画笔（抹除边缘）';
+        this.showNotification(`边缘画笔模式：${modeText}`, 'info');
+    }
+
+    /**
+     * 处理边缘画笔撤销
+     */
+    handleEdgeBrushUndo() {
+        if (!this.isImageLoaded) return;
+
+        const success = this.processor.undoEdgeBrush();
+        if (success) {
+            this.showNotification('边缘画笔已撤销', 'info');
+        } else {
+            this.showNotification('没有可撤销的边缘画笔操作', 'warning');
+        }
+    }
+
+    /**
+     * 处理边缘画笔重做
+     */
+    handleEdgeBrushRedo() {
+        if (!this.isImageLoaded) return;
+
+        const success = this.processor.redoEdgeBrush();
+        if (success) {
+            this.showNotification('边缘画笔已重做', 'info');
+        } else {
+            this.showNotification('没有可重做的边缘画笔操作', 'warning');
+        }
     }
 
     /**

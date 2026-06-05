@@ -12,6 +12,7 @@ import { RegionSelector } from './tools/regionSelector.js';
 import { SelectionHistory } from './utils/selectionHistory.js';
 import { EdgeSmoother } from './tools/edgeSmoother.js';
 import { ShadowProcessor } from './tools/shadowProcessor.js';
+import { EdgeBrushTool } from './tools/edgeBrush.js';
 
 /**
  * 图像处理器类
@@ -35,6 +36,7 @@ export class ImageProcessor {
         this.shadowMask = null;
         this.edgeData = null;
         this.isShadowBrushActive = false;
+        this.isEdgeBrushActive = false;
 
         this.selectionHistory = new SelectionHistory();
         this.smartCutTool = new SmartCutTool(mainCanvas, overlayCanvas);
@@ -45,6 +47,7 @@ export class ImageProcessor {
         this.regionSelector = new RegionSelector(overlayCanvas, mainCanvas);
         this.edgeSmoother = new EdgeSmoother(mainCanvas);
         this.shadowProcessor = new ShadowProcessor(mainCanvas);
+        this.edgeBrush = new EdgeBrushTool(mainCanvas, overlayCanvas);
     }
 
     /**
@@ -72,6 +75,8 @@ export class ImageProcessor {
                     this.shadowMask = new Uint8ClampedArray(img.width * img.height);
                     this.edgeData = null;
                     this.isShadowBrushActive = false;
+                    this.isEdgeBrushActive = false;
+                    this.edgeBrush.reset();
                     this.history = [];
                     this.historyIndex = -1;
                     
@@ -892,6 +897,13 @@ export class ImageProcessor {
         //);
         // this.edgeData = this.shadowProcessor.detectEdges(imageData);
         // this.edgeData = this.shadowProcessor.connectEdgeCurves(this.edgeData, width, height);
+
+        // 设置边缘画笔的数据引用，使其可以操作edgeData
+        this.edgeBrush.reset(); // 重置边缘画笔历史记录
+        this.edgeBrush.setEdgeData(this.edgeData, width, height);
+        this.edgeBrush.setOriginalImageData(this.originImgBackup, width, height);
+        this.edgeBrush.setShadowProcessor(this.shadowProcessor);
+
         this.renderSelection();
         return true;
     }
@@ -1002,6 +1014,100 @@ export class ImageProcessor {
 
         this.brushTool.clear();
         this.isShadowBrushActive = false;
+        this.renderSelection();
+    }
+
+    // ==================== 边缘画笔方法 ====================
+
+    /**
+     * 开始边缘画笔绘制
+     * 清空overlay canvas避免干扰，初始化边缘画笔绘制状态
+     * @param {number} x - X坐标（canvas坐标）
+     * @param {number} y - Y坐标（canvas坐标）
+     * @param {number} size - 画笔大小（1-50）
+     * @param {number} hardness - 画笔硬度（0-100）
+     * @param {string} mode - 模式（'add'=正画笔 / 'subtract'=负画笔）
+     * @param {number} scale - 当前缩放比例
+     */
+    startEdgeBrush(x, y, size = 10, hardness = 50, mode = 'add', scale = 1) {
+        if (!this.edgeData) {
+            console.warn('请先执行边缘检测');
+            return;
+        }
+
+        this.isEdgeBrushActive = true;
+        this.edgeBrush.setSize(size);
+        this.edgeBrush.setHardness(hardness);
+        this.edgeBrush.setMode(mode);
+
+        // 确保edgeBrush持有最新的数据引用
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        this.edgeBrush.setEdgeData(this.edgeData, width, height);
+        this.edgeBrush.setOriginalImageData(this.originImgBackup, width, height);
+        this.edgeBrush.setShadowProcessor(this.shadowProcessor);
+
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        this.edgeBrush.startDrawing(x, y, scale);
+    }
+
+    /**
+     * 边缘画笔绘制中
+     * 在overlay canvas上绘制画笔指示轨迹
+     * @param {number} x - X坐标（canvas坐标）
+     * @param {number} y - Y坐标（canvas坐标）
+     * @param {number} scale - 当前缩放比例
+     */
+    edgeBrushDraw(x, y, scale = 1) {
+        this.edgeBrush.drawIndicator(x, y, scale);
+    }
+
+    /**
+     * 停止边缘画笔绘制并应用效果
+     * 正画笔：对涂抹区域执行边缘检测，合并到edgeData
+     * 负画笔：抹除涂抹区域内的边缘像素
+     */
+    stopEdgeBrush() {
+        if (!this.isEdgeBrushActive) return;
+
+        this.edgeBrush.stopDrawing();
+        this.isEdgeBrushActive = false;
+        this.renderSelection();
+    }
+
+    /**
+     * 撤销边缘画笔操作
+     * @returns {boolean} 是否成功
+     */
+    undoEdgeBrush() {
+        if (!this.edgeData) return false;
+        const result = this.edgeBrush.undo();
+        if (result) {
+            this.renderSelection();
+        }
+        return result;
+    }
+
+    /**
+     * 重做边缘画笔操作
+     * @returns {boolean} 是否成功
+     */
+    redoEdgeBrush() {
+        if (!this.edgeData) return false;
+        const result = this.edgeBrush.redo();
+        if (result) {
+            this.renderSelection();
+        }
+        return result;
+    }
+
+    /**
+     * 清除边缘数据
+     * 重置边缘检测结果和边缘画笔历史
+     */
+    clearEdgeData() {
+        this.edgeData = null;
+        this.edgeBrush.reset();
         this.renderSelection();
     }
 
