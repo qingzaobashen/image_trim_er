@@ -5,6 +5,7 @@
 
 import { ImageProcessor } from './imageProcessor.js';
 import { ZoomManager } from './utils/zoomManager.js';
+import i18n from './i18n/i18n.js';
 
 /**
  * 主应用类
@@ -20,11 +21,23 @@ class App {
         this.brushMode = 'add';
         this.isImageLoaded = false;
         this.isLoading = false;
+    }
+
+    /**
+     * 异步初始化应用（包括国际化系统）
+     */
+    async init() {
+        // 初始化国际化系统
+        await i18n.init();
 
         this.initElements();
         this.initEventListeners();
+        this.initI18n();
         this.initProcessor();
         this.initZoomManager();
+
+        // 首次更新界面文本
+        i18n.updateUI();
     }
 
     /**
@@ -205,6 +218,81 @@ class App {
     }
 
     /**
+     * 初始化国际化系统
+     * 绑定语言切换器事件，监听语言变更
+     */
+    initI18n() {
+        this.langSwitcherBtn = document.getElementById('langSwitcherBtn');
+        this.langDropdown = document.getElementById('langDropdown');
+        this.currentLangLabel = document.getElementById('currentLangLabel');
+        this.langOptions = document.querySelectorAll('.lang-option');
+
+        // 语言切换按钮点击 - 切换下拉菜单
+        this.langSwitcherBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.langDropdown.classList.toggle('show');
+        });
+
+        // 点击页面其他区域关闭下拉菜单
+        document.addEventListener('click', () => {
+            this.langDropdown.classList.remove('show');
+        });
+
+        // 阻止下拉菜单内部点击冒泡关闭
+        this.langDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // 语言选项点击
+        this.langOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const locale = option.dataset.locale;
+                if (i18n.setLocale(locale)) {
+                    this._updateLangSwitcherUI(locale);
+                }
+                this.langDropdown.classList.remove('show');
+            });
+        });
+
+        // 初始化语言切换器显示状态
+        this._updateLangSwitcherUI(i18n.getLocale());
+
+        // 监听语言变更，更新 select 的 option 文本
+        i18n.onChange(() => {
+            this._updateSelectOptions();
+        });
+    }
+
+    /**
+     * 更新语言切换器 UI 状态
+     * @param {string} locale - 当前语言代码
+     */
+    _updateLangSwitcherUI(locale) {
+        // 更新当前语言标签
+        this.currentLangLabel.textContent = i18n.getLocaleDisplayName(locale);
+
+        // 更新选中状态
+        this.langOptions.forEach(option => {
+            option.classList.toggle('active', option.dataset.locale === locale);
+        });
+    }
+
+    /**
+     * 更新 select 下拉框的 option 文本
+     * 语言切换后需要重新设置 option 的显示文本
+     */
+    _updateSelectOptions() {
+        const cutModeSelect = document.getElementById('cutMode');
+        if (cutModeSelect) {
+            const options = cutModeSelect.options;
+            options[0].textContent = i18n.t('toolbar.cutModeAuto');
+            options[1].textContent = i18n.t('toolbar.cutModeColor');
+            options[2].textContent = i18n.t('toolbar.cutModeEdge');
+            options[3].textContent = i18n.t('toolbar.cutModePerson');
+        }
+    }
+
+    /**
      * 处理文件选择
      * @param {Event} e - 事件对象
      */
@@ -213,12 +301,12 @@ class App {
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('请选择图片文件');
+            alert(i18n.t('notifications.selectImageFile'));
             return;
         }
 
         try {
-            this.showLoading('加载图片中...');
+            this.showLoading(i18n.t('loading.loadingImage'));
 
             const info = await this.processor.loadImage(file);
 
@@ -234,7 +322,7 @@ class App {
 
         } catch (error) {
             console.error('图片加载失败:', error);
-            alert('图片加载失败，请重试');
+            alert(i18n.t('notifications.imageLoadFailed'));
         } finally {
             this.hideLoading();
         }
@@ -274,9 +362,10 @@ class App {
      * 显示加载提示
      * @param {string} text - 提示文本
      */
-    showLoading(text = '处理中...') {
+    showLoading(text) {
+        const defaultText = i18n.t('loading.processing');
         this.isLoading = true;
-        document.querySelector('.loading-text').textContent = text;
+        document.querySelector('.loading-text').textContent = text || defaultText;
         this.loadingOverlay.classList.add('active');
     }
 
@@ -1169,6 +1258,7 @@ class App {
 /**
  * 应用初始化
  */
-document.addEventListener('DOMContentLoaded', () => {
-    new App();
+document.addEventListener('DOMContentLoaded', async () => {
+    const app = new App();
+    await app.init();
 });

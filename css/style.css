@@ -134,6 +134,82 @@ body {
     background: var(--bg-tertiary);
 }
 
+/* ==================== 语言切换器 ==================== */
+.lang-switcher {
+    position: relative;
+}
+
+.lang-switcher-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.lang-switcher-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border-color: var(--border-light);
+}
+
+.lang-switcher-btn svg {
+    flex-shrink: 0;
+}
+
+.lang-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 120px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity var(--transition-fast), visibility var(--transition-fast), transform var(--transition-fast);
+    z-index: 200;
+    overflow: hidden;
+}
+
+.lang-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.lang-option {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.lang-option:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.lang-option.active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 @media (max-width: 768px) {
     .header-nav {
         display: none;
