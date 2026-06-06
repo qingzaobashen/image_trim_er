@@ -1071,7 +1071,7 @@ export class ShadowProcessor {
                 const colorDiff = canvasUtils.colorDistance(pixel, this.bgColor);
                 const distance = distanceMap[idx];
 
-                const alphaBase = Math.min(1, colorDiff / 80);
+                const alphaBase = Math.min(1, colorDiff / 100);
 
                 const edgeFade = Math.max(0, 1 - distance / maxDist);
                 const smoothFade = edgeFade * edgeFade * (3 - 2 * edgeFade);
@@ -1101,7 +1101,7 @@ export class ShadowProcessor {
             if (foregroundMask[i] > 0) {
                 imageData.data[idx + 3] = 0;
             } else if (shadowAlphaMask[i] > 0) {
-                imageData.data[idx + 3] = 255 - shadowAlphaMask[i];
+                imageData.data[idx + 3] = shadowAlphaMask[i];
             }
         }
 
