@@ -868,7 +868,7 @@ export class ImageProcessor {
      * 从原始图像数据检测，确保即使背景已被抠除也能正确检测边缘
      * @returns {boolean} 是否成功
      */
-    detectEdges() {
+    detectEdges(options = {}) {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         let imageData;
@@ -881,12 +881,17 @@ export class ImageProcessor {
         } else {
             imageData = canvasUtils.getImageData(this.mainCanvas);
         }
+
+        const lowThreshold = options.lowThreshold ?? 5;
+        const highThreshold = options.highThreshold ?? 40;
+        const blurKernelSize = options.blurKernelSize ?? 3;
+
         // 优先使用OpenCV版本，不可用时回退到手写版本
         if (this.shadowProcessor.isOpenCVReady()) {
                this.edgeData = this.shadowProcessor.detectEdgesWithOpenCV(imageData, {
-               lowThreshold: 5,
-               highThreshold: 40,
-               blurKernelSize: 3,
+               lowThreshold,
+               highThreshold,
+               blurKernelSize,
                blurSigma: 0
            });
         } else {

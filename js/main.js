@@ -71,6 +71,12 @@ class App {
         this.shadowMaxDistanceInput = document.getElementById('shadowMaxDistance');
         this.shadowDiffInput = document.getElementById('shadowDiff');
         this.detectEdgesBtn = document.getElementById('detectEdgesBtn');
+        this.edgeBlurSlider = document.getElementById('edgeBlurSlider');
+        this.edgeBlurValue = document.getElementById('edgeBlurValue');
+        this.edgeLowThresholdSlider = document.getElementById('edgeLowThresholdSlider');
+        this.edgeLowThresholdValue = document.getElementById('edgeLowThresholdValue');
+        this.edgeHighThresholdSlider = document.getElementById('edgeHighThresholdSlider');
+        this.edgeHighThresholdValue = document.getElementById('edgeHighThresholdValue');
         this.detectShadowsBtn = document.getElementById('detectShadowsBtn');
         this.shadowBrushAddModeBtn = document.getElementById('shadowBrushAddMode');
         this.shadowBrushSubtractModeBtn = document.getElementById('shadowBrushSubtractMode');
@@ -153,6 +159,9 @@ class App {
         this.shadowDiffInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.shadowBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.shadowBrushHardnessInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.edgeBlurSlider.addEventListener('input', (e) => this.updateParamValue(e));
+        this.edgeLowThresholdSlider.addEventListener('input', (e) => this.updateParamValue(e));
+        this.edgeHighThresholdSlider.addEventListener('input', (e) => this.updateParamValue(e));
         this.detectEdgesBtn.addEventListener('click', () => this.handleDetectEdges());
         this.detectShadowsBtn.addEventListener('click', () => this.handleDetectShadows());
         this.shadowBrushAddModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('add'));
@@ -853,11 +862,20 @@ class App {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
 
+        // 读取边缘检测参数
+        const blurKernelSize = parseInt(this.edgeBlurSlider.value);
+        const lowThreshold = parseInt(this.edgeLowThresholdSlider.value);
+        const highThreshold = parseInt(this.edgeHighThresholdSlider.value);
+
         this.showLoading('边缘检测中...');
 
         setTimeout(() => {
             try {
-                const success = this.processor.detectEdges();
+                const success = this.processor.detectEdges({
+                    blurKernelSize,
+                    lowThreshold,
+                    highThreshold
+                });
                 if (success) {
                     // 重置边缘画笔模式状态
                     this.isEdgeBrushMode = false;

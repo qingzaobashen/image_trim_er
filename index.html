@@ -260,7 +260,7 @@
                                 全图去噪
                             </button>
                             <div class="param-item" id="smoothEdgesParams">
-                                <label>边缘光滑强度：<span id="smoothEdgesValue">3</span></label>
+                                <label>边缘光滑强度：<span class="param-value" id="smoothEdgesValue">3</span></label>
                                 <input type="range" id="smoothEdgesSlider" min="1" max="10" value="3" step="1">
                             </div>
                             <button class="btn btn-full" id="smoothEdgesBtn">
@@ -341,6 +341,30 @@
                                         重做
                                     </button>
                                 </div>
+                            </div>
+                            <div class="param-item">
+                                <label>
+                                    边缘模糊度
+                                    <span class="param-hint" title="高斯模糊核大小：值越大边缘越平滑，但会丢失细节。奇数3~9">?</span>
+                                </label>
+                                <input type="range" id="edgeBlurSlider" min="1" max="9" value="3" step="2">
+                                <span class="param-value" id="edgeBlurValue">3</span>
+                            </div>
+                            <div class="param-item">
+                                <label>
+                                    弱边缘灵敏度
+                                    <span class="param-hint" title="低于此值的像素被忽略，值越低保留的弱边缘越多">?</span>
+                                </label>
+                                <input type="range" id="edgeLowThresholdSlider" min="1" max="50" value="5">
+                                <span class="param-value" id="edgeLowThresholdValue">5</span>
+                            </div>
+                            <div class="param-item">
+                                <label>
+                                    强边缘灵敏度
+                                    <span class="param-hint" title="高于此值的像素直接判定为强边缘，值越低检测到的边缘越多">?</span>
+                                </label>
+                                <input type="range" id="edgeHighThresholdSlider" min="5" max="100" value="40">
+                                <span class="param-value" id="edgeHighThresholdValue">40</span>
                             </div>
                             <button class="btn btn-full" id="detectEdgesBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
