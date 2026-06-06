@@ -88,8 +88,6 @@ class App {
         this.edgeBrushAddModeBtn = document.getElementById('edgeBrushAddMode');
         this.edgeBrushSubtractModeBtn = document.getElementById('edgeBrushSubtractMode');
         this.edgeBrushSizeInput = document.getElementById('edgeBrushSize');
-        this.edgeBrushUndoBtn = document.getElementById('edgeBrushUndoBtn');
-        this.edgeBrushRedoBtn = document.getElementById('edgeBrushRedoBtn');
         this.edgeBrushMode = 'add';
         this.isEdgeBrushMode = false; // 是否处于边缘画笔模式（与阴影画笔模式互斥）
 
@@ -171,8 +169,6 @@ class App {
         this.edgeBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.edgeBrushAddModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('add'));
         this.edgeBrushSubtractModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('subtract'));
-        this.edgeBrushUndoBtn.addEventListener('click', () => this.handleEdgeBrushUndo());
-        this.edgeBrushRedoBtn.addEventListener('click', () => this.handleEdgeBrushRedo());
 
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
@@ -299,12 +295,6 @@ class App {
         this.undoBtn.disabled = !this.processor.canUndo();
         this.redoBtn.disabled = !this.processor.canRedo();
         this.downloadBtn.disabled = !this.isImageLoaded;
-
-        // 更新边缘画笔撤销/重做按钮状态
-        if (this.edgeBrushUndoBtn && this.edgeBrushRedoBtn) {
-            this.edgeBrushUndoBtn.disabled = !this.processor.edgeBrush.canUndo();
-            this.edgeBrushRedoBtn.disabled = !this.processor.edgeBrush.canRedo();
-        }
     }
 
     /**
@@ -970,34 +960,6 @@ class App {
 
         const modeText = mode === 'add' ? '正画笔（描绘边缘）' : '负画笔（抹除边缘）';
         this.showNotification(`边缘画笔模式：${modeText}`, 'info');
-    }
-
-    /**
-     * 处理边缘画笔撤销
-     */
-    handleEdgeBrushUndo() {
-        if (!this.isImageLoaded) return;
-
-        const success = this.processor.undoEdgeBrush();
-        if (success) {
-            this.showNotification('边缘画笔已撤销', 'info');
-        } else {
-            this.showNotification('没有可撤销的边缘画笔操作', 'warning');
-        }
-    }
-
-    /**
-     * 处理边缘画笔重做
-     */
-    handleEdgeBrushRedo() {
-        if (!this.isImageLoaded) return;
-
-        const success = this.processor.redoEdgeBrush();
-        if (success) {
-            this.showNotification('边缘画笔已重做', 'info');
-        } else {
-            this.showNotification('没有可重做的边缘画笔操作', 'warning');
-        }
     }
 
     /**

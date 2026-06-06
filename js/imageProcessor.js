@@ -910,6 +910,7 @@ export class ImageProcessor {
         this.edgeBrush.setShadowProcessor(this.shadowProcessor);
 
         this.renderSelection();
+        this.saveToHistory();
         return true;
     }
 
@@ -959,6 +960,7 @@ export class ImageProcessor {
         }
 
         this.renderSelection();
+        this.saveToHistory();
         return true;
     }
 
@@ -1020,6 +1022,7 @@ export class ImageProcessor {
         this.brushTool.clear();
         this.isShadowBrushActive = false;
         this.renderSelection();
+        this.saveToHistory();
     }
 
     // ==================== 边缘画笔方法 ====================
@@ -1077,33 +1080,10 @@ export class ImageProcessor {
 
         this.edgeBrush.stopDrawing();
         this.isEdgeBrushActive = false;
+
+        // 边缘画笔操作完成后，保存到系统统一的历史记录
+        this.saveToHistory();
         this.renderSelection();
-    }
-
-    /**
-     * 撤销边缘画笔操作
-     * @returns {boolean} 是否成功
-     */
-    undoEdgeBrush() {
-        if (!this.edgeData) return false;
-        const result = this.edgeBrush.undo();
-        if (result) {
-            this.renderSelection();
-        }
-        return result;
-    }
-
-    /**
-     * 重做边缘画笔操作
-     * @returns {boolean} 是否成功
-     */
-    redoEdgeBrush() {
-        if (!this.edgeData) return false;
-        const result = this.edgeBrush.redo();
-        if (result) {
-            this.renderSelection();
-        }
-        return result;
     }
 
     /**

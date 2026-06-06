@@ -22,7 +22,6 @@
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
-import { UndoRedoManager } from '../utils/undoRedoManager.js';
 
 /**
  * 边缘画笔工具类
@@ -58,9 +57,6 @@ export class EdgeBrushTool {
 
         // 阴影处理器引用（用于复用Canny边缘检测算法）
         this.shadowProcessor = null;
-
-        // 统一撤销/重做管理器（至少支持10步，实际支持20步）
-        this.history = new UndoRedoManager(20);
     }
 
     /**
@@ -186,9 +182,6 @@ export class EdgeBrushTool {
         if (!this.isDrawing) return;
 
         this.isDrawing = false;
-
-        // 保存当前状态到历史记录（在应用修改前）
-        this.saveToHistory();
 
         // 获取画笔涂抹的蒙版区域
         const brushMask = this.getBrushStrokeMask(scale);
@@ -407,82 +400,13 @@ export class EdgeBrushTool {
         return mask;
     }
 
-    // ==================== 历史记录（撤销/重做） ====================
-
-    /**
-     * 保存当前边缘数据到历史记录
-     * 在每次应用画笔效果前调用
-     */
-    saveToHistory() {
-        if (!this.edgeData) return;
-
-        // 保存edgeData的深拷贝到统一管理器
-        const snapshot = new Uint8ClampedArray(this.edgeData);
-        this.history.push(snapshot);
-    }
-
-    /**
-     * 撤销：恢复到上一步的边缘数据状态
-     * @returns {boolean} 是否成功撤销
-     */
-    undo() {
-        const snapshot = this.history.undo();
-        if (!snapshot) return false;
-
-        this.edgeData.set(snapshot);
-        return true;
-    }
-
-    /**
-     * 重做：前进到下一步的边缘数据状态
-     * @returns {boolean} 是否成功重做
-     */
-    redo() {
-        const snapshot = this.history.redo();
-        if (!snapshot) return false;
-
-        this.edgeData.set(snapshot);
-        return true;
-    }
-
-    /**
-     * 检查是否可以撤销
-     * @returns {boolean}
-     */
-    canUndo() {
-        return this.history.canUndo();
-    }
-
-    /**
-     * 检查是否可以重做
-     * @returns {boolean}
-     */
-    canRedo() {
-        return this.history.canRedo();
-    }
-
-    /**
-     * 获取当前历史记录步数
-     * @returns {number} 当前索引（0-based）
-     */
-    getHistoryStepCount() {
-        return this.history.getStepCount();
-    }
-
-    /**
-     * 获取历史记录总步数
-     * @returns {number}
-     */
-    getHistoryTotalCount() {
-        return this.history.getTotalCount();
-    }
+    // ==================== 状态重置 ====================
 
     /**
      * 重置边缘画笔状态
-     * 清空历史记录和绘制状态
+     * 清空绘制状态和数据引用
      */
     reset() {
-        this.history.clear();
         this.isDrawing = false;
         this.edgeData = null;
         this.edgeDataWidth = 0;
