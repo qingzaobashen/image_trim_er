@@ -819,6 +819,19 @@ body {
     color: var(--text-secondary);
 }
 
+.article-content kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-family: var(--font-mono, 'SF Mono', 'Consolas', monospace);
+    line-height: 1.4;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 1px 0 var(--border-color);
+}
+
 /* ==================== 文章元信息 ==================== */
 .article-meta {
     display: flex;
@@ -1044,59 +1057,6 @@ body {
     text-overflow: ellipsis;
 }
 
-/* ==================== 页脚网格（文章页） ==================== */
-.footer-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 40px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.footer-section h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    font-family: var(--font-display);
-}
-
-.footer-section h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.footer-section p {
-    color: var(--text-muted);
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.footer-links {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.footer-links li {
-    margin-bottom: 10px;
-}
-
-.footer-links a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 14px;
-    transition: color var(--transition-fast);
-}
-
-.footer-links a:hover {
-    color: var(--primary-light);
-}
-
 /* ==================== 响应式 ==================== */
 @media (max-width: 768px) {
     .page-nav {
@@ -1172,21 +1132,9 @@ body {
     .article-nav-next {
         max-width: 100%;
     }
-
-    .footer-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 32px;
-    }
 }
 
 @media (max-width: 480px) {
-    .footer-inner {
-        grid-template-columns: 1fr;
-    }
-
-    .footer-grid {
-        grid-template-columns: 1fr;
-    }
     .footer-inner {
         grid-template-columns: 1fr;
     }

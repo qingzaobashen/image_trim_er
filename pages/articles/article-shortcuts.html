@@ -1,0 +1,441 @@
+<!--
+  文件名: article-shortcuts.html
+  描述: 快捷键大全教程文章
+  功能: 详细介绍智能抠图工具的所有键盘快捷键及使用技巧
+  作者: 智能抠图工具团队
+  更新日期: 2025-05-28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n-page-title="articleShortcuts.pageTitle">快捷键大全 - 智能抠图工具</title>
+    <link rel="stylesheet" href="../../css/pages.css">
+</head>
+<body>
+    <!-- 页面导航栏 -->
+    <nav class="page-nav">
+        <a href="../../index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.logoText">智能抠图</span>
+        </a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="../tutorials.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="../about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="../contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
+        </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <!-- 页面主体 -->
+    <main class="page-main">
+        <div class="container">
+            <!-- 文章头部 -->
+            <div class="page-header">
+                <div class="breadcrumbs">
+                    <a href="../tutorials.html" data-i18n="articles.tutorialCenter">教程中心</a>
+                    <span>/</span>
+                    <span data-i18n="articleShortcuts.breadcrumb">快捷键大全</span>
+                </div>
+                <h1 class="page-title" data-i18n="articleShortcuts.title">快捷键大全</h1>
+                <p class="page-subtitle" data-i18n="articleShortcuts.subtitle">掌握键盘快捷键，大幅提升抠图工作效率</p>
+                <div class="article-meta">
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span data-i18n="articleShortcuts.date">2025-05-28</span>
+                    </span>
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span data-i18n="articleShortcuts.readingTime">约10分钟阅读</span>
+                    </span>
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <span data-i18n="articleShortcuts.level">参考手册</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- 文章内容 -->
+            <article class="article-content">
+                <!-- 概述 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.overviewTitle">为什么要使用快捷键</h2>
+                    <p data-i18n="articleShortcuts.overviewP1">在图像抠图的工作流程中，频繁在工具栏和画布之间切换鼠标会显著降低效率。掌握键盘快捷键可以让您的双手始终停留在键盘上，实现"盲操作"，大幅提升工作速度。研究表明，熟练使用快捷键的用户的操作效率比纯鼠标操作高出 40% 以上。</p>
+                    <p data-i18n="articleShortcuts.overviewP2">本文将分类介绍智能抠图工具支持的所有快捷键，从最基础的撤销/重做到高级的画笔模式切换，帮助您建立肌肉记忆，成为高效的抠图高手。</p>
+                </div>
+
+                <!-- 全局快捷键 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.globalTitle">全局快捷键</h2>
+                    <p data-i18n="articleShortcuts.globalDesc">以下快捷键在任何工具模式下均可使用，是日常操作中最常用的组合：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="articleShortcuts.colShortcut">快捷键</th>
+                                <th data-i18n="articleShortcuts.colFunction">功能</th>
+                                <th data-i18n="articleShortcuts.colDescription">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td>
+                                <td data-i18n="articleShortcuts.globalUndo">撤销</td>
+                                <td data-i18n="articleShortcuts.globalUndoDesc">撤销上一步操作，支持多次撤销</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td>
+                                <td data-i18n="articleShortcuts.globalRedo">重做</td>
+                                <td data-i18n="articleShortcuts.globalRedoDesc">恢复被撤销的操作，与撤销配合使用</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>S</kbd></td>
+                                <td data-i18n="articleShortcuts.globalSave">下载图片</td>
+                                <td data-i18n="articleShortcuts.globalSaveDesc">将处理后的图片保存到本地（PNG 格式）</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Delete</kbd></td>
+                                <td data-i18n="articleShortcuts.globalDelete">抠除选区</td>
+                                <td data-i18n="articleShortcuts.globalDeleteDesc">删除当前选区内的内容，实现背景抠除</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 缩放快捷键 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.zoomTitle">缩放快捷键</h2>
+                    <p data-i18n="articleShortcuts.zoomDesc">缩放是精细修边时的核心操作，以下快捷键帮助您快速调整视图：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="articleShortcuts.colShortcut">快捷键</th>
+                                <th data-i18n="articleShortcuts.colFunction">功能</th>
+                                <th data-i18n="articleShortcuts.colDescription">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>+</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomIn">放大画布</td>
+                                <td data-i18n="articleShortcuts.zoomInDesc">逐级放大画布，便于观察细节边缘</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>-</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomOut">缩小画布</td>
+                                <td data-i18n="articleShortcuts.zoomOutDesc">逐级缩小画布，查看整体效果</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>0</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomReset">重置缩放</td>
+                                <td data-i18n="articleShortcuts.zoomResetDesc">将画布恢复到适应窗口的默认大小</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="tip-box">
+                        <h4 data-i18n="articleShortcuts.zoomTipTitle">提示</h4>
+                        <p data-i18n="articleShortcuts.zoomTipDesc">除了键盘快捷键，您还可以使用鼠标滚轮或触控板双指手势来缩放画布，操作更加自然流畅。</p>
+                    </div>
+                </div>
+
+                <!-- 画笔工具快捷键 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.brushTitle">画笔工具快捷键</h2>
+                    <p data-i18n="articleShortcuts.brushDesc">画笔工具是精细修边的核心，以下快捷键让您无需移动鼠标即可调整参数：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="articleShortcuts.colShortcut">快捷键</th>
+                                <th data-i18n="articleShortcuts.colFunction">功能</th>
+                                <th data-i18n="articleShortcuts.colDescription">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>[</kbd></td>
+                                <td data-i18n="articleShortcuts.brushSizeDown">减小画笔</td>
+                                <td data-i18n="articleShortcuts.brushSizeDownDesc">每次减小画笔大小，适合处理精细边缘</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>]</kbd></td>
+                                <td data-i18n="articleShortcuts.brushSizeUp">增大画笔</td>
+                                <td data-i18n="articleShortcuts.brushSizeUpDesc">每次增大画笔大小，适合大面积涂抹</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Alt</kbd> + 涂抹</td>
+                                <td data-i18n="articleShortcuts.brushModeSwitch">临时切换模式</td>
+                                <td data-i18n="articleShortcuts.brushModeSwitchDesc">按住 Alt 键涂抹时临时切换添加/取消模式，松开后自动恢复</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="tip-box">
+                        <h4 data-i18n="articleShortcuts.brushTipTitle">高效技巧</h4>
+                        <p data-i18n="articleShortcuts.brushTipDesc">在处理发丝等细节时，先用 <kbd>]</kbd> 增大画笔快速涂抹大面积区域，再按 <kbd>[</kbd> 缩小画笔精细修边。配合 Alt 键临时切换模式，可以不离开画布完成所有操作。</p>
+                    </div>
+                </div>
+
+                <!-- 选区操作快捷键 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.selectionTitle">选区操作快捷键</h2>
+                    <p data-i18n="articleShortcuts.selectionDesc">选区是抠图的核心概念，以下快捷键帮助您快速操作选区：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="articleShortcuts.colShortcut">快捷键</th>
+                                <th data-i18n="articleShortcuts.colFunction">功能</th>
+                                <th data-i18n="articleShortcuts.colDescription">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><kbd>Ctrl</kbd> + <kbd>I</kbd></td>
+                                <td data-i18n="articleShortcuts.selectionInvert">反选</td>
+                                <td data-i18n="articleShortcuts.selectionInvertDesc">将当前选区反转，选中区域变为未选中，未选中区域变为选中</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Delete</kbd></td>
+                                <td data-i18n="articleShortcuts.selectionDelete">抠除选区</td>
+                                <td data-i18n="articleShortcuts.selectionDeleteDesc">删除选区内的像素，使其变为透明</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 快捷键速查表 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.cheatsheetTitle">快捷键速查表</h2>
+                    <p data-i18n="articleShortcuts.cheatsheetDesc">将下表保存或打印，放在手边随时查阅：</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="articleShortcuts.colCategory">分类</th>
+                                <th data-i18n="articleShortcuts.colShortcut">快捷键</th>
+                                <th data-i18n="articleShortcuts.colFunction">功能</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td rowspan="4" data-i18n="articleShortcuts.catGlobal">全局</td>
+                                <td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td>
+                                <td data-i18n="articleShortcuts.globalUndo">撤销</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td>
+                                <td data-i18n="articleShortcuts.globalRedo">重做</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd>+<kbd>S</kbd></td>
+                                <td data-i18n="articleShortcuts.globalSave">下载图片</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Delete</kbd></td>
+                                <td data-i18n="articleShortcuts.globalDelete">抠除选区</td>
+                            </tr>
+                            <tr>
+                                <td rowspan="3" data-i18n="articleShortcuts.catZoom">缩放</td>
+                                <td><kbd>Ctrl</kbd>+<kbd>+</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomIn">放大画布</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd>+<kbd>-</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomOut">缩小画布</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Ctrl</kbd>+<kbd>0</kbd></td>
+                                <td data-i18n="articleShortcuts.zoomReset">重置缩放</td>
+                            </tr>
+                            <tr>
+                                <td rowspan="3" data-i18n="articleShortcuts.catBrush">画笔</td>
+                                <td><kbd>[</kbd></td>
+                                <td data-i18n="articleShortcuts.brushSizeDown">减小画笔</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>]</kbd></td>
+                                <td data-i18n="articleShortcuts.brushSizeUp">增大画笔</td>
+                            </tr>
+                            <tr>
+                                <td><kbd>Alt</kbd>+涂抹</td>
+                                <td data-i18n="articleShortcuts.brushModeSwitch">临时切换模式</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="articleShortcuts.catSelection">选区</td>
+                                <td><kbd>Ctrl</kbd>+<kbd>I</kbd></td>
+                                <td data-i18n="articleShortcuts.selectionInvert">反选</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 高效工作流 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.workflowTitle">高效工作流推荐</h2>
+                    <p data-i18n="articleShortcuts.workflowDesc">以下是一个结合快捷键的高效抠图工作流，适合有一定基础的用户：</p>
+                    <ol class="step-list">
+                        <li class="step-item">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShortcuts.wfStep1Title">上传并自动抠图</h4>
+                                <p data-i18n="articleShortcuts.wfStep1Desc">上传图片后，使用智能抠图工具自动识别主体，获得初始选区。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShortcuts.wfStep2Title">放大检查边缘</h4>
+                                <p data-i18n="articleShortcuts.wfStep2Desc">按 <kbd>Ctrl</kbd>+<kbd>+</kbd> 放大画布，仔细检查主体边缘是否需要修整。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShortcuts.wfStep3Title">画笔精细修边</h4>
+                                <p data-i18n="articleShortcuts.wfStep3Desc">切换到画笔工具，用 <kbd>[</kbd> / <kbd>]</kbd> 调整大小，按住 <kbd>Alt</kbd> 临时切换模式修边。出错时按 <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShortcuts.wfStep4Title">反选并抠除</h4>
+                                <p data-i18n="articleShortcuts.wfStep4Desc">按 <kbd>Ctrl</kbd>+<kbd>I</kbd> 反选，然后按 <kbd>Delete</kbd> 抠除背景。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">5</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShortcuts.wfStep5Title">下载保存</h4>
+                                <p data-i18n="articleShortcuts.wfStep5Desc">按 <kbd>Ctrl</kbd>+<kbd>0</kbd> 重置视图检查整体效果，满意后按 <kbd>Ctrl</kbd>+<kbd>S</kbd> 下载保存。</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- 常见问题 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.faqTitle">常见问题</h2>
+                    <h3 data-i18n="articleShortcuts.faq1Q">快捷键在 Mac 上如何使用？</h3>
+                    <p data-i18n="articleShortcuts.faq1A">Mac 用户请将 <kbd>Ctrl</kbd> 替换为 <kbd>Cmd</kbd>（Command 键），其他操作完全一致。例如撤销为 <kbd>Cmd</kbd>+<kbd>Z</kbd>，重做为 <kbd>Cmd</kbd>+<kbd>Y</kbd>。</p>
+                    <h3 data-i18n="articleShortcuts.faq2Q">快捷键不生效怎么办？</h3>
+                    <p data-i18n="articleShortcuts.faq2A">请确认已上传图片并处于编辑状态，快捷键仅在图片加载后生效。如果浏览器或其他扩展占用了相同快捷键，请尝试关闭冲突的扩展。</p>
+                    <h3 data-i18n="articleShortcuts.faq3Q">画笔大小快捷键没有反应？</h3>
+                    <p data-i18n="articleShortcuts.faq3A"><kbd>[</kbd> 和 <kbd>]</kbd> 快捷键仅在画笔工具激活时有效。请先切换到画笔工具，再使用这两个键调整大小。</p>
+                </div>
+
+                <!-- 总结 -->
+                <div class="content-card">
+                    <h2 data-i18n="articleShortcuts.summaryTitle">总结</h2>
+                    <p data-i18n="articleShortcuts.summaryP1">掌握快捷键是提升抠图效率的关键一步。建议您从最常用的 <kbd>Ctrl</kbd>+<kbd>Z</kbd>（撤销）和 <kbd>Ctrl</kbd>+<kbd>S</kbd>（下载）开始，逐步将更多快捷键融入日常操作。随着肌肉记忆的建立，您会发现自己越来越不依赖鼠标点击工具栏，整个工作流程变得更加流畅自然。</p>
+                    <ul>
+                        <li data-i18n="articleShortcuts.summaryItem1">全局快捷键（撤销、重做、下载、抠除）是最基础也最常用的</li>
+                        <li data-i18n="articleShortcuts.summaryItem2">缩放快捷键帮助您在全局和细节之间快速切换</li>
+                        <li data-i18n="articleShortcuts.summaryItem3">画笔快捷键（大小调整、模式切换）是精细修边的核心</li>
+                        <li data-i18n="articleShortcuts.summaryItem4">反选快捷键配合抠除操作，实现高效的背景移除</li>
+                    </ul>
+                </div>
+            </article>
+
+            <!-- 文章底部导航 -->
+            <div class="article-nav">
+                <a href="article-shadow.html" class="article-nav-prev">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    <div>
+                        <span data-i18n="articleShortcuts.navPrevLabel">上一篇</span>
+                        <strong data-i18n="articleShortcuts.navPrevTitle">阴影识别与处理完全指南</strong>
+                    </div>
+                </a>
+                <a href="../tutorials.html" class="article-nav-next">
+                    <div>
+                        <span data-i18n="articleShortcuts.navNextLabel">返回</span>
+                        <strong data-i18n="articleShortcuts.navNextTitle">教程列表</strong>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="page-footer">
+        <div class="footer-inner">
+            <div>
+                <div class="footer-brand">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span data-i18n="nav.logoText">智能抠图</span>
+                </div>
+                <p class="footer-desc" data-i18n="pageFooter.brandDesc">免费的在线智能抠图工具，支持多种抠图算法，所有处理在浏览器本地完成，保护您的隐私安全。</p>
+            </div>
+            <div class="footer-column">
+                <h4 data-i18n="pageFooter.product">产品</h4>
+                <ul>
+                    <li><a href="../../index.html" data-i18n="pageFooter.onlineCutout">在线抠图</a></li>
+                    <li><a href="../tutorials.html" data-i18n="pageFooter.tutorialsLink">使用教程</a></li>
+                    <li><a href="../../doc/architecture.md" data-i18n="pageFooter.techDoc">技术文档</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4 data-i18n="pageFooter.support">支持</h4>
+                <ul>
+                    <li><a href="../about.html" data-i18n="pageFooter.aboutLink">关于我们</a></li>
+                    <li><a href="../contact.html" data-i18n="pageFooter.contactLink">联系我们</a></li>
+                    <li><a href="../privacy.html" data-i18n="pageFooter.privacyLink">隐私政策</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4 data-i18n="pageFooter.resources">资源</h4>
+                <ul>
+                    <li><a href="../tutorials.html" data-i18n="pageFooter.imageTutorials">图片处理教程</a></li>
+                    <li><a href="../../README.md" data-i18n="pageFooter.projectDoc">项目说明</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span data-i18n="pageFooter.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利。</span>
+            <span><a href="../privacy.html" data-i18n="pageFooter.privacyPolicy">隐私政策</a> &middot; <a href="../contact.html" data-i18n="pageFooter.contactUs">联系我们</a></span>
+        </div>
+    </footer>
+
+    <!-- i18n 国际化初始化 -->
+    <script type="module">
+        import i18n from '../../js/i18n/i18n.js';
+        import { initLangSwitcher } from '../../js/i18n/langSwitcher.js';
+        await i18n.init();
+        initLangSwitcher();
+    </script>
+</body>
+</html>
