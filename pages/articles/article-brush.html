@@ -10,82 +10,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画笔涂抹精细调整 - 智能抠图工具</title>
+    <title data-i18n-page-title="articleBrush.pageTitle">画笔涂抹精细调整 - 智能抠图工具</title>
     <link rel="stylesheet" href="../../css/pages.css">
 </head>
 <body>
     <nav class="page-nav">
         <a href="../../index.html" class="nav-logo">
-            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>智能抠图</span>
+            <span data-i18n="nav.logoText">智能抠图</span>
         </a>
-        <div class="nav-links">
-            <a href="../../index.html" class="nav-link">首页</a>
-            <a href="../tutorials.html" class="nav-link active">教程</a>
-            <a href="../about.html" class="nav-link">关于我们</a>
-            <a href="../contact.html" class="nav-link">联系方式</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="../tutorials.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="../about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="../contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
         </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
     </nav>
 
     <main class="page-main">
         <div class="container">
             <div class="page-header">
                 <div class="breadcrumbs">
-                    <a href="../tutorials.html">教程中心</a>
+                    <a href="../tutorials.html" data-i18n="articles.tutorialCenter">教程中心</a>
                     <span>/</span>
-                    <span>画笔涂抹精细调整</span>
+                    <span data-i18n="articleBrush.breadcrumb">画笔涂抹精细调整</span>
                 </div>
-                <h1 class="page-title">画笔涂抹精细调整</h1>
-                <p class="page-subtitle">实现像素级选区控制的专业技巧</p>
+                <h1 class="page-title" data-i18n="articleBrush.title">画笔涂抹精细调整</h1>
+                <p class="page-subtitle" data-i18n="articleBrush.subtitle">实现像素级选区控制的专业技巧</p>
                 <div class="article-meta">
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        2025-05-28
+                        <span data-i18n="articleBrush.date">2025-05-28</span>
                     </span>
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        约22分钟阅读
+                        <span data-i18n="articleBrush.readingTime">约22分钟阅读</span>
                     </span>
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                        进阶教程
+                        <span data-i18n="articleBrush.level">进阶教程</span>
                     </span>
                 </div>
             </div>
 
             <article class="article-content">
                 <div class="content-card">
-                    <h2>画笔工具概述</h2>
-                    <p>画笔工具是智能抠图工具中最精细的选区编辑工具，它赋予用户对选区进行像素级控制的能力。与魔术棒和智能抠图的自动选择不同，画笔工具完全由用户手动控制，适合处理需要精确边缘处理的复杂场景，如人物发丝、动物毛发、半透明物体等。</p>
-                    <p>画笔工具的核心优势在于其灵活性：您可以自由选择画笔大小、硬度、模式，并且支持按住 Alt 键快速切换模式。这种设计使得画笔工具成为专业级抠图工作流程中不可或缺的环节。</p>
+                    <h2 data-i18n="articleBrush.overviewTitle">画笔工具概述</h2>
+                    <p data-i18n="articleBrush.overviewP1">画笔工具是智能抠图工具中最精细的选区编辑工具，它赋予用户对选区进行像素级控制的能力。与魔术棒和智能抠图的自动选择不同，画笔工具完全由用户手动控制，适合处理需要精确边缘处理的复杂场景，如人物发丝、动物毛发、半透明物体等。</p>
+                    <p data-i18n="articleBrush.overviewP2">画笔工具的核心优势在于其灵活性：您可以自由选择画笔大小、硬度、模式，并且支持按住 Alt 键快速切换模式。这种设计使得画笔工具成为专业级抠图工作流程中不可或缺的环节。</p>
                 </div>
 
                 <div class="content-card">
-                    <h2>画笔参数详解</h2>
+                    <h2 data-i18n="articleBrush.paramsTitle">画笔参数详解</h2>
                     
-                    <h3>画笔模式</h3>
-                    <p>画笔工具提供两种工作模式：</p>
+                    <h3 data-i18n="articleBrush.modeTitle">画笔模式</h3>
+                    <p data-i18n="articleBrush.modeDesc">画笔工具提供两种工作模式：</p>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li><strong>添加模式（Add）：</strong>将涂抹的区域添加到当前选区中。使用此模式来扩展选区，覆盖被遗漏的主体部分。</li>
-                        <li><strong>取消模式（Subtract）：</strong>从当前选区中移除涂抹的区域。使用此模式来清除多选的区域，去除背景残留。</li>
+                        <li data-i18n="articleBrush.modeAdd"><strong>添加模式（Add）：</strong>将涂抹的区域添加到当前选区中。使用此模式来扩展选区，覆盖被遗漏的主体部分。</li>
+                        <li data-i18n="articleBrush.modeSubtract"><strong>取消模式（Subtract）：</strong>从当前选区中移除涂抹的区域。使用此模式来清除多选的区域，去除背景残留。</li>
                     </ul>
-                    <p>两种模式可以通过工具栏按钮切换，也可以在涂抹时按住 Alt 键临时切换。例如，当前处于添加模式时，按住 Alt 键涂抹会临时变为取消模式，释放 Alt 键后自动恢复。</p>
+                    <p data-i18n="articleBrush.modeAlt">两种模式可以通过工具栏按钮切换，也可以在涂抹时按住 Alt 键临时切换。例如，当前处于添加模式时，按住 Alt 键涂抹会临时变为取消模式，释放 Alt 键后自动恢复。</p>
 
-                    <h3>画笔大小</h3>
-                    <p>画笔大小控制画笔笔触的直径，范围从 5 像素到 100 像素。选择合适的画笔大小对于精细调整至关重要：</p>
+                    <h3 data-i18n="articleBrush.sizeTitle">画笔大小</h3>
+                    <p data-i18n="articleBrush.sizeDesc">画笔大小控制画笔笔触的直径，范围从 5 像素到 100 像素。选择合适的画笔大小对于精细调整至关重要：</p>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li><strong>小画笔（5-15px）：</strong>用于处理精细边缘，如发丝、睫毛、树枝等细节</li>
-                        <li><strong>中画笔（16-40px）：</strong>适合处理一般边缘的修正和局部调整</li>
-                        <li><strong>大画笔（41-100px）：</strong>用于大面积选区的快速添加或删除</li>
+                        <li data-i18n="articleBrush.sizeSmall"><strong>小画笔（5-15px）：</strong>用于处理精细边缘，如发丝、睫毛、树枝等细节</li>
+                        <li data-i18n="articleBrush.sizeMedium"><strong>中画笔（16-40px）：</strong>适合处理一般边缘的修正和局部调整</li>
+                        <li data-i18n="articleBrush.sizeLarge"><strong>大画笔（41-100px）：</strong>用于大面积选区的快速添加或删除</li>
                     </ul>
-                    <p><strong>快捷键：</strong>在画布上涂抹时，可以按 <kbd>[</kbd> 键减小画笔大小，按 <kbd>]</kbd> 键增大画笔大小，无需频繁移动鼠标到参数面板。</p>
+                    <p data-i18n="articleBrush.sizeShortcut"><strong>快捷键：</strong>在画布上涂抹时，可以按 <kbd>[</kbd> 键减小画笔大小，按 <kbd>]</kbd> 键增大画笔大小，无需频繁移动鼠标到参数面板。</p>
 
-                    <h3>画笔硬度</h3>
-                    <p>画笔硬度控制画笔边缘的柔和程度，范围从 0（完全柔和）到 100（完全锐利）。硬度通过影响画笔笔迹的透明度渐变来实现：</p>
+                    <h3 data-i18n="articleBrush.hardnessTitle">画笔硬度</h3>
+                    <p data-i18n="articleBrush.hardnessDesc">画笔硬度控制画笔边缘的柔和程度，范围从 0（完全柔和）到 100（完全锐利）。硬度通过影响画笔笔迹的透明度渐变来实现：</p>
                     <pre class="code-block"><code>// 画笔硬度与透明度的关系
 function calculateBrushOpacity(distance, brushSize, hardness) {
     const radius = brushSize / 2;
@@ -111,18 +140,18 @@ function calculateBrushOpacity(distance, brushSize, hardness) {
     }
 }</code></pre>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li><strong>高硬度（70-100）：</strong>边缘清晰锐利，适合处理几何形状、建筑边缘</li>
-                        <li><strong>中硬度（40-69）：</strong>边缘过渡自然，适合大多数场景</li>
-                        <li><strong>低硬度（0-39）：</strong>边缘非常柔和，适合处理毛发、烟雾、光晕等</li>
+                        <li data-i18n="articleBrush.hardnessHigh"><strong>高硬度（70-100）：</strong>边缘清晰锐利，适合处理几何形状、建筑边缘</li>
+                        <li data-i18n="articleBrush.hardnessMid"><strong>中硬度（40-69）：</strong>边缘过渡自然，适合大多数场景</li>
+                        <li data-i18n="articleBrush.hardnessLow"><strong>低硬度（0-39）：</strong>边缘非常柔和，适合处理毛发、烟雾、光晕等</li>
                     </ul>
                 </div>
 
                 <div class="content-card">
-                    <h2>画笔绘制算法</h2>
-                    <p>画笔工具的核心是在鼠标移动轨迹上连续绘制圆形笔迹，并将笔迹覆盖区域的像素标记为选区或从选区移除。为了保证绘制流畅且边缘平滑，工具采用了以下优化策略：</p>
+                    <h2 data-i18n="articleBrush.algorithmTitle">画笔绘制算法</h2>
+                    <p data-i18n="articleBrush.algorithmDesc">画笔工具的核心是在鼠标移动轨迹上连续绘制圆形笔迹，并将笔迹覆盖区域的像素标记为选区或从选区移除。为了保证绘制流畅且边缘平滑，工具采用了以下优化策略：</p>
                     
-                    <h3>插值绘制</h3>
-                    <p>当鼠标移动速度较快时，相邻两点之间的距离可能超过画笔直径，导致笔迹不连续。为了解决这个问题，工具在相邻两点之间进行线性插值，确保笔迹的连续性：</p>
+                    <h3 data-i18n="articleBrush.interpTitle">插值绘制</h3>
+                    <p data-i18n="articleBrush.interpDesc">当鼠标移动速度较快时，相邻两点之间的距离可能超过画笔直径，导致笔迹不连续。为了解决这个问题，工具在相邻两点之间进行线性插值，确保笔迹的连续性：</p>
                     <pre class="code-block"><code>// 插值绘制确保笔迹连续
 function interpolateBrushStroke(start, end, brushSize, hardness, mode) {
     const dx = end.x - start.x;
@@ -174,129 +203,129 @@ function drawBrushStamp(centerX, centerY, brushSize, hardness, mode) {
                 </div>
 
                 <div class="content-card">
-                    <h2>实战案例：人物发丝精修</h2>
-                    <p>人物发丝的抠图是图像处理中最具挑战性的任务之一。发丝具有极细的宽度、复杂的相互交错、以及与背景混合的半透明特性。下面演示如何使用画笔工具精修发丝边缘。</p>
+                    <h2 data-i18n="articleBrush.case1Title">实战案例：人物发丝精修</h2>
+                    <p data-i18n="articleBrush.case1Desc">人物发丝的抠图是图像处理中最具挑战性的任务之一。发丝具有极细的宽度、复杂的相互交错、以及与背景混合的半透明特性。下面演示如何使用画笔工具精修发丝边缘。</p>
                     
                     <ol class="step-list">
                         <li class="step-item">
                             <span class="step-number">1</span>
                             <div class="step-content">
-                                <h4>初始选区准备</h4>
-                                <p>使用"人体分割"或"智能抠图"功能生成初始选区。此时发丝边缘可能比较粗糙，部分发丝可能未被选中。</p>
+                                <h4 data-i18n="articleBrush.case1Step1Title">初始选区准备</h4>
+                                <p data-i18n="articleBrush.case1Step1Desc">使用"人体分割"或"智能抠图"功能生成初始选区。此时发丝边缘可能比较粗糙，部分发丝可能未被选中。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">2</span>
                             <div class="step-content">
-                                <h4>切换到画笔工具</h4>
-                                <p>在左侧工具栏选择"画笔涂抹"。设置参数：画笔大小 5-8px，硬度 20-30，模式"添加"。</p>
+                                <h4 data-i18n="articleBrush.case1Step2Title">切换到画笔工具</h4>
+                                <p data-i18n="articleBrush.case1Step2Desc">在左侧工具栏选择"画笔涂抹"。设置参数：画笔大小 5-8px，硬度 20-30，模式"添加"。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">3</span>
                             <div class="step-content">
-                                <h4>放大画布精细涂抹</h4>
-                                <p>使用画布缩放功能放大到 200-400%，仔细沿着发丝方向轻轻涂抹。注意只需要覆盖发丝的主体部分，不需要完全覆盖边缘的半透明区域。</p>
+                                <h4 data-i18n="articleBrush.case1Step3Title">放大画布精细涂抹</h4>
+                                <p data-i18n="articleBrush.case1Step3Desc">使用画布缩放功能放大到 200-400%，仔细沿着发丝方向轻轻涂抹。注意只需要覆盖发丝的主体部分，不需要完全覆盖边缘的半透明区域。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">4</span>
                             <div class="step-content">
-                                <h4>切换模式清理背景</h4>
-                                <p>按住 Alt 键临时切换到"取消"模式，或使用工具栏切换到取消模式。调整画笔大小到 10-15px，硬度提高到 50-70，涂抹去除发丝周围多选的背景区域。</p>
+                                <h4 data-i18n="articleBrush.case1Step4Title">切换模式清理背景</h4>
+                                <p data-i18n="articleBrush.case1Step4Desc">按住 Alt 键临时切换到"取消"模式，或使用工具栏切换到取消模式。调整画笔大小到 10-15px，硬度提高到 50-70，涂抹去除发丝周围多选的背景区域。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">5</span>
                             <div class="step-content">
-                                <h4>应用边缘光滑</h4>
-                                <p>完成画笔精修后，使用"后处理"工具栏中的"边缘光滑"功能，设置强度为 2-3，对发丝边缘进行柔和处理。</p>
+                                <h4 data-i18n="articleBrush.case1Step5Title">应用边缘光滑</h4>
+                                <p data-i18n="articleBrush.case1Step5Desc">完成画笔精修后，使用"后处理"工具栏中的"边缘光滑"功能，设置强度为 2-3，对发丝边缘进行柔和处理。</p>
                             </div>
                         </li>
                     </ol>
 
                     <div class="highlight-box">
-                        <p><strong>专业提示：</strong>处理发丝时，建议使用较低的硬度值（20-40），这样可以产生半透明边缘效果，使抠出的发丝在合成到新背景时更加自然。完全硬边的选区会使发丝看起来像剪纸，缺乏真实感。</p>
+                        <p><strong data-i18n="articleBrush.case1TipTitle">专业提示：</strong><span data-i18n="articleBrush.case1TipDesc">处理发丝时，建议使用较低的硬度值（20-40），这样可以产生半透明边缘效果，使抠出的发丝在合成到新背景时更加自然。完全硬边的选区会使发丝看起来像剪纸，缺乏真实感。</span></p>
                     </div>
                 </div>
 
                 <div class="content-card">
-                    <h2>实战案例：产品边缘精修</h2>
-                    <p>电商产品图片通常需要精确的边缘处理，以确保在白色背景或其他背景下展示时边缘清晰、没有杂色。</p>
+                    <h2 data-i18n="articleBrush.case2Title">实战案例：产品边缘精修</h2>
+                    <p data-i18n="articleBrush.case2Desc">电商产品图片通常需要精确的边缘处理，以确保在白色背景或其他背景下展示时边缘清晰、没有杂色。</p>
                     
                     <ol class="step-list">
                         <li class="step-item">
                             <span class="step-number">1</span>
                             <div class="step-content">
-                                <h4>生成初始选区</h4>
-                                <p>使用"颜色聚类"或"自动选择"模式生成产品的初始选区。对于产品摄影图，背景通常为纯色，初始选区效果一般较好。</p>
+                                <h4 data-i18n="articleBrush.case2Step1Title">生成初始选区</h4>
+                                <p data-i18n="articleBrush.case2Step1Desc">使用"颜色聚类"或"自动选择"模式生成产品的初始选区。对于产品摄影图，背景通常为纯色，初始选区效果一般较好。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">2</span>
                             <div class="step-content">
-                                <h4>检查边缘</h4>
-                                <p>仔细观察产品边缘，特别是与背景颜色相近的区域。常见问题包括：边缘有背景色溢出、选区切入了产品本身、边缘有锯齿。</p>
+                                <h4 data-i18n="articleBrush.case2Step2Title">检查边缘</h4>
+                                <p data-i18n="articleBrush.case2Step2Desc">仔细观察产品边缘，特别是与背景颜色相近的区域。常见问题包括：边缘有背景色溢出、选区切入了产品本身、边缘有锯齿。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">3</span>
                             <div class="step-content">
-                                <h4>使用高硬度画笔修正</h4>
-                                <p>产品边缘通常需要清晰锐利，因此使用高硬度（80-100）的画笔。根据修正区域的大小选择画笔尺寸，一般在 8-20px 之间。</p>
+                                <h4 data-i18n="articleBrush.case2Step3Title">使用高硬度画笔修正</h4>
+                                <p data-i18n="articleBrush.case2Step3Desc">产品边缘通常需要清晰锐利，因此使用高硬度（80-100）的画笔。根据修正区域的大小选择画笔尺寸，一般在 8-20px 之间。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">4</span>
                             <div class="step-content">
-                                <h4>使用选区反选技巧</h4>
-                                <p>如果产品边缘被错误地多选或少选，可以结合"反选"功能：先选中背景区域，检查边缘是否准确，然后反选回主体。</p>
+                                <h4 data-i18n="articleBrush.case2Step4Title">使用选区反选技巧</h4>
+                                <p data-i18n="articleBrush.case2Step4Desc">如果产品边缘被错误地多选或少选，可以结合"反选"功能：先选中背景区域，检查边缘是否准确，然后反选回主体。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">5</span>
                             <div class="step-content">
-                                <h4>全图去噪</h4>
-                                <p>精修完成后，使用"全图去噪"功能清理选区内部的孤立噪点和边缘的微小瑕疵。设置适当的阈值（建议 50-100 像素）。</p>
+                                <h4 data-i18n="articleBrush.case2Step5Title">全图去噪</h4>
+                                <p data-i18n="articleBrush.case2Step5Desc">精修完成后，使用"全图去噪"功能清理选区内部的孤立噪点和边缘的微小瑕疵。设置适当的阈值（建议 50-100 像素）。</p>
                             </div>
                         </li>
                     </ol>
                 </div>
 
                 <div class="content-card">
-                    <h2>高效工作流程</h2>
-                    <p>为了提高画笔精修的效率，建议采用以下工作流程：</p>
+                    <h2 data-i18n="articleBrush.workflowTitle">高效工作流程</h2>
+                    <p data-i18n="articleBrush.workflowDesc">为了提高画笔精修的效率，建议采用以下工作流程：</p>
                     
-                    <h3>快捷键速查</h3>
+                    <h3 data-i18n="articleBrush.shortcutTitle">快捷键速查</h3>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li><kbd>[</kbd> / <kbd>]</kbd>：减小/增大画笔大小</li>
-                        <li><kbd>Alt</kbd> + 涂抹：临时切换画笔模式</li>
-                        <li><kbd>Ctrl + Z</kbd>：撤销上一步画笔操作</li>
-                        <li><kbd>Ctrl + Y</kbd>：重做画笔操作</li>
-                        <li><kbd>Ctrl + +</kbd> / <kbd>Ctrl + -</kbd>：放大/缩小画布</li>
+                        <li data-i18n="articleBrush.shortcut1"><kbd>[</kbd> / <kbd>]</kbd>：减小/增大画笔大小</li>
+                        <li data-i18n="articleBrush.shortcut2"><kbd>Alt</kbd> + 涂抹：临时切换画笔模式</li>
+                        <li data-i18n="articleBrush.shortcut3"><kbd>Ctrl + Z</kbd>：撤销上一步画笔操作</li>
+                        <li data-i18n="articleBrush.shortcut4"><kbd>Ctrl + Y</kbd>：重做画笔操作</li>
+                        <li data-i18n="articleBrush.shortcut5"><kbd>Ctrl + +</kbd> / <kbd>Ctrl + -</kbd>：放大/缩小画布</li>
                     </ul>
 
-                    <h3>分阶段精修策略</h3>
-                    <p>对于复杂图像，不要试图一次完成所有精修工作。建议分阶段进行：</p>
+                    <h3 data-i18n="articleBrush.strategyTitle">分阶段精修策略</h3>
+                    <p data-i18n="articleBrush.strategyDesc">对于复杂图像，不要试图一次完成所有精修工作。建议分阶段进行：</p>
                     <ol style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li><strong>粗调阶段：</strong>使用大画笔（30-50px）快速修正明显的选区错误</li>
-                        <li><strong>中调阶段：</strong>使用中等画笔（15-30px）处理主要边缘</li>
-                        <li><strong>精调阶段：</strong>使用小画笔（5-15px）处理细节和复杂边缘</li>
-                        <li><strong>微调阶段：</strong>使用极小画笔（5px 以下）处理最精细的细节</li>
+                        <li data-i18n="articleBrush.strategy1"><strong>粗调阶段：</strong>使用大画笔（30-50px）快速修正明显的选区错误</li>
+                        <li data-i18n="articleBrush.strategy2"><strong>中调阶段：</strong>使用中等画笔（15-30px）处理主要边缘</li>
+                        <li data-i18n="articleBrush.strategy3"><strong>精调阶段：</strong>使用小画笔（5-15px）处理细节和复杂边缘</li>
+                        <li data-i18n="articleBrush.strategy4"><strong>微调阶段：</strong>使用极小画笔（5px 以下）处理最精细的细节</li>
                     </ol>
                 </div>
 
                 <div class="content-card">
-                    <h2>总结</h2>
-                    <p>画笔工具是智能抠图工具箱中最灵活、最精细的选区编辑工具。掌握画笔工具的关键在于：</p>
+                    <h2 data-i18n="articleBrush.summaryTitle">总结</h2>
+                    <p data-i18n="articleBrush.summaryDesc">画笔工具是智能抠图工具箱中最灵活、最精细的选区编辑工具。掌握画笔工具的关键在于：</p>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li>根据处理对象选择合适的画笔大小和硬度</li>
-                        <li>熟练切换添加/取消模式，善用 Alt 键临时切换</li>
-                        <li>采用分阶段精修策略，从粗调到微调逐步完善</li>
-                        <li>善用放大功能进行精细操作，适当缩小检查整体效果</li>
-                        <li>结合其他工具（如边缘光滑、去噪）获得最佳效果</li>
+                        <li data-i18n="articleBrush.summaryItem1">根据处理对象选择合适的画笔大小和硬度</li>
+                        <li data-i18n="articleBrush.summaryItem2">熟练切换添加/取消模式，善用 Alt 键临时切换</li>
+                        <li data-i18n="articleBrush.summaryItem3">采用分阶段精修策略，从粗调到微调逐步完善</li>
+                        <li data-i18n="articleBrush.summaryItem4">善用放大功能进行精细操作，适当缩小检查整体效果</li>
+                        <li data-i18n="articleBrush.summaryItem5">结合其他工具（如边缘光滑、去噪）获得最佳效果</li>
                     </ul>
-                    <p>在下一篇教程<a href="article-shapecut.html">形状抠图完全指南</a>中，我们将介绍如何使用预设几何形状快速创建选区，适合处理需要标准形状裁剪的场景。</p>
+                    <p data-i18n="articleBrush.summaryNext">在下一篇教程<a href="article-shapecut.html">形状抠图完全指南</a>中，我们将介绍如何使用预设几何形状快速创建选区，适合处理需要标准形状裁剪的场景。</p>
                 </div>
             </article>
 
@@ -304,14 +333,14 @@ function drawBrushStamp(centerX, centerY, brushSize, hardness, mode) {
                 <a href="article-magicwand.html" class="article-nav-prev">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     <div>
-                        <span>上一篇</span>
-                        <strong>魔术棒工具使用技巧</strong>
+                        <span data-i18n="articleBrush.navPrevLabel">上一篇</span>
+                        <strong data-i18n="articleBrush.navPrevTitle">魔术棒工具使用技巧</strong>
                     </div>
                 </a>
                 <a href="article-shapecut.html" class="article-nav-next">
                     <div>
-                        <span>下一篇</span>
-                        <strong>形状抠图完全指南</strong>
+                        <span data-i18n="articleBrush.navNextLabel">下一篇</span>
+                        <strong data-i18n="articleBrush.navNextTitle">形状抠图完全指南</strong>
                     </div>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </a>
@@ -323,29 +352,38 @@ function drawBrushStamp(centerX, centerY, brushSize, hardness, mode) {
         <div class="container">
             <div class="footer-grid">
                 <div class="footer-section">
-                    <h3>智能抠图工具</h3>
-                    <p>免费在线图片处理平台，让每个人都能轻松完成专业的图像抠图操作。</p>
+                    <h3 data-i18n="nav.logoText">智能抠图工具</h3>
+                    <p data-i18n="pageFooter.brandDesc">免费在线图片处理平台，让每个人都能轻松完成专业的图像抠图操作。</p>
                 </div>
                 <div class="footer-section">
-                    <h4>快速链接</h4>
+                    <h4 data-i18n="pageFooter.product">快速链接</h4>
                     <ul class="footer-links">
-                        <li><a href="../../index.html">首页</a></li>
-                        <li><a href="../tutorials.html">教程中心</a></li>
-                        <li><a href="../about.html">关于我们</a></li>
+                        <li><a href="../../index.html" data-i18n="nav.home">首页</a></li>
+                        <li><a href="../tutorials.html" data-i18n="nav.tutorials">教程中心</a></li>
+                        <li><a href="../about.html" data-i18n="nav.about">关于我们</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h4>支持</h4>
+                    <h4 data-i18n="pageFooter.support">支持</h4>
                     <ul class="footer-links">
-                        <li><a href="../privacy.html">隐私政策</a></li>
-                        <li><a href="../contact.html">联系方式</a></li>
+                        <li><a href="../privacy.html" data-i18n="pageFooter.privacyPolicy">隐私政策</a></li>
+                        <li><a href="../contact.html" data-i18n="pageFooter.contactUs">联系方式</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p> 2025 智能抠图工具. 保留所有权利.</p>
+                <p data-i18n="pageFooter.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利.</p>
             </div>
         </div>
     </footer>
+
+    <!-- i18n 国际化初始化 -->
+    <script type="module">
+        import i18n from '../../js/i18n/i18n.js';
+        import { initLangSwitcher } from '../../js/i18n/langSwitcher.js';
+        await i18n.init();
+        i18n.updateUI();
+        initLangSwitcher();
+    </script>
 </body>
 </html>

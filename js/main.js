@@ -73,7 +73,7 @@ class App {
 
         this.minAreaThresholdInput = document.getElementById('minAreaThreshold');
         this.removeSmallRegionsBtn = document.getElementById('removeSmallRegionsBtn');
-        this.框选去除噪点Btn = document.getElementById('框选去除噪点Btn');
+        this.boxDenoiseBtn = document.getElementById('boxDenoiseBtn');
 
         this.smoothEdgesBtn = document.getElementById('smoothEdgesBtn');
         this.smoothEdgesParams = document.getElementById('smoothEdgesParams');
@@ -152,7 +152,7 @@ class App {
 
         this.minAreaThresholdInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.removeSmallRegionsBtn.addEventListener('click', () => this.handleRemoveSmallRegions());
-        this.框选去除噪点Btn.addEventListener('click', () => this.handle框选去除噪点());
+        this.boxDenoiseBtn.addEventListener('click', () => this.handleBoxDenoise());
 
         this.applySmartCutBtn.addEventListener('click', () => this.handleApplySmartCut());
         this.clearSelectionBtn.addEventListener('click', () => this.handleClearSelection());
@@ -982,7 +982,7 @@ class App {
         if (this.isLoading) return;
 
         if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
-            this.showNotification('请先使用智能抠图或魔法棒确定紫色选区', 'warning');
+            this.showNotification('请先使用智能抠图或魔术棒确定紫色选区', 'warning');
             return;
         }
 
@@ -1059,7 +1059,7 @@ class App {
         if (this.isLoading) return;
 
         if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
-            this.showNotification('请先使用智能抠图或魔法棒确定紫色选区', 'warning');
+            this.showNotification('请先使用智能抠图或魔术棒确定紫色选区', 'warning');
             return;
         }
 
@@ -1089,7 +1089,7 @@ class App {
     /**
      * 处理框选去除噪点
      */
-    handle框选去除噪点() {
+    handleBoxDenoise() {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
 

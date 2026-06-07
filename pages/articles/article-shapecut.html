@@ -10,87 +10,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>形状抠图完全指南 - 智能抠图工具</title>
+    <title data-i18n-page-title="articleShapecut.pageTitle">形状抠图完全指南 - 智能抠图工具</title>
     <link rel="stylesheet" href="../../css/pages.css">
 </head>
 <body>
     <nav class="page-nav">
         <a href="../../index.html" class="nav-logo">
-            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span>智能抠图</span>
+            <span data-i18n="nav.logoText">智能抠图</span>
         </a>
-        <div class="nav-links">
-            <a href="../../index.html" class="nav-link">首页</a>
-            <a href="../tutorials.html" class="nav-link active">教程</a>
-            <a href="../about.html" class="nav-link">关于我们</a>
-            <a href="../contact.html" class="nav-link">联系方式</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="../tutorials.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="../about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="../contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
         </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
     </nav>
 
     <main class="page-main">
         <div class="container">
             <div class="page-header">
                 <div class="breadcrumbs">
-                    <a href="../tutorials.html">教程中心</a>
+                    <a href="../tutorials.html" data-i18n="articles.tutorialCenter">教程中心</a>
                     <span>/</span>
-                    <span>形状抠图完全指南</span>
+                    <span data-i18n="articleShapecut.breadcrumb">形状抠图完全指南</span>
                 </div>
-                <h1 class="page-title">形状抠图完全指南</h1>
-                <p class="page-subtitle">使用几何形状快速创建精确选区</p>
+                <h1 class="page-title" data-i18n="articleShapecut.title">形状抠图完全指南</h1>
+                <p class="page-subtitle" data-i18n="articleShapecut.subtitle">使用几何形状快速创建精确选区</p>
                 <div class="article-meta">
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        2025-05-28
+                        <span data-i18n="articleShapecut.date">2025-05-28</span>
                     </span>
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        约16分钟阅读
+                        <span data-i18n="articleShapecut.readingTime">约16分钟阅读</span>
                     </span>
                     <span class="meta-item">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                        入门教程
+                        <span data-i18n="articleShapecut.level">入门教程</span>
                     </span>
                 </div>
             </div>
 
             <article class="article-content">
                 <div class="content-card">
-                    <h2>形状抠图概述</h2>
-                    <p>形状抠图工具是智能抠图工具中一种快速、直观的选区创建方式。与基于颜色或边缘的自动选择方法不同，形状抠图允许用户通过绘制标准几何形状来定义选区。这种方法特别适合需要规则形状裁剪的场景，如头像裁剪（圆形）、产品展示（矩形）、封面设计（特定比例）等。</p>
-                    <p>形状抠图工具内置了六种常用几何形状：矩形、圆形、椭圆、花瓣、星形和心形。用户可以选择任意形状，在画布上拖动绘制，工具会自动将形状区域转换为选区。此外，形状抠图还支持选区的后续变换操作，包括移动、缩放、旋转等。</p>
+                    <h2 data-i18n="articleShapecut.overviewTitle">形状抠图概述</h2>
+                    <p data-i18n="articleShapecut.overviewP1">形状抠图工具是智能抠图工具中一种快速、直观的选区创建方式。与基于颜色或边缘的自动选择方法不同，形状抠图允许用户通过绘制标准几何形状来定义选区。这种方法特别适合需要规则形状裁剪的场景，如头像裁剪（圆形）、产品展示（矩形）、封面设计（特定比例）等。</p>
+                    <p data-i18n="articleShapecut.overviewP2">形状抠图工具内置了六种常用几何形状：矩形、圆形、椭圆、花瓣、星形和心形。用户可以选择任意形状，在画布上拖动绘制，工具会自动将形状区域转换为选区。此外，形状抠图还支持选区的后续变换操作，包括移动、缩放、旋转等。</p>
                 </div>
 
                 <div class="content-card">
-                    <h2>形状类型详解</h2>
+                    <h2 data-i18n="articleShapecut.shapesTitle">形状类型详解</h2>
                     
-                    <h3>矩形（Rectangle）</h3>
-                    <p>矩形是最基础也是最常用的形状类型。在拖动过程中，按住 Shift 键可以约束为正方形。在许多设计场景中，矩形选区用于创建标准的白底产品展示图、证件照背景裁剪等。</p>
+                    <h3 data-i18n="articleShapecut.rectTitle">矩形（Rectangle）</h3>
+                    <p data-i18n="articleShapecut.rectDesc">矩形是最基础也是最常用的形状类型。在拖动过程中，按住 Shift 键可以约束为正方形。在许多设计场景中，矩形选区用于创建标准的白底产品展示图、证件照背景裁剪等。</p>
                     
-                    <h3>圆形（Circle）</h3>
-                    <p>圆形形状常用于创建圆形头像或徽章设计。拖动时按住 Shift 键可确保绘制出完美的圆形。圆形选区的中心点是您按下鼠标的位置。</p>
+                    <h3 data-i18n="articleShapecut.circleTitle">圆形（Circle）</h3>
+                    <p data-i18n="articleShapecut.circleDesc">圆形形状常用于创建圆形头像或徽章设计。拖动时按住 Shift 键可确保绘制出完美的圆形。圆形选区的中心点是您按下鼠标的位置。</p>
                     
-                    <h3>椭圆（Ellipse）</h3>
-                    <p>椭圆形状提供了比圆形更大的灵活性，适合创建宽屏比例的裁剪区域。在设计视频封面或社交媒体头像时，椭圆形状非常有用。</p>
+                    <h3 data-i18n="articleShapecut.ellipseTitle">椭圆（Ellipse）</h3>
+                    <p data-i18n="articleShapecut.ellipseDesc">椭圆形状提供了比圆形更大的灵活性，适合创建宽屏比例的裁剪区域。在设计视频封面或社交媒体头像时，椭圆形状非常有用。</p>
                     
-                    <h3>花瓣形状（Petal）</h3>
-                    <p>花瓣形状是一个五瓣对称曲线图形，适合创建花朵形状的选区。在设计花卉相关素材或需要装饰性边缘时可以使用。</p>
+                    <h3 data-i18n="articleShapecut.petalTitle">花瓣形状（Petal）</h3>
+                    <p data-i18n="articleShapecut.petalDesc">花瓣形状是一个五瓣对称曲线图形，适合创建花朵形状的选区。在设计花卉相关素材或需要装饰性边缘时可以使用。</p>
                     
-                    <h3>星形（Star）</h3>
-                    <p>星形是一个标准的五角星形状，适合创建徽章、标签或需要星形元素的创意设计。</p>
+                    <h3 data-i18n="articleShapecut.starTitle">星形（Star）</h3>
+                    <p data-i18n="articleShapecut.starDesc">星形是一个标准的五角星形状，适合创建徽章、标签或需要星形元素的创意设计。</p>
                     
-                    <h3>心形（Heart）</h3>
-                    <p>心形是社交媒体和浪漫主题设计中最受欢迎的形状之一。可用于创建爱心图标、卡片设计或特殊活动的视觉素材。</p>
+                    <h3 data-i18n="articleShapecut.heartTitle">心形（Heart）</h3>
+                    <p data-i18n="articleShapecut.heartDesc">心形是社交媒体和浪漫主题设计中最受欢迎的形状之一。可用于创建爱心图标、卡片设计或特殊活动的视觉素材。</p>
                 </div>
 
                 <div class="content-card">
-                    <h2>形状绘制算法</h2>
-                    <p>形状抠图工具的核心是将数学定义的几何形状转换为像素级的选区蒙版。每种形状都有其独特的数学定义：</p>
+                    <h2 data-i18n="articleShapecut.algorithmTitle">形状绘制算法</h2>
+                    <p data-i18n="articleShapecut.algorithmDesc">形状抠图工具的核心是将数学定义的几何形状转换为像素级的选区蒙版。每种形状都有其独特的数学定义：</p>
                     
-                    <h3>矩形生成</h3>
+                    <h3 data-i18n="articleShapecut.rectAlgoTitle">矩形生成</h3>
                     <pre class="code-block"><code>// 矩形选区蒙版生成
 function createRectangleMask(x1, y1, x2, y2, width, height) {
     const mask = new Uint8ClampedArray(width * height);
@@ -108,7 +137,7 @@ function createRectangleMask(x1, y1, x2, y2, width, height) {
     return mask;
 }</code></pre>
                     
-                    <h3>圆形和椭圆生成</h3>
+                    <h3 data-i18n="articleShapecut.ellipseAlgoTitle">圆形和椭圆生成</h3>
                     <pre class="code-block"><code>// 椭圆选区蒙版生成
 function createEllipseMask(cx, cy, rx, ry, width, height) {
     const mask = new Uint8ClampedArray(width * height);
@@ -130,7 +159,7 @@ function createEllipseMask(cx, cy, rx, ry, width, height) {
     return mask;
 }</code></pre>
                     
-                    <h3>星形生成</h3>
+                    <h3 data-i18n="articleShapecut.starAlgoTitle">星形生成</h3>
                     <pre class="code-block"><code>// 星形选区生成算法
 function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, height) {
     const mask = new Uint8ClampedArray(width * height);
@@ -160,105 +189,105 @@ function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, heig
                 </div>
 
                 <div class="content-card">
-                    <h2>实战案例：创建标准证件照</h2>
-                    <p>证件照通常需要特定的尺寸和比例。使用形状抠图工具可以轻松创建符合标准的一寸或二寸证件照。</p>
+                    <h2 data-i18n="articleShapecut.case1Title">实战案例：创建标准证件照</h2>
+                    <p data-i18n="articleShapecut.case1Desc">证件照通常需要特定的尺寸和比例。使用形状抠图工具可以轻松创建符合标准的一寸或二寸证件照。</p>
                     
                     <ol class="step-list">
                         <li class="step-item">
                             <span class="step-number">1</span>
                             <div class="step-content">
-                                <h4>上传原始照片</h4>
-                                <p>上传包含人物上半身的照片，确保照片清晰、面部特征完整。</p>
+                                <h4 data-i18n="articleShapecut.case1Step1Title">上传原始照片</h4>
+                                <p data-i18n="articleShapecut.case1Step1Desc">上传包含人物上半身的照片，确保照片清晰、面部特征完整。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">2</span>
                             <div class="step-content">
-                                <h4>选择矩形工具</h4>
-                                <p>在工具栏选择"形状抠图"，然后在形状选择区选择矩形图标。</p>
+                                <h4 data-i18n="articleShapecut.case1Step2Title">选择矩形工具</h4>
+                                <p data-i18n="articleShapecut.case1Step2Desc">在工具栏选择"形状抠图"，然后在形状选择区选择矩形图标。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">3</span>
                             <div class="step-content">
-                                <h4>绘制选区</h4>
-                                <p>在画布上拖动，创建包含面部和肩部的矩形选区。一寸照片的推荐比例约为 3:4。</p>
+                                <h4 data-i18n="articleShapecut.case1Step3Title">绘制选区</h4>
+                                <p data-i18n="articleShapecut.case1Step3Desc">在画布上拖动，创建包含面部和肩部的矩形选区。一寸照片的推荐比例约为 3:4。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">4</span>
                             <div class="step-content">
-                                <h4>结合其他工具</h4>
-                                <p>使用画笔工具精修边缘，确保选区精确包围人物轮廓。然后使用"删除选区"功能去除背景。</p>
+                                <h4 data-i18n="articleShapecut.case1Step4Title">结合其他工具</h4>
+                                <p data-i18n="articleShapecut.case1Step4Desc">使用画笔工具精修边缘，确保选区精确包围人物轮廓。然后使用"删除选区"功能去除背景。</p>
                             </div>
                         </li>
                     </ol>
                 </div>
 
                 <div class="content-card">
-                    <h2>实战案例：社交媒体头像</h2>
-                    <p>社交媒体平台的头像通常是圆形展示。使用圆形形状可以快速创建适合的头像选区。</p>
+                    <h2 data-i18n="articleShapecut.case2Title">实战案例：社交媒体头像</h2>
+                    <p data-i18n="articleShapecut.case2Desc">社交媒体平台的头像通常是圆形展示。使用圆形形状可以快速创建适合的头像选区。</p>
                     
                     <ol class="step-list">
                         <li class="step-item">
                             <span class="step-number">1</span>
                             <div class="step-content">
-                                <h4>选择圆形工具</h4>
-                                <p>在形状抠图工具中选择圆形形状图标。</p>
+                                <h4 data-i18n="articleShapecut.case2Step1Title">选择圆形工具</h4>
+                                <p data-i18n="articleShapecut.case2Step1Desc">在形状抠图工具中选择圆形形状图标。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">2</span>
                             <div class="step-content">
-                                <h4>定位中心点</h4>
-                                <p>将鼠标移动到面部中心位置（通常为两眼连线中点），按下鼠标开始绘制。</p>
+                                <h4 data-i18n="articleShapecut.case2Step2Title">定位中心点</h4>
+                                <p data-i18n="articleShapecut.case2Step2Desc">将鼠标移动到面部中心位置（通常为两眼连线中点），按下鼠标开始绘制。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">3</span>
                             <div class="step-content">
-                                <h4>调整半径</h4>
-                                <p>向外拖动鼠标，直到圆形选区包含面部和适当的头部空间。建议让面部占选区的 60-70%。</p>
+                                <h4 data-i18n="articleShapecut.case2Step3Title">调整半径</h4>
+                                <p data-i18n="articleShapecut.case2Step3Desc">向外拖动鼠标，直到圆形选区包含面部和适当的头部空间。建议让面部占选区的 60-70%。</p>
                             </div>
                         </li>
                         <li class="step-item">
                             <span class="step-number">4</span>
                             <div class="step-content">
-                                <h4>完成抠图</h4>
-                                <p>松开鼠标后，选区会自动生成。点击"删除选区"去除外部背景。</p>
+                                <h4 data-i18n="articleShapecut.case2Step4Title">完成抠图</h4>
+                                <p data-i18n="articleShapecut.case2Step4Desc">松开鼠标后，选区会自动生成。点击"删除选区"去除外部背景。</p>
                             </div>
                         </li>
                     </ol>
                 </div>
 
                 <div class="content-card">
-                    <h2>实用技巧</h2>
+                    <h2 data-i18n="articleShapecut.tipsTitle">实用技巧</h2>
                     
-                    <h3>技巧一：约束形状比例</h3>
-                    <p>在绘制矩形时，按住 Shift 键可以将自由矩形约束为正方形。这在需要创建 1:1 比例的选区时非常有用。</p>
+                    <h3 data-i18n="articleShapecut.tip1Title">技巧一：约束形状比例</h3>
+                    <p data-i18n="articleShapecut.tip1Desc">在绘制矩形时，按住 Shift 键可以将自由矩形约束为正方形。这在需要创建 1:1 比例的选区时非常有用。</p>
                     
-                    <h3>技巧二：临时切换工具</h3>
-                    <p>绘制形状后，可以立即切换到画笔工具进行边缘修正，无需退出形状抠图模式。形状选区和画笔选区会合并累积。</p>
+                    <h3 data-i18n="articleShapecut.tip2Title">技巧二：临时切换工具</h3>
+                    <p data-i18n="articleShapecut.tip2Desc">绘制形状后，可以立即切换到画笔工具进行边缘修正，无需退出形状抠图模式。形状选区和画笔选区会合并累积。</p>
                     
-                    <h3>技巧三：撤销和重做</h3>
-                    <p>如果绘制的形状位置不理想，可以使用 Ctrl+Z 撤销，然后重新绘制。形状抠图工具支持完整的撤销/重做功能。</p>
+                    <h3 data-i18n="articleShapecut.tip3Title">技巧三：撤销和重做</h3>
+                    <p data-i18n="articleShapecut.tip3Desc">如果绘制的形状位置不理想，可以使用 Ctrl+Z 撤销，然后重新绘制。形状抠图工具支持完整的撤销/重做功能。</p>
                     
                     <div class="highlight-box">
-                        <p><strong>最佳实践：</strong>形状抠图最适合处理需要规则边缘的场景。对于需要复杂边缘的对象，建议先使用形状抠图创建基础选区，然后切换到画笔工具进行精细调整。</p>
+                        <p><strong data-i18n="articleShapecut.bestPracticeTitle">最佳实践：</strong><span data-i18n="articleShapecut.bestPracticeDesc">形状抠图最适合处理需要规则边缘的场景。对于需要复杂边缘的对象，建议先使用形状抠图创建基础选区，然后切换到画笔工具进行精细调整。</span></p>
                     </div>
                 </div>
 
                 <div class="content-card">
-                    <h2>总结</h2>
-                    <p>形状抠图工具是快速创建规则选区的利器。掌握这一工具的关键要点包括：</p>
+                    <h2 data-i18n="articleShapecut.summaryTitle">总结</h2>
+                    <p data-i18n="articleShapecut.summaryDesc">形状抠图工具是快速创建规则选区的利器。掌握这一工具的关键要点包括：</p>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
-                        <li>熟悉六种内置形状的适用场景</li>
-                        <li>使用 Shift 键约束形状比例</li>
-                        <li>结合画笔工具处理复杂边缘</li>
-                        <li>利用撤销/重做功能优化选区</li>
-                        <li>适合头像、证件照、产品图等规则形状需求</li>
+                        <li data-i18n="articleShapecut.summaryItem1">熟悉六种内置形状的适用场景</li>
+                        <li data-i18n="articleShapecut.summaryItem2">使用 Shift 键约束形状比例</li>
+                        <li data-i18n="articleShapecut.summaryItem3">结合画笔工具处理复杂边缘</li>
+                        <li data-i18n="articleShapecut.summaryItem4">利用撤销/重做功能优化选区</li>
+                        <li data-i18n="articleShapecut.summaryItem5">适合头像、证件照、产品图等规则形状需求</li>
                     </ul>
-                    <p>在下一篇教程<a href="article-edge.html">图像去噪与边缘处理</a>中，我们将介绍如何使用后处理工具优化选区质量，包括降噪和边缘光滑功能。</p>
+                    <p data-i18n="articleShapecut.summaryNext">在下一篇教程<a href="article-edge.html">图像去噪与边缘处理</a>中，我们将介绍如何使用后处理工具优化选区质量，包括降噪和边缘光滑功能。</p>
                 </div>
             </article>
 
@@ -266,14 +295,14 @@ function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, heig
                 <a href="article-brush.html" class="article-nav-prev">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     <div>
-                        <span>上一篇</span>
-                        <strong>画笔涂抹精细调整</strong>
+                        <span data-i18n="articleShapecut.navPrevLabel">上一篇</span>
+                        <strong data-i18n="articleShapecut.navPrevTitle">画笔涂抹精细调整</strong>
                     </div>
                 </a>
                 <a href="article-edge.html" class="article-nav-next">
                     <div>
-                        <span>下一篇</span>
-                        <strong>图像去噪与边缘处理</strong>
+                        <span data-i18n="articleShapecut.navNextLabel">下一篇</span>
+                        <strong data-i18n="articleShapecut.navNextTitle">图像去噪与边缘处理</strong>
                     </div>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </a>
@@ -285,29 +314,38 @@ function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, heig
         <div class="container">
             <div class="footer-grid">
                 <div class="footer-section">
-                    <h3>智能抠图工具</h3>
-                    <p>免费在线图片处理平台，让每个人都能轻松完成专业的图像抠图操作。</p>
+                    <h3 data-i18n="nav.logoText">智能抠图工具</h3>
+                    <p data-i18n="pageFooter.brandDesc">免费在线图片处理平台，让每个人都能轻松完成专业的图像抠图操作。</p>
                 </div>
                 <div class="footer-section">
-                    <h4>快速链接</h4>
+                    <h4 data-i18n="pageFooter.product">快速链接</h4>
                     <ul class="footer-links">
-                        <li><a href="../../index.html">首页</a></li>
-                        <li><a href="../tutorials.html">教程中心</a></li>
-                        <li><a href="../about.html">关于我们</a></li>
+                        <li><a href="../../index.html" data-i18n="nav.home">首页</a></li>
+                        <li><a href="../tutorials.html" data-i18n="nav.tutorials">教程中心</a></li>
+                        <li><a href="../about.html" data-i18n="nav.about">关于我们</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h4>支持</h4>
+                    <h4 data-i18n="pageFooter.support">支持</h4>
                     <ul class="footer-links">
-                        <li><a href="../privacy.html">隐私政策</a></li>
-                        <li><a href="../contact.html">联系方式</a></li>
+                        <li><a href="../privacy.html" data-i18n="pageFooter.privacyPolicy">隐私政策</a></li>
+                        <li><a href="../contact.html" data-i18n="pageFooter.contactUs">联系方式</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p> 2025 智能抠图工具. 保留所有权利.</p>
+                <p data-i18n="pageFooter.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利.</p>
             </div>
         </div>
     </footer>
+
+    <!-- i18n 国际化初始化 -->
+    <script type="module">
+        import i18n from '../../js/i18n/i18n.js';
+        import { initLangSwitcher } from '../../js/i18n/langSwitcher.js';
+        await i18n.init();
+        i18n.updateUI();
+        initLangSwitcher();
+    </script>
 </body>
 </html>

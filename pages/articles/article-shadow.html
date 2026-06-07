@@ -1,0 +1,410 @@
+<!--
+  文件名: article-shadow.html
+  描述: 阴影识别与处理完全指南教程文章
+  功能: 详细介绍边缘检测、阴影检测和阴影画笔的使用方法，实现带阴影物体的精准抠图
+  作者: 智能抠图工具团队
+  更新日期: 2025-05-28
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n-page-title="articleShadow.pageTitle">阴影识别与处理完全指南 - 智能抠图工具</title>
+    <link rel="stylesheet" href="../../css/pages.css">
+</head>
+<body>
+    <nav class="page-nav">
+        <a href="../../index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.logoText">智能抠图</span>
+        </a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="../tutorials.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="../about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="../contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
+        </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <main class="page-main">
+        <div class="container">
+            <div class="page-header">
+                <div class="breadcrumbs">
+                    <a href="../tutorials.html" data-i18n="articles.tutorialCenter">教程中心</a>
+                    <span>/</span>
+                    <span data-i18n="articleShadow.breadcrumb">阴影识别与处理完全指南</span>
+                </div>
+                <h1 class="page-title" data-i18n="articleShadow.title">阴影识别与处理完全指南</h1>
+                <p class="page-subtitle" data-i18n="articleShadow.subtitle">掌握带阴影物体的精准抠图技术</p>
+                <div class="article-meta">
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span data-i18n="articleShadow.date">2025-05-28</span>
+                    </span>
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span data-i18n="articleShadow.readingTime">约20分钟阅读</span>
+                    </span>
+                    <span class="meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        <span data-i18n="articleShadow.level">高级教程</span>
+                    </span>
+                </div>
+            </div>
+
+            <article class="article-content">
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.overviewTitle">阴影处理概述</h2>
+                    <p data-i18n="articleShadow.overviewP1">在产品摄影和电商图片处理中，物体通常带有自然阴影。传统的抠图方式会将阴影和物体一起选中，导致抠出的物体带有不规则的阴影边缘，影响后续合成效果。智能抠图工具的阴影处理功能可以精确识别物体轮廓和阴影区域，让您在保留自然阴影效果的同时，实现干净利落的抠图。</p>
+                    <p data-i18n="articleShadow.overviewP2">阴影处理功能位于左侧工具栏的"阴影处理"面板中，包含三个核心功能：<strong>边缘检测</strong>、<strong>阴影检测</strong>和<strong>阴影画笔</strong>。这三个功能需要按顺序配合使用，才能获得最佳的阴影处理效果。</p>
+
+                    <div class="highlight-box">
+                        <p><strong data-i18n="articleShadow.prereqTitle">前置条件：</strong><span data-i18n="articleShadow.prereqDesc">使用阴影处理功能前，需要先通过智能抠图或魔术棒工具创建初始选区（紫色区域）。阴影处理将基于此选区进行边缘和阴影的识别。</span></p>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.colorTitle">选区颜色说明</h2>
+                    <p data-i18n="articleShadow.colorDesc">在阴影处理过程中，画布上会显示三种不同颜色的选区，分别代表不同的含义：</p>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.colorPurple"><strong style="color: #8b5cf6;">紫色选区</strong>：主体选区，表示已被选中的物体区域</li>
+                        <li data-i18n="articleShadow.colorPink"><strong style="color: #ec4899;">粉色选区</strong>：阴影选区，表示检测到的阴影区域</li>
+                        <li data-i18n="articleShadow.colorCyan"><strong style="color: #06b6d4;">青色选区</strong>：边缘选区，表示检测到的物体边缘轮廓</li>
+                    </ul>
+                    <p data-i18n="articleShadow.colorNote">理解这三种选区的含义，是正确使用阴影处理功能的基础。</p>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.edgeTitle">边缘检测功能</h2>
+                    <p data-i18n="articleShadow.edgeDesc">边缘检测是阴影处理的第一步。该功能通过分析图像的颜色梯度和纹理变化，精确识别物体的轮廓边缘。检测到的边缘将以青色选区显示在画布上，作为后续阴影检测的参考依据。</p>
+
+                    <h3 data-i18n="articleShadow.edgeParamTitle">参数说明</h3>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.edgeParamBlur"><strong>模糊度（1-10）：</strong>控制边缘检测前的图像模糊程度。较高的模糊度可以减少噪点干扰，但可能丢失细小边缘细节。建议从默认值 3 开始调整。</li>
+                        <li data-i18n="articleShadow.edgeParamWeak"><strong>弱边缘灵敏度（0-100）：</strong>控制对弱边缘（如柔和过渡的边缘）的检测灵敏度。值越高，越容易检测到弱边缘，但也可能引入误检。建议初始设为 50。</li>
+                        <li data-i18n="articleShadow.edgeParamStrong"><strong>强边缘灵敏度（0-100）：</strong>控制对强边缘（如清晰锐利的边缘）的检测灵敏度。值越高，越容易检测到强边缘。建议初始设为 80。</li>
+                    </ul>
+
+                    <h3 data-i18n="articleShadow.edgeStepTitle">操作步骤</h3>
+                    <ol class="step-list">
+                        <li class="step-item">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.edgeStep1Title">创建初始选区</h4>
+                                <p data-i18n="articleShadow.edgeStep1Desc">使用智能抠图或魔术棒工具选中物体，创建紫色选区。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.edgeStep2Title">调整边缘检测参数</h4>
+                                <p data-i18n="articleShadow.edgeStep2Desc">在阴影处理面板中，根据图片特点调整模糊度、弱边缘和强边缘灵敏度参数。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.edgeStep3Title">点击"边缘检测"</h4>
+                                <p data-i18n="articleShadow.edgeStep3Desc">点击按钮后，工具将自动分析图像并显示青色边缘选区。检查边缘是否完整覆盖了物体轮廓。</p>
+                            </div>
+                        </li>
+                    </ol>
+
+                    <div class="highlight-box">
+                        <p><strong data-i18n="articleShadow.edgeTipTitle">调参技巧：</strong><span data-i18n="articleShadow.edgeTipDesc">如果边缘检测遗漏了部分轮廓，可以适当提高弱边缘灵敏度；如果检测到过多非边缘区域，则降低灵敏度或增加模糊度。</span></p>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.shadowTitle">阴影检测功能</h2>
+                    <p data-i18n="articleShadow.shadowDesc">阴影检测是阴影处理的核心步骤。在完成边缘检测后，阴影检测功能会基于边缘信息和颜色差异，自动识别物体投射的阴影区域。检测到的阴影将以粉色选区显示。</p>
+
+                    <h3 data-i18n="articleShadow.shadowParamTitle">参数说明</h3>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.shadowParamDist"><strong>最大阴影距离（10-200 像素）：</strong>阴影与物体之间的最大距离。阴影检测只会在物体边缘的指定距离范围内搜索阴影。如果阴影离物体较远，需要增大此值。建议从 50 开始调整。</li>
+                        <li data-i18n="articleShadow.shadowParamDiff"><strong>阴影差异度（10-100）：</strong>阴影与背景之间的颜色差异阈值。值越低，越容易将相似颜色识别为阴影；值越高，只有颜色差异明显的区域才会被识别为阴影。建议初始设为 30。</li>
+                    </ul>
+
+                    <h3 data-i18n="articleShadow.shadowStepTitle">操作步骤</h3>
+                    <ol class="step-list">
+                        <li class="step-item">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.shadowStep1Title">确认边缘检测结果</h4>
+                                <p data-i18n="articleShadow.shadowStep1Desc">确保边缘检测已完成，且青色边缘选区准确覆盖了物体轮廓。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.shadowStep2Title">调整阴影检测参数</h4>
+                                <p data-i18n="articleShadow.shadowStep2Desc">根据阴影的实际距离和颜色差异，调整最大阴影距离和阴影差异度。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.shadowStep3Title">点击"阴影检测"</h4>
+                                <p data-i18n="articleShadow.shadowStep3Desc">工具将在边缘附近搜索阴影区域，并以粉色选区显示检测结果。</p>
+                            </div>
+                        </li>
+                    </ol>
+
+                    <div class="highlight-box">
+                        <p><strong data-i18n="articleShadow.shadowTipTitle">常见问题：</strong><span data-i18n="articleShadow.shadowTipDesc">如果阴影检测范围过大，将非阴影区域也包含进来，可以降低最大阴影距离或提高阴影差异度。如果阴影检测不完整，则反向调整参数。</span></p>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.brushTitle">阴影画笔工具</h2>
+                    <p data-i18n="articleShadow.brushDesc">自动阴影检测可能无法完美覆盖所有阴影区域，特别是在光照条件复杂的情况下。阴影画笔工具允许您手动添加或抹除阴影选区，对检测结果进行精细修正。</p>
+
+                    <h3 data-i18n="articleShadow.brushModeTitle">画笔模式</h3>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.brushModeAdd"><strong>添加阴影：</strong>在画布上涂抹，将涂抹区域添加到粉色阴影选区中。适用于自动检测遗漏的阴影区域。</li>
+                        <li data-i18n="articleShadow.brushModeErase"><strong>抹除阴影：</strong>在画布上涂抹，将涂抹区域从粉色阴影选区中移除。适用于自动检测误判的非阴影区域。</li>
+                    </ul>
+
+                    <h3 data-i18n="articleShadow.brushParamTitle">画笔参数</h3>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.brushParamSize"><strong>画笔大小（1-100）：</strong>控制画笔的涂抹范围。处理大面积阴影时使用较大的画笔，精细修边时使用较小的画笔。</li>
+                        <li data-i18n="articleShadow.brushParamHard"><strong>画笔硬度（0-100%）：</strong>控制画笔边缘的锐利程度。硬度 100% 时边缘清晰，硬度 0% 时边缘柔和过渡。建议阴影修边时使用 50-70% 的硬度。</li>
+                    </ul>
+
+                    <h3 data-i18n="articleShadow.brushTipsTitle">操作技巧</h3>
+                    <ol style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.brushTip1">先使用较大的画笔快速覆盖大面积遗漏区域，再切换小画笔精细修边</li>
+                        <li data-i18n="articleShadow.brushTip2">利用缩放功能（鼠标滚轮）放大画面，确保边缘处理精确</li>
+                        <li data-i18n="articleShadow.brushTip3">按住 Alt 键可临时切换添加/抹除模式，提高操作效率</li>
+                        <li data-i18n="articleShadow.brushTip4">处理阴影边缘时，适当降低硬度值，使阴影过渡更自然</li>
+                    </ol>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.opacityTitle">阴影半透明度调节</h2>
+                    <p data-i18n="articleShadow.opacityDesc">阴影半透明度控制最终输出中阴影的透明程度。真实的阴影通常不是完全不透明的，而是具有一定的透明度，使下方背景可以部分透出。</p>
+
+                    <h3 data-i18n="articleShadow.opacityParamTitle">参数说明</h3>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.opacityParam0"><strong>0%：</strong>阴影完全透明，相当于不保留阴影</li>
+                        <li data-i18n="articleShadow.opacityParam50"><strong>50%：</strong>阴影半透明，适合大多数商品展示场景</li>
+                        <li data-i18n="articleShadow.opacityParam100"><strong>100%：</strong>阴影完全不透明，保留原始阴影的全部效果</li>
+                    </ul>
+
+                    <div class="highlight-box">
+                        <p><strong data-i18n="articleShadow.opacityTipTitle">使用建议：</strong><span data-i18n="articleShadow.opacityTipDesc">电商商品图建议设置在 30-60% 之间，既能保留阴影的自然感，又不会过于厚重。如果需要将物体合成到新背景上，较低的半透明度可以让阴影与新背景更好地融合。</span></p>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.flowTitle">完整操作流程</h2>
+                    <p data-i18n="articleShadow.flowDesc">以下是使用阴影处理功能的完整操作流程：</p>
+
+                    <ol class="step-list">
+                        <li class="step-item">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.flowStep1Title">创建初始选区</h4>
+                                <p data-i18n="articleShadow.flowStep1Desc">使用智能抠图或魔术棒工具选中物体，创建紫色选区。确保选区基本覆盖物体主体，无需过于精确。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.flowStep2Title">执行边缘检测</h4>
+                                <p data-i18n="articleShadow.flowStep2Desc">调整模糊度和灵敏度参数后，点击"边缘检测"。检查青色边缘是否准确覆盖物体轮廓，必要时调整参数重新检测。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.flowStep3Title">执行阴影检测</h4>
+                                <p data-i18n="articleShadow.flowStep3Desc">调整最大阴影距离和阴影差异度后，点击"阴影检测"。检查粉色阴影选区是否准确覆盖阴影区域。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.flowStep4Title">阴影画笔修正</h4>
+                                <p data-i18n="articleShadow.flowStep4Desc">使用阴影画笔的添加/抹除模式，对粉色阴影选区进行精细调整，确保阴影区域准确无误。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">5</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.flowStep5Title">应用阴影处理</h4>
+                                <p data-i18n="articleShadow.flowStep5Desc">调整阴影半透明度到合适值，然后点击"应用阴影处理"按钮完成处理。此时阴影将被保留在最终结果中。</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.caseTitle">实战案例：带阴影的商品抠图</h2>
+                    <p data-i18n="articleShadow.caseDesc">以一张白色背景上的皮鞋商品图为例，演示完整的阴影处理流程。</p>
+
+                    <ol class="step-list">
+                        <li class="step-item">
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.caseStep1Title">智能抠图选中皮鞋</h4>
+                                <p data-i18n="articleShadow.caseStep1Desc">使用智能抠图的自动选择模式，点击皮鞋区域创建初始紫色选区。由于皮鞋与白色背景对比明显，选区通常较为准确。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.caseStep2Title">边缘检测参数设置</h4>
+                                <p data-i18n="articleShadow.caseStep2Desc">设置模糊度为 3，弱边缘灵敏度为 50，强边缘灵敏度为 80，点击"边缘检测"。皮鞋的清晰轮廓会被青色选区准确标出。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.caseStep3Title">阴影检测参数设置</h4>
+                                <p data-i18n="articleShadow.caseStep3Desc">设置最大阴影距离为 40 像素（皮鞋阴影距离较近），阴影差异度为 25（白色背景上阴影差异明显），点击"阴影检测"。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.caseStep4Title">画笔修正阴影边缘</h4>
+                                <p data-i18n="articleShadow.caseStep4Desc">使用阴影画笔（大小 20，硬度 60%）在阴影尾部进行微调，确保阴影选区完整覆盖自然阴影的渐变区域。</p>
+                            </div>
+                        </li>
+                        <li class="step-item">
+                            <span class="step-number">5</span>
+                            <div class="step-content">
+                                <h4 data-i18n="articleShadow.caseStep5Title">应用处理并下载</h4>
+                                <p data-i18n="articleShadow.caseStep5Desc">设置阴影半透明度为 50%，点击"应用阴影处理"。最终效果：皮鞋被干净地抠出，同时保留了自然的半透明阴影效果。</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.faqTitle">常见问题与解决方案</h2>
+
+                    <h3 data-i18n="articleShadow.faq1Title">Q1: 边缘检测不到物体轮廓怎么办？</h3>
+                    <p data-i18n="articleShadow.faq1Desc">尝试降低模糊度参数，同时提高弱边缘和强边缘灵敏度。如果物体与背景颜色非常接近，边缘检测可能效果不佳，建议先使用画笔工具手动完善选区边缘。</p>
+
+                    <h3 data-i18n="articleShadow.faq2Title">Q2: 阴影检测范围过大，包含了非阴影区域？</h3>
+                    <p data-i18n="articleShadow.faq2Desc">降低最大阴影距离参数，缩小搜索范围；同时提高阴影差异度，使检测更加严格。之后使用阴影画笔的抹除模式清理误检区域。</p>
+
+                    <h3 data-i18n="articleShadow.faq3Title">Q3: 阴影处理后阴影效果不自然？</h3>
+                    <p data-i18n="articleShadow.faq3Desc">调整阴影半透明度，通常 30-60% 的效果更自然。如果阴影边缘过于锐利，可以使用阴影画笔（低硬度 30-50%）在阴影边缘轻轻涂抹，使过渡更柔和。</p>
+
+                    <h3 data-i18n="articleShadow.faq4Title">Q4: 可以只保留阴影而不保留物体吗？</h3>
+                    <p data-i18n="articleShadow.faq4Desc">可以。完成阴影检测后，使用画笔工具的减去模式将紫色主体选区移除，只保留粉色阴影选区，然后应用阴影处理即可。</p>
+
+                    <h3 data-i18n="articleShadow.faq5Title">Q5: 阴影处理和后处理（去噪、边缘光滑）的顺序？</h3>
+                    <p data-i18n="articleShadow.faq5Desc">建议先完成阴影处理，再进行后处理操作。因为阴影处理会修改选区，如果先做后处理再进行阴影处理，之前的后处理效果可能会被覆盖。</p>
+                </div>
+
+                <div class="content-card">
+                    <h2 data-i18n="articleShadow.summaryTitle">总结</h2>
+                    <p data-i18n="articleShadow.summaryDesc">阴影处理是智能抠图工具的高级功能，特别适用于电商产品图和需要保留自然阴影效果的场景。掌握以下要点即可高效使用：</p>
+                    <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
+                        <li data-i18n="articleShadow.summaryItem1"><strong>操作顺序：</strong>创建选区 → 边缘检测 → 阴影检测 → 画笔修正 → 应用处理</li>
+                        <li data-i18n="articleShadow.summaryItem2"><strong>边缘检测：</strong>调整模糊度和灵敏度，确保轮廓完整</li>
+                        <li data-i18n="articleShadow.summaryItem3"><strong>阴影检测：</strong>调整距离和差异度，精准识别阴影区域</li>
+                        <li data-i18n="articleShadow.summaryItem4"><strong>画笔修正：</strong>手动微调自动检测的不足之处</li>
+                        <li data-i18n="articleShadow.summaryItem5"><strong>半透明度：</strong>控制阴影的透明程度，使效果更自然</li>
+                    </ul>
+                    <p data-i18n="articleShadow.summaryFinal">阴影处理需要一定的练习才能熟练掌握参数调节的技巧。建议先用简单的商品图练习，逐步过渡到复杂场景。通过合理使用阴影处理功能，您可以获得比传统抠图更专业、更自然的输出效果。</p>
+                </div>
+            </article>
+
+            <div class="article-nav">
+                <a href="article-edge.html" class="article-nav-prev">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    <div>
+                        <span data-i18n="articleShadow.navPrevLabel">上一篇</span>
+                        <strong data-i18n="articleShadow.navPrevTitle">图像去噪与边缘处理</strong>
+                    </div>
+                </a>
+                <a href="../tutorials.html" class="article-nav-next">
+                    <div>
+                        <span data-i18n="articleShadow.navNextLabel">返回</span>
+                        <strong data-i18n="articleShadow.navNextTitle">教程列表</strong>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="page-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h3 data-i18n="nav.logoText">智能抠图工具</h3>
+                    <p data-i18n="pageFooter.brandDesc">免费在线图片处理平台，让每个人都能轻松完成专业的图像抠图操作。</p>
+                </div>
+                <div class="footer-section">
+                    <h4 data-i18n="pageFooter.product">快速链接</h4>
+                    <ul class="footer-links">
+                        <li><a href="../../index.html" data-i18n="nav.home">首页</a></li>
+                        <li><a href="../tutorials.html" data-i18n="nav.tutorials">教程中心</a></li>
+                        <li><a href="../about.html" data-i18n="nav.about">关于我们</a></li>
+                        <li><a href="../contact.html" data-i18n="nav.contact">联系方式</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4 data-i18n="pageFooter.support">支持</h4>
+                    <ul class="footer-links">
+                        <li><a href="../privacy.html" data-i18n="pageFooter.privacyPolicy">隐私政策</a></li>
+                        <li><a href="../contact.html" data-i18n="pageFooter.contactUs">联系方式</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p data-i18n="pageFooter.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- i18n 国际化初始化 -->
+    <script type="module">
+        import i18n from '../../js/i18n/i18n.js';
+        import { initLangSwitcher } from '../../js/i18n/langSwitcher.js';
+        await i18n.init();
+        i18n.updateUI();
+        initLangSwitcher();
+    </script>
+</body>
+</html>

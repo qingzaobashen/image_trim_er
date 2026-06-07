@@ -158,12 +158,12 @@
                                         </svg>
                                         <span data-i18n="toolbar.brushAdd">添加</span>
                                     </button>
-                                    <button class="mode-btn" id="brushSubtractMode" data-i18n-title="toolbar.brushSubtract" title="取消选区">
+                                    <button class="mode-btn" id="brushSubtractMode" data-i18n-title="toolbar.brushSubtract" title="减去选区">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <circle cx="12" cy="12" r="10"/>
                                             <line x1="8" y1="12" x2="16" y2="12"/>
                                         </svg>
-                                        <span data-i18n="toolbar.brushSubtract">取消</span>
+                                        <span data-i18n="toolbar.brushSubtract">减去</span>
                                     </button>
                                 </div>
                             </div>
@@ -181,7 +181,7 @@
                                 <div class="brush-hint">
                                     <p><strong data-i18n="toolbar.brushHintTitle">提示：</strong></p>
                                     <p data-i18n="toolbar.brushHintAdd">• 添加模式：涂抹添加选区</p>
-                                    <p data-i18n="toolbar.brushHintSubtract">• 取消模式：涂抹取消选区</p>
+                                    <p data-i18n="toolbar.brushHintSubtract">• 减去模式：涂抹减去选区</p>
                                     <p data-i18n="toolbar.brushHintAlt">• 按住 Alt 键临时切换模式</p>
                                 </div>
                             </div>
@@ -256,7 +256,7 @@
                                 </svg>
                                 <span data-i18n="toolbar.selectionDenoise">选区降噪</span>
                             </button>
-                            <button class="btn btn-full" id="框选去除噪点Btn">
+                            <button class="btn btn-full" id="boxDenoiseBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                                     <line x1="9" y1="3" x2="9" y2="21"/>
@@ -432,7 +432,7 @@
                             <div class="param-item">
                                 <div class="brush-hint">
                                     <p><strong data-i18n="toolbar.shadowFlowTitle">操作流程：</strong></p>
-                                    <p data-i18n="toolbar.shadowFlow1">1. 先用智能抠图/魔法棒确定紫色选区</p>
+                                    <p data-i18n="toolbar.shadowFlow1">1. 先用智能抠图/魔术棒确定紫色选区</p>
                                     <p data-i18n="toolbar.shadowFlow2">2. 点击"边缘检测"检测物体轮廓</p>
                                     <p data-i18n="toolbar.shadowFlow3">3. 调整参数后点击"阴影检测"</p>
                                     <p data-i18n="toolbar.shadowFlow4">4. 用阴影画笔调整粉色阴影选区</p>
@@ -469,12 +469,12 @@
                             </svg>
                             <span data-i18n="toolbar.invertSelection">反选</span>
                         </button>
-                        <button class="tool-btn" id="deleteSelection" data-i18n-title="toolbar.deleteSelection" title="删除选中区域">
+                        <button class="tool-btn" id="deleteSelection" data-i18n-title="toolbar.deleteSelection" title="抠除选中区域">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"/>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                             </svg>
-                            <span data-i18n="toolbar.deleteSelection">删除选区</span>
+                            <span data-i18n="toolbar.deleteSelection">抠除选区</span>
                         </button>
                     </div>
                 </div>
@@ -575,7 +575,11 @@
                         </div>
                         <div class="instruction-item">
                             <span class="instruction-number">4</span>
-                            <p data-i18n="infoPanel.instruction4">点击"下载图片"保存处理结果</p>
+                            <p data-i18n="infoPanel.instruction4">使用形状抠图快速创建规则选区，或使用后处理工具优化边缘</p>
+                        </div>
+                        <div class="instruction-item">
+                            <span class="instruction-number">5</span>
+                            <p data-i18n="infoPanel.instruction5">点击"抠除选区/鼠标中键"移除背景，再点击"下载图片"保存结果</p>
                         </div>
                     </div>
                 </div>
@@ -597,7 +601,7 @@
                         </div>
                         <div class="shortcut-item">
                             <kbd>Delete</kbd>
-                            <span data-i18n="infoPanel.shortcutDelete">删除选区</span>
+                            <span data-i18n="infoPanel.shortcutDelete">抠除选区</span>
                         </div>
                     </div>
                 </div>
@@ -626,7 +630,7 @@
                 <a href="pages/contact.html" data-i18n="footer.contact">联系方式</a>
                 <a href="pages/tutorials.html" data-i18n="footer.tutorials">使用教程</a>
             </div>
-            <p class="footer-copyright" data-i18n="footer.copyright">&copy; 2025 智能抠图工具. 保留所有权利.</p>
+            <p class="footer-copyright" data-i18n="footer.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利.</p>
         </div>
     </footer>
 
