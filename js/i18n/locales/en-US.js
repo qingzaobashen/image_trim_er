@@ -298,7 +298,7 @@ export default {
         infoScope: 'Services: ',
         infoScopeVal: 'Online image processing tool development & operation, image processing tutorial sharing',
         infoEmail: 'Email: ',
-        infoEmailVal: 'contact@smartcut.example.com',
+        infoEmailVal: 'xiayiye580@gmail.com',
         infoPromise: 'Our Promise: ',
         infoPromiseVal: 'We promise to permanently provide free basic cutout services. All image processing is done locally in the browser — no images are uploaded to any server, fully protecting user privacy and data security.'
     },
@@ -319,7 +319,7 @@ export default {
         addressVal: 'Shanghai, China',
         formTitle: 'Send Us a Message',
         formDesc: 'Fill out the form below and we\'ll reply within 1-3 business days. All information is used solely to respond to your inquiry.',
-        formDemo: 'Note: This form is for demo purposes only and is not connected to a backend service. For urgent matters, please email contact@smartcut.example.com',
+        formDemo: 'Note: This form is for demo purposes only and is not connected to a backend service. For urgent matters, please email xiayiye580@gmail.com',
         nameLabel: 'Your Name *',
         namePlaceholder: 'Enter your name',
         emailFormLabel: 'Email Address *',

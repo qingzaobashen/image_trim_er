@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n-page-title="pageTitle">智能抠图工具 - 在线图片处理</title>
+    <title data-i18n-page-title="pageTitle">抠白底-专业抠白底图工具 - 在线图片处理</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,7 +27,7 @@
                     <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span class="logo-text" data-i18n="header.logoText">智能抠图</span>
+                <span class="logo-text" data-i18n="header.logoText">抠白底</span>
             </div>
             <div class="header-actions">
                 <button class="btn btn-secondary" id="undoBtn" disabled>
@@ -86,7 +86,7 @@
                 <div class="tool-section">
                     <h3 class="tool-section-title" data-i18n="toolbar.smartTools">智能工具</h3>
                     <div class="tool-buttons">
-                        <button class="tool-btn active" data-tool="smartCut" data-i18n-title="toolbar.smartCut" title="智能抠图">
+                        <button class="tool-btn active" data-tool="smartCut" data-i18n-title="toolbar.smartCut" title="抠白底">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"/>
                                 <path d="M12 6v6l4 2"/>
@@ -120,7 +120,7 @@
                 <div class="tool-section">
                     <h3 class="tool-section-title" data-i18n="toolbar.toolParams">工具参数</h3>
                     <div class="tool-params" id="toolParams">
-                        <!-- 智能抠图参数 -->
+                        <!-- 抠白底参数 -->
                         <div class="param-group active" data-tool="smartCut">
                             <div class="param-item">
                                 <label data-i18n="toolbar.cutMode">抠图模式</label>
@@ -623,7 +623,7 @@
         </div>
     </div>
 
-    <!-- 引入 TensorFlow.js 用于智能抠图 -->
+    <!-- 引入 TensorFlow.js 用于抠白底 -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js"></script>
     <!--CV.js 用于边缘检测 -->
@@ -638,7 +638,7 @@
                 <a href="pages/contact.html" data-i18n="footer.contact">联系方式</a>
                 <a href="pages/tutorials.html" data-i18n="footer.tutorials">使用教程</a>
             </div>
-            <p class="footer-copyright" data-i18n="footer.copyright">&copy; 2024-2025 智能抠图工具. 保留所有权利.</p>
+            <p class="footer-copyright" data-i18n="footer.copyright">&copy; 2024-2025 抠白底工具. 保留所有权利.</p>
         </div>
     </footer>
 

@@ -363,7 +363,7 @@ instruction6: '点击"抠除选区"移除背景，再点击"下载图片"保存�
 在"在线留言"标题的 `<p>` 标签后添加：
 ```html
 <div class="highlight-box" style="margin-top: 12px;">
-    <p><strong>提示：</strong>当前表单为演示功能，暂未接入后端服务。如有紧急问题，请直接发送邮件至 contact@smartcut.example.com</p>
+    <p><strong>提示：</strong>当前表单为演示功能，暂未接入后端服务。如有紧急问题，请直接发送邮件至 xiayiye580@gmail.com</p>
 </div>
 ```
 
