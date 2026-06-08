@@ -1,12 +1,17 @@
 /**
  * 智能抠图工具模块
- * 提供多种智能抠图算法
+ * 集成 @bunnio/rembg-web 深度学习模型，提供多种智能抠图算法
+ * 支持 AI 模型抠图（默认）和传统算法（颜色聚类、边缘检测、人体分割）作为回退
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
+import { ModelManager } from '../utils/modelManager.js';
+import { remove, removeToCanvas } from '@bunnio/rembg-web';
+import * as bodyPix from '@tensorflow-models/body-pix';
 
 /**
  * 智能抠图类
+ * 集成 rembg-web AI 模型与传统抠图算法
  */
 export class SmartCutTool {
     /**
@@ -21,20 +26,93 @@ export class SmartCutTool {
         this.isBodyPixLoaded = false;
         this.smoothness = 50;
         this.mode = 'auto';
+
+        /** 模型管理器实例 */
+        this.modelManager = new ModelManager();
+
+        /** AI 模型是否可用 */
+        this.isAIModelAvailable = false;
+
+        /** 当前使用的 AI 模型名称 */
+        this.currentAIModel = ModelManager.getDefaultModel();
     }
 
     /**
-     * 加载BodyPix模型（用于人体抠图）
+     * 初始化 AI 模型（延迟加载，不阻塞应用启动）
+     * @param {Function} onProgress - 进度回调函数
+     * @param {Function} onStateChange - 状态变更回调函数
+     * @returns {Promise<boolean>} 是否初始化成功
+     */
+    async initAIModel(onProgress, onStateChange) {
+        // 绑定回调
+        if (onProgress) {
+            this.modelManager.onProgress = onProgress;
+        }
+        if (onStateChange) {
+            this.modelManager.onStateChange = onStateChange;
+        }
+
+        try {
+            await this.modelManager.loadModel(ModelManager.getDefaultModel());
+            this.isAIModelAvailable = true;
+            this.currentAIModel = ModelManager.getDefaultModel();
+            return true;
+        } catch (error) {
+            console.warn('AI 模型初始化失败，将使用传统算法作为回退:', error);
+            this.isAIModelAvailable = false;
+            return false;
+        }
+    }
+
+    /**
+     * 切换 AI 模型
+     * @param {string} modelName - 目标模型名称
+     * @returns {Promise<boolean>} 是否切换成功
+     */
+    async switchAIModel(modelName) {
+        try {
+            await this.modelManager.loadModel(modelName);
+            this.isAIModelAvailable = true;
+            this.currentAIModel = modelName;
+            return true;
+        } catch (error) {
+            console.error(`切换 AI 模型 ${modelName} 失败:`, error);
+            this.isAIModelAvailable = this.modelManager.isModelLoaded();
+            return false;
+        }
+    }
+
+    /**
+     * 获取当前 AI 模型名称
+     * @returns {string|null} 当前模型名称
+     */
+    getCurrentAIModel() {
+        return this.currentAIModel;
+    }
+
+    /**
+     * 检查 AI 模型是否已加载
+     * @returns {boolean} 是否已加载
+     */
+    isAIModelReady() {
+        return this.isAIModelAvailable && this.modelManager.isModelLoaded();
+    }
+
+    /**
+     * 取消模型加载
+     */
+    cancelModelLoading() {
+        this.modelManager.cancelLoading();
+    }
+
+    /**
+     * 加载BodyPix模型（用于人体抠图，传统回退方案）
      * @returns {Promise<void>}
      */
     async loadBodyPixModel() {
         if (this.isBodyPixLoaded) return;
         
         try {
-            if (typeof bodyPix === 'undefined') {
-                throw new Error('BodyPix库未加载');
-            }
-            
             this.bodyPixModel = await bodyPix.load({
                 architecture: 'MobileNetV1',
                 outputStride: 16,
@@ -59,7 +137,7 @@ export class SmartCutTool {
 
     /**
      * 设置抠图模式
-     * @param {string} mode - 模式 ('auto', 'person', 'color', 'edge')
+     * @param {string} mode - 模式 ('auto', 'person', 'color', 'edge', 'ai')
      */
     setMode(mode) {
         this.mode = mode;
@@ -71,6 +149,8 @@ export class SmartCutTool {
      */
     async apply() {
         switch (this.mode) {
+            case 'ai':
+                return await this.applyAIRemoveBg();
             case 'person':
                 return await this.applyPersonSegmentation();
             case 'color':
@@ -84,10 +164,88 @@ export class SmartCutTool {
     }
 
     /**
+     * 使用 AI 模型移除背景（rembg-web）
+     * @returns {Promise<Uint8ClampedArray>} 选区蒙版
+     */
+    async applyAIRemoveBg() {
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+
+        try {
+            // 使用 rembg-web 的 removeToCanvas 获取抠图结果
+            const resultCanvas = await removeToCanvas(this.mainCanvas, {
+                session: this.modelManager.getCurrentSession(),
+                postProcessMask: true,
+                onProgress: (info) => {
+                    if (this.modelManager.onProgress) {
+                        this.modelManager.onProgress(info);
+                    }
+                }
+            });
+
+            // 从结果画布中提取蒙版
+            const mask = this.extractMaskFromResult(resultCanvas, width, height);
+
+            if (this.smoothness > 0) {
+                this.smoothMask(mask, width, height, this.smoothness);
+            }
+
+            return mask;
+        } catch (error) {
+            console.error('AI 模型抠图失败，回退到传统算法:', error);
+            this.isAIModelAvailable = false;
+            // 回退到自动模式
+            return await this.applyAutoSegmentation();
+        }
+    }
+
+    /**
+     * 从抠图结果画布中提取蒙版
+     * @param {HTMLCanvasElement} resultCanvas - 抠图结果画布
+     * @param {number} width - 原始宽度
+     * @param {number} height - 原始高度
+     * @returns {Uint8ClampedArray} 蒙版数据
+     */
+    extractMaskFromResult(resultCanvas, width, height) {
+        const resultCtx = resultCanvas.getContext('2d');
+        const resultData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+        const mask = new Uint8ClampedArray(width * height);
+
+        // rembg-web 返回的是带透明通道的结果，alpha 通道即为蒙版
+        const scaleX = resultCanvas.width / width;
+        const scaleY = resultCanvas.height / height;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const srcX = Math.floor(x * scaleX);
+                const srcY = Math.floor(y * scaleY);
+                const srcIdx = (srcY * resultCanvas.width + srcX) * 4;
+                const alpha = resultData.data[srcIdx + 3];
+                // alpha > 128 表示前景
+                mask[y * width + x] = alpha > 128 ? 255 : 0;
+            }
+        }
+
+        return mask;
+    }
+
+    /**
      * 自动选择最佳抠图方法
+     * 优先使用 AI 模型，失败时回退到传统算法
      * @returns {Promise<Uint8ClampedArray>} 选区蒙版
      */
     async applyAutoSegmentation() {
+        // 优先尝试 AI 模型
+        if (this.isAIModelReady()) {
+            try {
+                console.log('使用 AI 模型抠图');
+                return await this.applyAIRemoveBg();
+            } catch (error) {
+                console.warn('AI 模型抠图失败，回退到传统算法:', error);
+            }
+        }
+
+        // 回退到传统算法
         const imageData = canvasUtils.getImageData(this.mainCanvas);
         
         const colorMask = this.applyColorBasedSegmentation();
@@ -105,10 +263,8 @@ export class SmartCutTool {
         }
         
         try {
-            if (typeof bodyPix !== 'undefined') {
-                console.log('尝试人体分割');
-                return await this.applyPersonSegmentation();
-            }
+            console.log('尝试人体分割');
+            return await this.applyPersonSegmentation();
         } catch (error) {
             console.log('人体分割不可用，使用颜色聚类');
         }
@@ -484,12 +640,14 @@ export class SmartCutTool {
     }
 
     /**
-     * 销毁模型
+     * 销毁模型和释放资源
      */
-    dispose() {
+    async dispose() {
         if (this.bodyPixModel) {
             this.bodyPixModel = null;
             this.isBodyPixLoaded = false;
         }
+        await this.modelManager.disposeAll();
+        this.isAIModelAvailable = false;
     }
 }

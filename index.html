@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n-page-title="pageTitle">抠白底-专业抠白底图工具 - 在线图片处理</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="/src/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -126,6 +126,7 @@
                                 <label data-i18n="toolbar.cutMode">抠图模式</label>
                                 <select id="cutMode" class="param-select">
                                     <option value="auto" data-i18n="toolbar.cutModeAuto">自动选择</option>
+                                    <option value="ai" data-i18n="toolbar.cutModeAI">AI 智能抠图</option>
                                     <option value="color" data-i18n="toolbar.cutModeColor">颜色聚类</option>
                                     <option value="edge" data-i18n="toolbar.cutModeEdge">边缘检测</option>
                                     <option value="person" data-i18n="toolbar.cutModePerson">人体分割</option>
@@ -136,6 +137,44 @@
                                 <input type="range" id="smoothness" min="0" max="100" value="50">
                                 <span class="param-value">50</span>
                             </div>
+
+                            <!-- AI 模型状态指示器 -->
+                            <div class="param-item ai-model-status" id="aiModelStatus">
+                                <div class="ai-status-indicator">
+                                    <span class="ai-status-dot" id="aiStatusDot"></span>
+                                    <span class="ai-status-text" id="aiStatusText" data-i18n="toolbar.aiModelNotLoaded">AI 模型未加载</span>
+                                </div>
+                                <button class="btn btn-sm btn-secondary" id="loadAIModelBtn" data-i18n="toolbar.loadAIModel">加载 AI 模型</button>
+                            </div>
+
+                            <!-- AI 模型加载进度条 -->
+                            <div class="param-item ai-progress-container" id="aiProgressContainer" style="display: none;">
+                                <div class="ai-progress-bar">
+                                    <div class="ai-progress-fill" id="aiProgressFill"></div>
+                                </div>
+                                <div class="ai-progress-info">
+                                    <span class="ai-progress-percent" id="aiProgressPercent">0%</span>
+                                    <span class="ai-progress-message" id="aiProgressMessage"></span>
+                                </div>
+                                <button class="btn btn-sm btn-danger" id="cancelModelLoadBtn" data-i18n="toolbar.cancelLoad">取消</button>
+                            </div>
+
+                            <!-- 高级模型选项（折叠面板） -->
+                            <div class="param-item advanced-model-section">
+                                <div class="advanced-model-toggle" id="advancedModelToggle">
+                                    <span data-i18n="toolbar.advancedModelOptions">高级模型选项</span>
+                                    <svg class="toggle-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                </div>
+                                <div class="advanced-model-panel" id="advancedModelPanel" style="display: none;">
+                                    <div class="advanced-model-hint" data-i18n="toolbar.advancedModelHint">高级模型提供更高质量的抠图效果，但体积更大、加载更慢。</div>
+                                    <div class="model-list" id="modelList">
+                                        <!-- 模型列表由 JS 动态生成 -->
+                                    </div>
+                                </div>
+                            </div>
+
                             <button class="btn btn-full" id="applySmartCut" data-i18n="toolbar.applySmartCut">应用智能抠图</button>
                         </div>
 
@@ -623,12 +662,9 @@
         </div>
     </div>
 
-    <!-- 引入 TensorFlow.js 用于抠白底 -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js"></script>
-    <!--CV.js 用于边缘检测 -->
-    <script async src="js/utils/opencv.js" type="text/javascript"></script>
-    
+    <!-- OpenCV.js 用于边缘检测（静态资源） -->
+    <script async src="/opencv.js" type="text/javascript"></script>
+
     <!-- 页脚 -->
     <footer class="app-footer">
         <div class="footer-content">
@@ -642,7 +678,7 @@
         </div>
     </footer>
 
-    <!-- 应用脚本 -->
-    <script type="module" src="js/main.js"></script>
+    <!-- 应用脚本（Vite 入口） -->
+    <script type="module" src="/src/js/main.js"></script>
 </body>
 </html>

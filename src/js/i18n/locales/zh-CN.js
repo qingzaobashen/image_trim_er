@@ -37,11 +37,33 @@ export default {
         /** 智能抠图参数 */
         cutMode: '抠图模式',
         cutModeAuto: '自动选择',
+        cutModeAI: 'AI 智能抠图',
         cutModeColor: '颜色聚类',
         cutModeEdge: '边缘检测',
         cutModePerson: '人体分割',
         smoothness: '边缘平滑度',
         applySmartCut: '应用智能抠图',
+
+        /** AI 模型相关 */
+        aiModelNotLoaded: 'AI 模型未加载',
+        aiModelLoading: 'AI 模型加载中...',
+        aiModelReady: 'AI 模型已就绪',
+        aiModelError: 'AI 模型加载失败',
+        loadAIModel: '加载 AI 模型',
+        cancelLoad: '取消',
+        advancedModelOptions: '高级模型选项',
+        advancedModelHint: '高级模型提供更高质量的抠图效果，但体积更大、加载更慢。首次使用需下载模型文件，后续会自动缓存。',
+        modelQualityStandard: '标准',
+        modelQualityHigh: '高',
+        modelQualityHighest: '极高',
+        modelSpeedFast: '快速',
+        modelSpeedMedium: '中等',
+        modelSpeedSlow: '较慢',
+        modelRecommended: '推荐',
+        modelSwitchSuccess: '模型切换成功',
+        modelSwitchFailed: '模型切换失败',
+        modelLoadCancelled: '模型加载已取消',
+        applyingSmartCut: '正在应用智能抠图...',
 
         /** 魔术棒参数 */
         contiguous: '连续区域',

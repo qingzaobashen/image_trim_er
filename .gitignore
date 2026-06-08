@@ -1,0 +1,25 @@
+# 依赖
+node_modules
+
+# 构建输出
+dist
+
+# 编辑器
+.vscode/*
+!.vscode/settings.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 测试用例
+TestCase/

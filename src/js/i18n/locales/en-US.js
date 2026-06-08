@@ -37,11 +37,33 @@ export default {
         /** Smart cutout params */
         cutMode: 'Cut Mode',
         cutModeAuto: 'Auto',
+        cutModeAI: 'AI Smart Cutout',
         cutModeColor: 'Color Clustering',
         cutModeEdge: 'Edge Detection',
         cutModePerson: 'Person Segmentation',
         smoothness: 'Edge Smoothness',
         applySmartCut: 'Apply Smart Cutout',
+
+        /** AI Model related */
+        aiModelNotLoaded: 'AI model not loaded',
+        aiModelLoading: 'Loading AI model...',
+        aiModelReady: 'AI model ready',
+        aiModelError: 'AI model load failed',
+        loadAIModel: 'Load AI Model',
+        cancelLoad: 'Cancel',
+        advancedModelOptions: 'Advanced Model Options',
+        advancedModelHint: 'Advanced models provide higher quality cutout but are larger and slower to load. First use requires downloading model files; subsequent uses are cached automatically.',
+        modelQualityStandard: 'Standard',
+        modelQualityHigh: 'High',
+        modelQualityHighest: 'Highest',
+        modelSpeedFast: 'Fast',
+        modelSpeedMedium: 'Medium',
+        modelSpeedSlow: 'Slow',
+        modelRecommended: 'Recommended',
+        modelSwitchSuccess: 'Model switched successfully',
+        modelSwitchFailed: 'Model switch failed',
+        modelLoadCancelled: 'Model loading cancelled',
+        applyingSmartCut: 'Applying smart cutout...',
 
         /** Magic wand params */
         contiguous: 'Contiguous',

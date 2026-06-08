@@ -3,6 +3,9 @@
  * 连接UI和图像处理功能
  */
 
+// 预加载 TensorFlow.js（bodyPix 依赖）
+import '@tensorflow/tfjs';
+
 import { ImageProcessor } from './imageProcessor.js';
 import { ZoomManager } from './utils/zoomManager.js';
 import i18n from './i18n/i18n.js';
@@ -110,6 +113,20 @@ class App {
         this.deleteSelectionBtn = document.getElementById('deleteSelection');
         this.selectionDenoiseBtn = document.getElementById('selectionDenoiseBtn');
 
+        // AI 模型相关元素
+        this.aiModelStatus = document.getElementById('aiModelStatus');
+        this.aiStatusDot = document.getElementById('aiStatusDot');
+        this.aiStatusText = document.getElementById('aiStatusText');
+        this.loadAIModelBtn = document.getElementById('loadAIModelBtn');
+        this.aiProgressContainer = document.getElementById('aiProgressContainer');
+        this.aiProgressFill = document.getElementById('aiProgressFill');
+        this.aiProgressPercent = document.getElementById('aiProgressPercent');
+        this.aiProgressMessage = document.getElementById('aiProgressMessage');
+        this.cancelModelLoadBtn = document.getElementById('cancelModelLoadBtn');
+        this.advancedModelToggle = document.getElementById('advancedModelToggle');
+        this.advancedModelPanel = document.getElementById('advancedModelPanel');
+        this.modelList = document.getElementById('modelList');
+
         this.imageSizeInfo = document.getElementById('imageSize');
         this.fileSizeInfo = document.getElementById('fileSize');
         this.fileFormatInfo = document.getElementById('fileFormat');
@@ -159,6 +176,11 @@ class App {
         this.invertSelectionBtn.addEventListener('click', () => this.handleInvertSelection());
         this.deleteSelectionBtn.addEventListener('click', () => this.handleDeleteSelection());
         this.selectionDenoiseBtn.addEventListener('click', () => this.handleSelectionDenoise());
+
+        // AI 模型相关事件
+        this.loadAIModelBtn.addEventListener('click', () => this.handleLoadAIModel());
+        this.cancelModelLoadBtn.addEventListener('click', () => this.handleCancelModelLoad());
+        this.advancedModelToggle.addEventListener('click', () => this.handleAdvancedModelToggle());
 
         this.smoothEdgesBtn.addEventListener('click', () => this.handleSmoothEdges());
         this.smoothEdgesSlider.addEventListener('input', (e) => {
@@ -286,9 +308,10 @@ class App {
         if (cutModeSelect) {
             const options = cutModeSelect.options;
             options[0].textContent = i18n.t('toolbar.cutModeAuto');
-            options[1].textContent = i18n.t('toolbar.cutModeColor');
-            options[2].textContent = i18n.t('toolbar.cutModeEdge');
-            options[3].textContent = i18n.t('toolbar.cutModePerson');
+            options[1].textContent = i18n.t('toolbar.cutModeAI');
+            options[2].textContent = i18n.t('toolbar.cutModeColor');
+            options[3].textContent = i18n.t('toolbar.cutModeEdge');
+            options[4].textContent = i18n.t('toolbar.cutModePerson');
         }
     }
 
@@ -819,13 +842,18 @@ class App {
         try {
             const mode = this.cutModeSelect.value;
             const smoothness = parseInt(this.smoothnessInput.value);
-            
-            if (mode === 'person') {
-                this.showLoading('正在加载AI模型...');
+
+            // AI 模式需要先加载模型
+            if ((mode === 'ai' || mode === 'auto') && !this.processor.isAIModelReady()) {
+                const loaded = await this.handleLoadAIModel();
+                if (!loaded && mode === 'ai') {
+                    this.showNotification(i18n.t('toolbar.aiModelError'), 'error');
+                    return;
+                }
             }
-            
-            this.showLoading('正在智能抠图...');
-            
+
+            this.showLoading(i18n.t('toolbar.applyingSmartCut'));
+
             this.processor.smartCutTool.setMode(mode);
             await this.processor.applySmartCut(smoothness);
 
@@ -847,6 +875,198 @@ class App {
 
         this.processor.clearSelection();
         this.updateButtons();
+    }
+
+    /**
+     * 处理加载 AI 模型
+     * @returns {Promise<boolean>} 是否加载成功
+     */
+    async handleLoadAIModel() {
+        if (this.processor.isAIModelReady()) return true;
+
+        try {
+            // 显示进度条
+            this.aiProgressContainer.style.display = 'flex';
+            this.loadAIModelBtn.style.display = 'none';
+            this._updateAIStatus('loading', i18n.t('toolbar.aiModelLoading'));
+
+            const success = await this.processor.initAIModel(
+                (progressInfo) => this._handleModelProgress(progressInfo),
+                (state, modelName) => this._handleModelStateChange(state, modelName)
+            );
+
+            if (success) {
+                this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
+                this.loadAIModelBtn.textContent = i18n.t('toolbar.aiModelReady');
+                this.loadAIModelBtn.disabled = true;
+                this.loadAIModelBtn.style.display = 'inline-flex';
+                this._renderModelList();
+            } else {
+                this._updateAIStatus('error', i18n.t('toolbar.aiModelError'));
+                this.loadAIModelBtn.style.display = 'inline-flex';
+                this.loadAIModelBtn.disabled = false;
+            }
+
+            this.aiProgressContainer.style.display = 'none';
+            return success;
+        } catch (error) {
+            if (error.message === '模型加载已取消') {
+                this._updateAIStatus('not_loaded', i18n.t('toolbar.aiModelNotLoaded'));
+                this.showNotification(i18n.t('toolbar.modelLoadCancelled'), 'info');
+            } else {
+                this._updateAIStatus('error', i18n.t('toolbar.aiModelError'));
+                this.showNotification(i18n.t('toolbar.aiModelError') + ': ' + error.message, 'error');
+            }
+            this.loadAIModelBtn.style.display = 'inline-flex';
+            this.loadAIModelBtn.disabled = false;
+            this.aiProgressContainer.style.display = 'none';
+            return false;
+        }
+    }
+
+    /**
+     * 处理取消模型加载
+     */
+    handleCancelModelLoad() {
+        this.processor.cancelModelLoading();
+    }
+
+    /**
+     * 处理高级模型选项面板切换
+     */
+    handleAdvancedModelToggle() {
+        const isExpanded = this.advancedModelPanel.style.display !== 'none';
+        this.advancedModelPanel.style.display = isExpanded ? 'none' : 'block';
+        this.advancedModelToggle.classList.toggle('expanded', !isExpanded);
+
+        // 首次展开时渲染模型列表
+        if (!isExpanded && this.processor.isAIModelReady()) {
+            this._renderModelList();
+        }
+    }
+
+    /**
+     * 更新 AI 模型状态指示器
+     * @param {string} status - 状态类型: 'not_loaded', 'loading', 'ready', 'error'
+     * @param {string} text - 状态文本
+     */
+    _updateAIStatus(status, text) {
+        this.aiStatusDot.className = 'ai-status-dot';
+        switch (status) {
+            case 'loading':
+                this.aiStatusDot.classList.add('loading');
+                break;
+            case 'ready':
+                this.aiStatusDot.classList.add('ready');
+                break;
+            case 'error':
+                this.aiStatusDot.classList.add('error');
+                break;
+            default:
+                break;
+        }
+        this.aiStatusText.textContent = text;
+    }
+
+    /**
+     * 处理模型加载进度回调
+     * @param {Object} info - 进度信息
+     */
+    _handleModelProgress(info) {
+        const percent = Math.round(info.progress || 0);
+        this.aiProgressFill.style.width = percent + '%';
+        this.aiProgressPercent.textContent = percent + '%';
+        this.aiProgressMessage.textContent = info.message || '';
+    }
+
+    /**
+     * 处理模型状态变更回调
+     * @param {string} state - 状态
+     * @param {string} modelName - 模型名称
+     */
+    _handleModelStateChange(state, modelName) {
+        switch (state) {
+            case 'loading':
+                this._updateAIStatus('loading', i18n.t('toolbar.aiModelLoading'));
+                break;
+            case 'ready':
+                this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
+                break;
+            case 'error':
+                this._updateAIStatus('error', i18n.t('toolbar.aiModelError'));
+                break;
+            case 'cancelled':
+                this._updateAIStatus('not_loaded', i18n.t('toolbar.aiModelNotLoaded'));
+                break;
+        }
+    }
+
+    /**
+     * 渲染模型列表
+     */
+    _renderModelList() {
+        if (!this.modelList) return;
+
+        const models = this.processor.smartCutTool.modelManager.constructor.getAvailableModels();
+        const currentModel = this.processor.getCurrentAIModel();
+
+        this.modelList.innerHTML = '';
+        models.forEach(model => {
+            const item = document.createElement('div');
+            item.className = 'model-item' + (model.id === currentModel ? ' active' : '');
+            item.dataset.model = model.id;
+
+            const qualityClass = model.quality === '极高' ? 'highest' :
+                                 model.quality === '高' ? 'high' :
+                                 model.quality === '快速' ? 'fast' : 'standard';
+
+            item.innerHTML = `
+                <div class="model-item-info">
+                    <span class="model-item-name">${model.name}</span>
+                    <span class="model-item-desc">${model.description}</span>
+                </div>
+                <div class="model-item-meta">
+                    <span class="model-item-size">${model.size}</span>
+                    <span class="model-item-quality ${qualityClass}">${model.quality}</span>
+                    ${model.recommended ? '<span class="model-item-recommended">' + i18n.t('toolbar.modelRecommended') + '</span>' : ''}
+                </div>
+            `;
+
+            item.addEventListener('click', () => this._handleModelSelect(model.id));
+            this.modelList.appendChild(item);
+        });
+    }
+
+    /**
+     * 处理模型选择
+     * @param {string} modelName - 模型名称
+     */
+    async _handleModelSelect(modelName) {
+        const currentModel = this.processor.getCurrentAIModel();
+        if (modelName === currentModel) return;
+
+        try {
+            // 显示进度条
+            this.aiProgressContainer.style.display = 'flex';
+            this._updateAIStatus('loading', i18n.t('toolbar.aiModelLoading'));
+
+            const success = await this.processor.switchAIModel(modelName);
+
+            if (success) {
+                this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
+                this.showNotification(i18n.t('toolbar.modelSwitchSuccess'), 'success');
+                this._renderModelList();
+            } else {
+                this._updateAIStatus('error', i18n.t('toolbar.modelSwitchFailed'));
+                this.showNotification(i18n.t('toolbar.modelSwitchFailed'), 'error');
+            }
+
+            this.aiProgressContainer.style.display = 'none';
+        } catch (error) {
+            this._updateAIStatus('error', i18n.t('toolbar.modelSwitchFailed'));
+            this.showNotification(i18n.t('toolbar.modelSwitchFailed') + ': ' + error.message, 'error');
+            this.aiProgressContainer.style.display = 'none';
+        }
     }
 
     /**

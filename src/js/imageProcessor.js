@@ -52,6 +52,48 @@ export class ImageProcessor {
     }
 
     /**
+     * 初始化 AI 模型（延迟加载）
+     * @param {Function} onProgress - 进度回调
+     * @param {Function} onStateChange - 状态变更回调
+     * @returns {Promise<boolean>} 是否初始化成功
+     */
+    async initAIModel(onProgress, onStateChange) {
+        return await this.smartCutTool.initAIModel(onProgress, onStateChange);
+    }
+
+    /**
+     * 切换 AI 模型
+     * @param {string} modelName - 目标模型名称
+     * @returns {Promise<boolean>} 是否切换成功
+     */
+    async switchAIModel(modelName) {
+        return await this.smartCutTool.switchAIModel(modelName);
+    }
+
+    /**
+     * 检查 AI 模型是否已就绪
+     * @returns {boolean} 是否已就绪
+     */
+    isAIModelReady() {
+        return this.smartCutTool.isAIModelReady();
+    }
+
+    /**
+     * 获取当前 AI 模型名称
+     * @returns {string|null} 当前模型名称
+     */
+    getCurrentAIModel() {
+        return this.smartCutTool.getCurrentAIModel();
+    }
+
+    /**
+     * 取消模型加载
+     */
+    cancelModelLoading() {
+        this.smartCutTool.cancelModelLoading();
+    }
+
+    /**
      * 加载图片
      * @param {File} file - 图片文件
      * @returns {Promise<Object>} 图片信息
