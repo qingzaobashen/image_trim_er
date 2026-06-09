@@ -357,15 +357,21 @@ body {
 }
 
 .param-group {
-    display: none;
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
 }
 
 .param-group.active {
-    display: block;
+    max-height: 800px;
+    opacity: 1;
 }
 
 .param-group[data-tool="postProcess"] {
-    display: block;
+    max-height: 800px;
+    opacity: 1;
 }
 
 .param-item {

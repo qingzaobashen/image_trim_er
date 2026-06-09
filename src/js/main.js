@@ -1422,8 +1422,7 @@ class App {
         }
         
         this.processor.regionSelector.clearSelection();
-        this.currentTool = 'smartCut';
-        this.handleToolSelect('smartCut');
+        // 保持 regionSelect 模式，方便用户连续框选
     }
 
     /**
