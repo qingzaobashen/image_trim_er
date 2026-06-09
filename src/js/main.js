@@ -1059,7 +1059,8 @@ class App {
 
             item.innerHTML = `
                 <div class="model-item-info">
-                    <span class="model-item-name">${model.name}</span>
+                    <span class="model-item-name">${model.displayName}</span>
+                    <span class="model-item-quality">${qualityClass}</span>
                     <span class="model-item-desc">${model.description}</span>
                 </div>
                 <div class="model-item-meta">
@@ -1090,9 +1091,22 @@ class App {
 
             const success = await this.processor.switchAIModel(modelName, dtype);
 
+            // 切换完成后重新获取实际状态（可能已回退到默认模型）
+            const isReady = this.processor.isAIModelReady();
+            const actualModel = this.processor.getCurrentAIModel();
+            const actualDtype = this.processor.getCurrentAIDtype();
+
             if (success) {
                 this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
                 this.showNotification(i18n.t('toolbar.modelSwitchSuccess'), 'success');
+                this._renderModelList();
+            } else if (isReady) {
+                // 切换未完全成功，但回退后模型可用
+                this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
+                this.showNotification(
+                    `${i18n.t('toolbar.modelSwitchFailed')}，已回退到可用模型: ${actualModel} (${actualDtype})`,
+                    'warning'
+                );
                 this._renderModelList();
             } else {
                 this._updateAIStatus('error', i18n.t('toolbar.modelSwitchFailed'));

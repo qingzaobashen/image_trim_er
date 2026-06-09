@@ -72,16 +72,33 @@ export class SmartCutTool {
      * @returns {Promise<boolean>} 是否切换成功
      */
     async switchAIModel(modelId, dtype) {
+        // 记录切换前的状态，用于失败时回退
+        const previousModelId = this.currentAIModel;
+        const previousDtype = this.modelManager.getCurrentDtype();
+        
         try {
             const success = await this.modelManager.loadModel(modelId, dtype);
             if (success) {
                 this.isAIModelAvailable = true;
                 this.currentAIModel = modelId;
+                console.log(`[SmartCutTool] 模型切换成功: ${modelId}, 精度: ${this.modelManager.getCurrentDtype()}`);
             }
             return success;
         } catch (error) {
             console.error(`切换 AI 模型 ${modelId} (${dtype}) 失败:`, error);
-            this.isAIModelAvailable = this.modelManager.isModelLoaded();
+            
+            // 检查模型管理器当前状态
+            const isLoaded = this.modelManager.isModelLoaded();
+            this.isAIModelAvailable = isLoaded;
+            
+            if (isLoaded) {
+                // 如果回退逻辑成功加载了默认模型，同步更新当前模型记录
+                this.currentAIModel = this.modelManager.getCurrentModelName();
+            } else {
+                // 彻底失败，重置状态
+                this.currentAIModel = null;
+            }
+            
             return false;
         }
     }

@@ -38,17 +38,19 @@ const DTYPE_OPTIONS = {
 const MODEL_INFO = {
     [MODNET_MODEL_ID]: {
         name: 'MODNet',
+        displayName: '人像模型',
         description_zh: '人像优化模型，适合人物照片抠图，速度快',
         description_en: 'Portrait-optimized model, suitable for person photos',
         baseSize: '~25MB',
         quality: 'high',
         speed: 'fast',
         recommended: false,  // 不推荐，仅适合人像
-        supportedDtypes: ['q8'],  // MODNet 只有全精度版本
-        defaultDtype: 'q8'
+        supportedDtypes: ['fp32'],  // MODNet 只有全精度版本（无量化版文件）
+        defaultDtype: 'fp32'
     },
     [RMBG_MODEL_ID]: {
         name: 'RMBG',
+        displayName: '通用模型',
         description_zh: '通用背景移除模型，适合大多数场景（默认）',
         description_en: 'High-quality general background removal model, suitable for most scenarios (default)',
         baseSize: '~176MB',
@@ -183,6 +185,7 @@ export class ModelManager {
         if (defaultInfo) {
             result.push({
                 name: `${defaultInfo.name} (${DTYPE_OPTIONS[defaultInfo.defaultDtype].name})`,
+                displayName: defaultInfo.displayName,
                 id: DEFAULT_MODEL,
                 dtype: defaultInfo.defaultDtype,
                 description: defaultInfo.description_zh,
@@ -206,8 +209,10 @@ export class ModelManager {
                         ? defaultInfo.quantizedSize 
                         : defaultInfo.baseSize;
                     
-                    result.push({
+                        // 为高级模型选项添加displayName字段，保持与默认模型一致的显示结构
+                        result.push({
                         name: `${defaultInfo.name} (${dtypeInfo.name})`,
+                        displayName: defaultInfo.displayName,
                         id: DEFAULT_MODEL,
                         dtype: dtype,
                         description: `${defaultInfo.description_zh}（${dtypeInfo.description}）`,
@@ -236,6 +241,7 @@ export class ModelManager {
             
             result.push({
                 name: `${info.name} (${DTYPE_OPTIONS[info.defaultDtype].name})`,
+                displayName: info.displayName,
                 id: id,
                 dtype: info.defaultDtype,
                 description: info.description_zh,
@@ -327,11 +333,23 @@ export class ModelManager {
             return true;
         }
 
-        // 如果正在加载其他模型，先取消
+        // 如果正在加载其他模型，先取消并等待
         if (this.isLoading) {
             this.cancelLoading();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
+
+        // 保存旧模型引用，用于加载失败时回退
+        const oldModel = this.model;
+        const oldProcessor = this.processor;
+        const oldModelId = this.currentModelId;
+        const oldDtype = this.currentDtype;
+
+        // 先清空引用（但不 dispose），避免新模型加载过程中旧模型干扰
+        this.model = null;
+        this.processor = null;
+        this.currentModelId = null;
+        this.currentDtype = null;
 
         this.isLoading = true;
         this._cancelFlag = false;
@@ -389,11 +407,24 @@ export class ModelManager {
             this._emitStateChange('ready', modelId);
             
             console.log(`[ModelManager] 模型加载成功: ${modelId}, 精度: ${targetDtype}, 耗时: ${loadTime}ms`);
+
+            // 新模型加载成功，释放旧模型资源
+            if (oldModel && typeof oldModel.dispose === 'function') {
+                try { await oldModel.dispose(); } catch (e) {
+                    console.warn('[ModelManager] 旧模型 dispose 失败:', e);
+                }
+            }
+
             return true;
         } catch (error) {
             this.isLoading = false;
 
             if (error.message === 'MODEL_LOADING_CANCELLED') {
+                // 取消时恢复旧模型
+                this.model = oldModel;
+                this.processor = oldProcessor;
+                this.currentModelId = oldModelId;
+                this.currentDtype = oldDtype;
                 this._emitStateChange('cancelled', modelId);
                 this._emitProgress({
                     step: 'complete',
@@ -406,7 +437,31 @@ export class ModelManager {
             console.error('模型加载失败:', error);
             this._emitStateChange('error', modelId);
 
-            // 尝试回退策略
+            // 清理可能已部分加载的新模型资源
+            if (this.model && typeof this.model.dispose === 'function') {
+                try { await this.model.dispose(); } catch (e) { /* ignore */ }
+            }
+            this.model = null;
+            this.processor = null;
+
+            // 恢复旧模型引用，确保用户仍可使用
+            if (oldModel && oldProcessor) {
+                this.model = oldModel;
+                this.processor = oldProcessor;
+                this.currentModelId = oldModelId;
+                this.currentDtype = oldDtype;
+                console.log(`[ModelManager] 已恢复旧模型: ${oldModelId} (${oldDtype})`);
+                this._emitStateChange('ready', oldModelId);
+                this._emitProgress({
+                    step: 'complete',
+                    progress: 100,
+                    message: `模型切换失败，已恢复 ${MODEL_INFO[oldModelId]?.name || oldModelId}`
+                });
+                // 返回 false 表示切换未成功，但旧模型仍可用
+                return false;
+            }
+
+            // 没有旧模型可恢复，尝试回退策略
             // 1. 如果量化版失败，尝试全精度版
             if (targetDtype === 'q8' && modelInfo.supportedDtypes.includes('fp32')) {
                 console.warn(`量化模型加载失败，尝试回退到全精度版本...`);
@@ -438,7 +493,7 @@ export class ModelManager {
      * @param {string} dtypeDisplayName - 精度类型显示名称
      */
     _emitProgressFromTransformers(progress, modelId, dtypeDisplayName) {
-        const modelDisplayName = MODEL_INFO[modelId]?.name || modelId;
+        const modelDisplayName = MODEL_INFO[modelId]?.displayName || modelId;
 
         if (progress.status === 'progress') {
             const percent = progress.progress || 0;
@@ -472,8 +527,13 @@ export class ModelManager {
      * @returns {Promise<boolean>} 是否切换成功
      */
     async switchModel(modelId, dtype = null) {
+        // 获取模型信息以确定默认精度
+        const modelInfo = MODEL_INFO[modelId];
+        const targetDtype = dtype || (modelInfo ? modelInfo.defaultDtype : null);
+        
+        // 检查是否已经是同一模型和精度
         if (this.currentModelId === modelId && 
-            this.currentDtype === dtype && 
+            this.currentDtype === targetDtype && 
             this.model && 
             this.processor) {
             return true;
