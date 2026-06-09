@@ -21,6 +21,58 @@
 
 import * as canvasUtils from '../utils/canvasUtils.js';
 
+/** OpenCV.js 脚本路径 */
+const OPENCV_JS_PATH = '/opencv.js';
+
+/** OpenCV.js 全局加载状态 */
+let _opencvLoadingPromise = null;
+
+/**
+ * 按需动态加载 OpenCV.js
+ * 避免在页面启动时同步加载 7.7MB 的脚本
+ * @returns {Promise<void>}
+ */
+function loadOpenCV() {
+    // 已加载或加载中
+    if (typeof cv !== 'undefined' && cv.Mat) {
+        return Promise.resolve();
+    }
+    if (_opencvLoadingPromise) {
+        return _opencvLoadingPromise;
+    }
+
+    _opencvLoadingPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = OPENCV_JS_PATH;
+        script.type = 'text/javascript';
+        script.async = true;
+
+        script.onload = () => {
+            // OpenCV.js 加载后需要等待 WASM 初始化完成
+            const checkReady = () => {
+                if (typeof cv !== 'undefined' && cv.Mat) {
+                    resolve();
+                } else if (typeof cv !== 'undefined' && cv['onRuntimeInitialized']) {
+                    // 旧版本 OpenCV.js 使用 onRuntimeInitialized
+                    cv['onRuntimeInitialized'] = () => resolve();
+                } else {
+                    setTimeout(checkReady, 50);
+                }
+            };
+            checkReady();
+        };
+
+        script.onerror = () => {
+            _opencvLoadingPromise = null;
+            reject(new Error('OpenCV.js 加载失败'));
+        };
+
+        document.head.appendChild(script);
+    });
+
+    return _opencvLoadingPromise;
+}
+
 /**
  * 阴影处理器类
  * 用于识别物体边缘外的阴影区域并计算半透明alpha值
@@ -235,13 +287,14 @@ export class ShadowProcessor {
      * @param {number} options.highThreshold - 高阈值，默认40（控制强边缘判定）
      * @param {number} options.blurKernelSize - 高斯模糊核大小，默认5（必须为奇数）
      * @param {number} options.blurSigma - 高斯模糊标准差，默认0（由核大小自动计算）
-     * @returns {Uint8ClampedArray|null} 边缘图（255=边缘，0=非边缘），OpenCV未加载时返回null
+     * @returns {Promise<Uint8ClampedArray|null>} 边缘图（255=边缘，0=非边缘），OpenCV加载失败时返回null
      */
-    detectEdgesWithOpenCV(imageData, options = {}) {
-        // 检查OpenCV.js是否已加载
-        // OpenCV加载后会在全局挂载cv对象，且包含Mat类
-        if (typeof cv === 'undefined' || !cv.Mat) {
-            console.warn('OpenCV.js未加载，无法使用detectEdgesWithOpenCV。请在HTML中引入opencv.js');
+    async detectEdgesWithOpenCV(imageData, options = {}) {
+        // 按需加载 OpenCV.js，避免页面启动时同步加载 7.7MB 脚本
+        try {
+            await loadOpenCV();
+        } catch (error) {
+            console.warn('OpenCV.js 加载失败，回退到手写边缘检测:', error);
             return null;
         }
 

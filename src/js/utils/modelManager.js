@@ -483,8 +483,16 @@ export class ModelManager {
 
     /**
      * 释放当前模型资源
+     * 显式调用模型 dispose() 释放 WebGL 纹理与 WASM 内存，避免内存泄漏
      */
     async disposeCurrentModel() {
+        if (this.model && typeof this.model.dispose === 'function') {
+            try {
+                await this.model.dispose();
+            } catch (e) {
+                console.warn('[ModelManager] 模型 dispose 失败:', e);
+            }
+        }
         this.model = null;
         this.processor = null;
         this.currentModelId = null;

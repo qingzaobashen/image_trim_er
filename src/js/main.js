@@ -3,9 +3,6 @@
  * 连接UI和图像处理功能
  */
 
-// 预加载 TensorFlow.js（bodyPix 依赖）
-import '@tensorflow/tfjs';
-
 import { ImageProcessor } from './imageProcessor.js';
 import { ZoomManager } from './utils/zoomManager.js';
 import i18n from './i18n/i18n.js';
@@ -179,10 +176,16 @@ class App {
         this.cancelModelLoadBtn.addEventListener('click', () => this.handleCancelModelLoad());
         this.advancedModelToggle.addEventListener('click', () => this.handleAdvancedModelToggle());
 
-        this.smoothEdgesBtn.addEventListener('click', () => this.handleSmoothEdges());
-        this.smoothEdgesSlider.addEventListener('input', (e) => {
-            this.smoothEdgesValue.textContent = e.target.value;
-        });
+        if (this.smoothEdgesBtn) {
+            this.smoothEdgesBtn.addEventListener('click', () => this.handleSmoothEdges());
+        }
+        if (this.smoothEdgesSlider) {
+            this.smoothEdgesSlider.addEventListener('input', (e) => {
+                if (this.smoothEdgesValue) {
+                    this.smoothEdgesValue.textContent = e.target.value;
+                }
+            });
+        }
 
         this.shadowIntensityInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.shadowMaxDistanceInput.addEventListener('input', (e) => this.updateParamValue(e));
@@ -216,6 +219,46 @@ class App {
         this.resetZoomBtn.addEventListener('click', () => this.handleResetZoom());
 
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+        // 页面可见性变化：隐藏时释放 AI 模型与 BodyPix 内存，避免后台占用
+        document.addEventListener('visibilitychange', () => this._handleVisibilityChange());
+
+        // 页面卸载前清理资源
+        window.addEventListener('beforeunload', () => this._cleanupResources());
+    }
+
+    /**
+     * 处理页面可见性变化
+     * 页面隐藏超过 30 秒后自动卸载 AI 模型，释放 GPU / WASM 内存
+     */
+    _handleVisibilityChange() {
+        if (document.hidden) {
+            this._hiddenAt = Date.now();
+        } else if (this._hiddenAt) {
+            const hiddenDuration = Date.now() - this._hiddenAt;
+            this._hiddenAt = null;
+            // 若隐藏超过 30 秒且未在使用 AI 功能，主动卸载模型
+            if (hiddenDuration > 30000 && this.processor && this.processor.smartCutTool) {
+                const mm = this.processor.smartCutTool.modelManager;
+                if (mm && mm.model) {
+                    console.log('[App] 页面后台停留较久，自动卸载 AI 模型以释放内存');
+                    mm.disposeCurrentModel();
+                    this._updateAIStatus('not_loaded', i18n.t('toolbar.aiModelNotLoaded'));
+                    this.loadAIModelBtn.textContent = i18n.t('toolbar.loadAIModel');
+                    this.loadAIModelBtn.disabled = false;
+                }
+            }
+        }
+    }
+
+    /**
+     * 清理应用资源
+     */
+    _cleanupResources() {
+        if (this.processor && this.processor.smartCutTool) {
+            const mm = this.processor.smartCutTool.modelManager;
+            if (mm) mm.disposeCurrentModel();
+        }
     }
 
     /**
@@ -647,7 +690,7 @@ class App {
     /**
      * 处理Canvas鼠标抬起
      */
-    handleCanvasMouseUp() {
+    async handleCanvasMouseUp() {
         if (!this.isImageLoaded) return;
 
         if (this.currentTool === 'regionSelect') {
@@ -677,7 +720,7 @@ class App {
         }
 
         if (this.processor.isEdgeBrushActive) {
-            this.processor.stopEdgeBrush();
+            await this.processor.stopEdgeBrush();
             this.updateButtons();
             return;
         }
@@ -844,6 +887,8 @@ class App {
             await this.processor.applySmartCut();
 
             this.updateButtons();
+            this.currentTool = 'smartCut';
+            this.handleToolSelect('smartCut');
 
         } catch (error) {
             console.error('智能抠图失败:', error);
@@ -861,6 +906,8 @@ class App {
 
         this.processor.clearSelection();
         this.updateButtons();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
     }
 
     /**
@@ -1068,6 +1115,8 @@ class App {
 
         this.processor.invertSelection();
         this.updateButtons();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
     }
 
     /**
@@ -1078,6 +1127,8 @@ class App {
 
         this.processor.deleteSelection();
         this.updateButtons();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
     }
 
     /**
@@ -1092,6 +1143,8 @@ class App {
         const result = this.processor.removeSmallRegionsFromSelection(minArea);
         
         this.updateButtons();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
         this.showNotification(
             `已选噪点：${result.removedSelectedRegions}个区域/${result.removedSelectedPixels}像素；未选噪点：${result.removedUnselectedRegions}个区域/${result.removedUnselectedPixels}像素`,
             'success'
@@ -1110,6 +1163,8 @@ class App {
         const result = this.processor.removeSmallRegions(minArea);
         
         this.updateButtons();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
         this.showNotification(
             `透明噪点：${result.removedOpaqueRegions}个区域/${result.removedOpaquePixels}像素；不透明噪点：${result.removedTransparentRegions}个区域/${result.removedTransparentPixels}像素`,
             'success'
@@ -1122,6 +1177,10 @@ class App {
     handleSmoothEdges() {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
+        if (!this.smoothEdgesSlider) {
+            this.showNotification('边缘光滑功能未启用', 'error');
+            return;
+        }
 
         const strength = parseInt(this.smoothEdgesSlider.value);
         
@@ -1132,6 +1191,8 @@ class App {
                 const success = this.processor.smoothEdges(strength);
                 if (success) {
                     this.updateButtons();
+                    this.currentTool = 'smartCut';
+                    this.handleToolSelect('smartCut');
                     this.showNotification(`边缘光滑处理完成（强度：${strength}）`, 'success');
                 } else {
                     this.showNotification('边缘光滑处理失败', 'error');
@@ -1148,7 +1209,7 @@ class App {
     /**
      * 处理边缘检测
      */
-    handleDetectEdges() {
+    async handleDetectEdges() {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
 
@@ -1159,30 +1220,28 @@ class App {
 
         this.showLoading('边缘检测中...');
 
-        setTimeout(() => {
-            try {
-                const success = this.processor.detectEdges({
-                    blurKernelSize,
-                    lowThreshold,
-                    highThreshold
-                });
-                if (success) {
-                    // 重置边缘画笔模式状态
-                    this.isEdgeBrushMode = false;
-                    this.edgeBrushAddModeBtn.classList.remove('active');
-                    this.edgeBrushSubtractModeBtn.classList.remove('active');
-                    this.updateButtons();
-                    this.showNotification('边缘检测完成，青色细线为物体轮廓', 'success');
-                } else {
-                    this.showNotification('边缘检测失败', 'error');
-                }
-            } catch (error) {
-                console.error('边缘检测失败:', error);
+        try {
+            const success = await this.processor.detectEdges({
+                blurKernelSize,
+                lowThreshold,
+                highThreshold
+            });
+            if (success) {
+                // 重置边缘画笔模式状态
+                this.isEdgeBrushMode = false;
+                this.edgeBrushAddModeBtn.classList.remove('active');
+                this.edgeBrushSubtractModeBtn.classList.remove('active');
+                this.updateButtons();
+                this.showNotification('边缘检测完成，青色细线为物体轮廓', 'success');
+            } else {
                 this.showNotification('边缘检测失败', 'error');
-            } finally {
-                this.hideLoading();
             }
-        }, 10);
+        } catch (error) {
+            console.error('边缘检测失败:', error);
+            this.showNotification('边缘检测失败', 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
 
     /**
@@ -1313,6 +1372,8 @@ class App {
             this.processor.regionSelector.clearSelection();
             this.showNotification('请在图片上框选要处理的区域', 'info');
         }
+
+        this.handleToolSelect(this.currentTool);
     }
 
     /**
@@ -1361,6 +1422,8 @@ class App {
         }
         
         this.processor.regionSelector.clearSelection();
+        this.currentTool = 'smartCut';
+        this.handleToolSelect('smartCut');
     }
 
     /**

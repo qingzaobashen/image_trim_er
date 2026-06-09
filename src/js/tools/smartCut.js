@@ -9,7 +9,6 @@
 import * as canvasUtils from '../utils/canvasUtils.js';
 import { ModelManager } from '../utils/modelManager.js';
 import { RawImage } from '@huggingface/transformers';
-import * as bodyPix from '@tensorflow-models/body-pix';
 
 /**
  * 智能抠图类
@@ -120,12 +119,18 @@ export class SmartCutTool {
 
     /**
      * 加载BodyPix模型（用于人体抠图，传统回退方案）
+     * 按需动态导入 @tensorflow/tfjs 和 @tensorflow-models/body-pix
+     * 避免在应用启动时预加载庞大的 TensorFlow.js 框架
      * @returns {Promise<void>}
      */
     async loadBodyPixModel() {
         if (this.isBodyPixLoaded) return;
-        
+
         try {
+            // 动态导入 TensorFlow.js 和 BodyPix，仅在需要时加载
+            const tf = await import('@tensorflow/tfjs');
+            const bodyPix = await import('@tensorflow-models/body-pix');
+
             this.bodyPixModel = await bodyPix.load({
                 architecture: 'MobileNetV1',
                 outputStride: 16,
@@ -174,6 +179,8 @@ export class SmartCutTool {
     async applyAIRemoveBg() {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
+        let pixel_values = null;
+        let outputTensor = null;
 
         try {
             const { model, processor } = this.modelManager.getModelAndProcessor();
@@ -192,14 +199,16 @@ export class SmartCutTool {
             URL.revokeObjectURL(imageUrl);
 
             // 预处理图像：获取像素值张量
-            const { pixel_values } = await processor(img);
+            const processorResult = await processor(img);
+            pixel_values = processorResult.pixel_values;
 
             // 模型推理：获取 alpha 蒙版
-            const { output } = await model({ input: pixel_values });
+            const modelResult = await model({ input: pixel_values });
+            outputTensor = modelResult.output;
 
             // 将输出张量缩放至 0-255 并调整回原始尺寸
             const maskData = (
-                await RawImage.fromTensor(output[0].mul(255).to('uint8')).resize(
+                await RawImage.fromTensor(outputTensor[0].mul(255).to('uint8')).resize(
                     img.width,
                     img.height,
                 )
@@ -231,6 +240,14 @@ export class SmartCutTool {
             this.isAIModelAvailable = false;
             // 回退到自动模式
             return await this.applyAutoSegmentation();
+        } finally {
+            // 显式释放张量内存，防止 WebGL / WASM 内存泄漏
+            if (pixel_values && typeof pixel_values.dispose === 'function') {
+                try { pixel_values.dispose(); } catch (e) { /* ignore */ }
+            }
+            if (outputTensor && typeof outputTensor.dispose === 'function') {
+                try { outputTensor.dispose(); } catch (e) { /* ignore */ }
+            }
         }
     }
 

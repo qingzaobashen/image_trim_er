@@ -178,7 +178,7 @@ export class EdgeBrushTool {
      * 在mouseup时触发，执行实际的正画笔边缘检测或负画笔边缘抹除
      * @param {number} scale - 当前缩放比例
      */
-    stopDrawing(scale = 1) {
+    async stopDrawing(scale = 1) {
         if (!this.isDrawing) return;
 
         this.isDrawing = false;
@@ -188,7 +188,7 @@ export class EdgeBrushTool {
 
         if (this.mode === 'add') {
             // 正画笔：对涂抹区域执行边缘检测并合并到edgeData
-            this.applyPositiveBrush(brushMask);
+            await this.applyPositiveBrush(brushMask);
         } else {
             // 负画笔：抹除涂抹区域内的边缘像素
             this.applyNegativeBrush(brushMask);
@@ -212,7 +212,7 @@ export class EdgeBrushTool {
      *
      * @param {Uint8ClampedArray} brushMask - 涂抹蒙版（255=涂抹区域，0=未涂抹）
      */
-    applyPositiveBrush(brushMask) {
+    async applyPositiveBrush(brushMask) {
         if (!this.edgeData || !this.originalImageData || !this.shadowProcessor) {
             console.warn('边缘画笔缺少必要的数据引用');
             return;
@@ -238,16 +238,14 @@ export class EdgeBrushTool {
             cropX, cropY, cropW, cropH
         );
 
-        // 步骤3：对裁剪区域执行Canny边缘检测
-        let croppedEdges;
-        if (this.shadowProcessor.isOpenCVReady()) {
-            croppedEdges = this.shadowProcessor.detectEdgesWithOpenCV(croppedImageData, {
-                lowThreshold: 5,
-                highThreshold: 40,
-                blurKernelSize: 3,
-                blurSigma: 0
-            });
-        } else {
+        // 步骤3：对裁剪区域执行Canny边缘检测（OpenCV 按需异步加载）
+        let croppedEdges = await this.shadowProcessor.detectEdgesWithOpenCV(croppedImageData, {
+            lowThreshold: 5,
+            highThreshold: 40,
+            blurKernelSize: 3,
+            blurSigma: 0
+        });
+        if (!croppedEdges) {
             croppedEdges = this.shadowProcessor.detectEdges(croppedImageData);
         }
 

@@ -112,6 +112,35 @@ export class UndoRedoManager {
     }
 
     /**
+     * 根据图像数据大小动态调整最大历史步数
+     * 大图占用内存多，应减少历史步数以防止内存溢出
+     * @param {number} pixelCount - 图像像素总数（宽 × 高）
+     * @param {number} channels - 每像素通道数，默认4（RGBA）
+     */
+    adjustMaxHistoryByImageSize(pixelCount, channels = 4) {
+        // 估算单个快照内存占用（字节）
+        const snapshotSize = pixelCount * channels;
+        // 目标：历史记录总占用不超过 256MB
+        const targetMemoryBytes = 256 * 1024 * 1024;
+        const maxStepsByMemory = Math.floor(targetMemoryBytes / snapshotSize);
+
+        // 限制在合理范围：最少3步，最多20步
+        const newMax = Math.max(3, Math.min(20, maxStepsByMemory));
+
+        if (newMax !== this.maxHistory) {
+            console.log(`[UndoRedo] 根据图像尺寸动态调整历史步数: ${this.maxHistory} → ${newMax} (单快照 ${(snapshotSize / 1024 / 1024).toFixed(2)} MB)`);
+            this.maxHistory = newMax;
+
+            // 如果当前历史超出新限制，裁剪旧记录
+            while (this.history.length > this.maxHistory) {
+                this.history.shift();
+                this.index--;
+            }
+            if (this.index < 0) this.index = Math.min(this.index, this.history.length - 1);
+        }
+    }
+
+    /**
      * 清空所有历史记录
      */
     clear() {
