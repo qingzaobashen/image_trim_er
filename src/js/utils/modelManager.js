@@ -1,109 +1,90 @@
 /**
  * 模型管理器模块
- * 管理 @bunnio/rembg-web 库的模型加载、缓存、切换和内存回收
+ * 基于 @huggingface/transformers (Transformers.js) 实现背景移除模型的加载与管理
+ * 使用本地预下载的模型文件，避免网络下载问题
+ * 支持模型：MODNet（人像优化，25MB）、RMBG-1.4（高质量通用，176MB/44MB量化版）
  */
 
 import {
-    newSession,
-    getAvailableModels,
-    clearSessionCache,
-    disposeAllSessions,
-    clearModelCache,
-    clearModelCacheForModel,
-    getCacheStats,
-    configureCache,
-    rembgConfig
-} from '@bunnio/rembg-web';
+    env,
+    AutoModel,
+    AutoProcessor,
+    RawImage,
+} from '@huggingface/transformers';
+
+/** 本地模型基础路径（Vite 会自动服务 public 目录下的文件） */
+const LOCAL_MODEL_BASE_PATH = '/';
+
+/** MODNet 模型 ID（人像优化，25MB，速度快） */
+const MODNET_MODEL_ID = 'Xenova/modnet';
+
+/** RMBG-1.4 模型 ID（高质量通用背景移除） */
+const RMBG_MODEL_ID = 'briaai/RMBG-1.4';
+
+/**
+ * 模型精度类型
+ * - fp32: 全精度（默认，最大最准确）
+ * - q8: 8位量化（体积小75%，速度快，精度略降）
+ */
+const DTYPE_OPTIONS = {
+    fp32: { name: '全精度', sizeFactor: 1, description: '精度最高，体积最大' },
+    q8: { name: '量化版', sizeFactor: 0.25, description: '体积小75%，速度快，精度略降' }
+};
 
 /**
  * 模型信息定义
- * 包含模型名称、描述、大小等元数据
+ * 包含模型名称、描述、大小、支持的精度类型等元数据
  */
 const MODEL_INFO = {
-    'u2netp': {
-        name: 'U2NetP',
-        description_zh: '轻量级模型，速度快，适合快速预览',
-        description_en: 'Lightweight model, fast speed, suitable for quick preview',
-        size: '~4MB',
-        quality: 'standard',
+    [MODNET_MODEL_ID]: {
+        name: 'MODNet',
+        description_zh: '人像优化模型，适合人物照片抠图，速度快',
+        description_en: 'Portrait-optimized model, suitable for person photos',
+        baseSize: '~25MB',
+        quality: 'high',
         speed: 'fast',
-        recommended: true
+        recommended: true,
+        supportedDtypes: ['fp32'],  // MODNet 只有全精度版本
+        defaultDtype: 'fp32'
     },
-    'u2net': {
-        name: 'U2Net',
-        description_zh: '标准模型，平衡速度与质量，适合大多数场景',
-        description_en: 'Standard model, balanced speed and quality, suitable for most scenarios',
-        size: '~176MB',
-        quality: 'high',
-        speed: 'medium',
-        recommended: false
-    },
-    'isnet-general-use': {
-        name: 'ISNet General',
-        description_zh: '高精度通用模型，质量最佳但体积较大',
-        description_en: 'High-precision general model, best quality but larger size',
-        size: '~176MB',
+    [RMBG_MODEL_ID]: {
+        name: 'RMBG-1.4',
+        description_zh: '高质量通用背景移除模型，适合大多数场景',
+        description_en: 'High-quality general background removal model, suitable for most scenarios',
+        baseSize: '~176MB',
         quality: 'highest',
-        speed: 'slow',
-        recommended: false
-    },
-    'isnet-anime': {
-        name: 'ISNet Anime',
-        description_zh: '动漫图像专用模型，针对二次元图像优化',
-        description_en: 'Anime-specific model, optimized for anime-style images',
-        size: '~176MB',
-        quality: 'high',
-        speed: 'slow',
-        recommended: false
-    },
-    'silueta': {
-        name: 'Silueta',
-        description_zh: '轻量人像分割模型，适合人像抠图',
-        description_en: 'Lightweight portrait segmentation model, suitable for portrait cutout',
-        size: '~176MB',
-        quality: 'high',
         speed: 'medium',
-        recommended: false
-    },
-    'u2net_human_seg': {
-        name: 'U2Net Human Seg',
-        description_zh: '人体分割专用模型，精确识别人体轮廓',
-        description_en: 'Human segmentation model, precise body outline detection',
-        size: '~176MB',
-        quality: 'high',
-        speed: 'medium',
-        recommended: false
-    },
-    'u2net_cloth_seg': {
-        name: 'U2Net Cloth Seg',
-        description_zh: '服装分割专用模型，适用于电商场景',
-        description_en: 'Cloth segmentation model, suitable for e-commerce scenarios',
-        size: '~176MB',
-        quality: 'high',
-        speed: 'medium',
-        recommended: false
+        recommended: false,
+        supportedDtypes: ['fp32', 'q8'],  // 支持全精度和量化版
+        defaultDtype: 'q8',  // 默认使用量化版（更小更快）
+        quantizedSize: '~44MB'
     }
 };
 
-/** 默认模型名称 */
-const DEFAULT_MODEL = 'u2netp';
+/** 默认模型 ID（MODNet，较小较快） */
+const DEFAULT_MODEL = MODNET_MODEL_ID;
 
-/** 高级模型列表（排除默认模型） */
-const ADVANCED_MODELS = ['u2net', 'isnet-general-use', 'isnet-anime', 'silueta', 'u2net_human_seg', 'u2net_cloth_seg'];
+/** 高级模型列表 */
+const ADVANCED_MODELS = [RMBG_MODEL_ID];
 
 /**
  * 模型管理器类
- * 负责模型的加载、缓存、切换和内存管理
+ * 负责基于 Transformers.js 的本地模型加载、缓存、切换和内存管理
+ * 支持量化模型加载，优化浏览器端性能
  */
 export class ModelManager {
     /**
      * 构造函数
      */
     constructor() {
-        /** 当前活跃的会话实例 */
-        this.currentSession = null;
-        /** 当前模型名称 */
-        this.currentModelName = null;
+        /** 当前加载的模型实例 */
+        this.model = null;
+        /** 当前加载的处理器实例 */
+        this.processor = null;
+        /** 当前模型 ID */
+        this.currentModelId = null;
+        /** 当前模型精度类型 */
+        this.currentDtype = null;
         /** 模型加载状态 */
         this.isLoading = false;
         /** 加载取消标志 */
@@ -116,12 +97,45 @@ export class ModelManager {
         this._loadStartTime = 0;
         /** 错误回调函数 */
         this.onError = null;
+        /** 是否为 iOS 设备 */
+        this.isIOS = this._detectIOS();
 
-        // 配置缓存：最多缓存3个模型会话
-        configureCache({ maxSessions: 3 });
+        // 配置 Transformers.js 使用本地模型
+        this._configureLocalModels();
+    }
 
-        // 配置模型下载路径为 HuggingFace CDN（避免本地 /models 路径不可用的问题）
-        rembgConfig.setBaseUrl('https://huggingface.co/bunnio/dis_anime/resolve/main');
+    /**
+     * 配置 Transformers.js 使用本地模型
+     * 模型文件位于 public/ 目录下
+     */
+    _configureLocalModels() {
+        // 启用本地模型支持
+        env.allowLocalModels = true;
+        
+        // 设置本地模型路径（public 目录下的文件会被 Vite 自动服务）
+        env.localModelPath = LOCAL_MODEL_BASE_PATH;
+        
+        // 禁用远程模型下载
+        env.allowRemoteModels = false;
+        
+        console.log(`[ModelManager] 使用本地模型，路径: ${LOCAL_MODEL_BASE_PATH}`);
+    }
+
+    /**
+     * 检测是否为 iOS 设备
+     * iOS 设备不支持 WebGPU，需要使用 WASM 回退方案
+     * @returns {boolean} 是否为 iOS
+     */
+    _detectIOS() {
+        return [
+            'iPad Simulator',
+            'iPhone Simulator',
+            'iPod Simulator',
+            'iPad',
+            'iPhone',
+            'iPod'
+        ].includes(navigator.platform)
+        || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
     }
 
     /**
@@ -133,8 +147,16 @@ export class ModelManager {
     }
 
     /**
-     * 获取默认模型名称
-     * @returns {string} 默认模型名称
+     * 获取精度类型信息
+     * @returns {Object} 精度类型映射
+     */
+    static getDtypeOptions() {
+        return DTYPE_OPTIONS;
+    }
+
+    /**
+     * 获取默认模型 ID
+     * @returns {string} 默认模型 ID
      */
     static getDefaultModel() {
         return DEFAULT_MODEL;
@@ -142,7 +164,7 @@ export class ModelManager {
 
     /**
      * 获取高级模型列表
-     * @returns {string[]} 高级模型名称数组
+     * @returns {string[]} 高级模型 ID 数组
      */
     static getAdvancedModels() {
         return ADVANCED_MODELS;
@@ -154,30 +176,39 @@ export class ModelManager {
      */
     static getAvailableModels() {
         const allModels = [DEFAULT_MODEL, ...ADVANCED_MODELS];
-        return allModels.map(name => {
-            const info = MODEL_INFO[name];
+        return allModels.map(id => {
+            const info = MODEL_INFO[id];
             if (!info) return null;
+            
+            // 计算实际大小（考虑量化）
+            const actualSize = info.defaultDtype === 'q8' && info.quantizedSize 
+                ? info.quantizedSize 
+                : info.baseSize;
+            
             return {
                 name: info.name,
-                id: name,
+                id: id,
                 description: info.description_zh,
-                size: info.size,
+                size: actualSize,
                 quality: info.quality === 'standard' ? '标准' :
                          info.quality === 'high' ? '高' :
                          info.quality === 'highest' ? '极高' : '快速',
                 speed: info.speed,
-                recommended: info.recommended
+                recommended: info.recommended,
+                dtype: info.defaultDtype,
+                dtypeName: DTYPE_OPTIONS[info.defaultDtype]?.name || '全精度',
+                supportedDtypes: info.supportedDtypes
             };
         }).filter(Boolean);
     }
 
     /**
      * 获取指定模型的信息
-     * @param {string} modelName - 模型名称
+     * @param {string} modelId - 模型 ID
      * @returns {Object|null} 模型信息对象
      */
-    static getModelDetail(modelName) {
-        return MODEL_INFO[modelName] || null;
+    static getModelDetail(modelId) {
+        return MODEL_INFO[modelId] || null;
     }
 
     /**
@@ -185,108 +216,134 @@ export class ModelManager {
      * @returns {boolean} 是否已加载
      */
     isModelLoaded() {
-        return this.currentSession !== null && !this.isLoading;
+        return this.model !== null && this.processor !== null && !this.isLoading;
     }
 
     /**
-     * 获取当前模型名称
-     * @returns {string|null} 当前模型名称
+     * 获取当前模型 ID
+     * @returns {string|null} 当前模型 ID
      */
     getCurrentModelName() {
-        return this.currentModelName;
+        return this.currentModelId;
     }
 
     /**
-     * 获取当前会话实例
-     * @returns {BaseSession|null} 当前会话
+     * 获取当前模型精度类型
+     * @returns {string|null} 当前精度类型
      */
-    getCurrentSession() {
-        return this.currentSession;
+    getCurrentDtype() {
+        return this.currentDtype;
+    }
+
+    /**
+     * 获取当前模型和处理器
+     * @returns {{ model: Object, processor: Object }|null} 模型实例
+     */
+    getModelAndProcessor() {
+        if (!this.model || !this.processor) return null;
+        return { model: this.model, processor: this.processor };
     }
 
     /**
      * 加载指定模型
-     * @param {string} modelName - 模型名称，默认为 'u2netp'
-     * @returns {Promise<BaseSession>} 加载完成的会话实例
+     * @param {string} modelId - 模型 ID，默认为 MODNet
+     * @param {string} dtype - 精度类型 ('fp32' 或 'q8')，默认使用模型推荐的精度
+     * @returns {Promise<boolean>} 是否加载成功
      * @throws {Error} 模型加载失败时抛出错误
      */
-    async loadModel(modelName = DEFAULT_MODEL) {
-        // 如果正在加载同一模型，直接返回
-        if (this.currentModelName === modelName && this.currentSession && !this.isLoading) {
-            return this.currentSession;
+    async loadModel(modelId = DEFAULT_MODEL, dtype = null) {
+        // 获取模型信息
+        const modelInfo = MODEL_INFO[modelId];
+        if (!modelInfo) {
+            throw new Error(`未知模型: ${modelId}`);
+        }
+
+        // 确定精度类型
+        const targetDtype = dtype || modelInfo.defaultDtype;
+        
+        // 检查精度类型是否支持
+        if (!modelInfo.supportedDtypes.includes(targetDtype)) {
+            console.warn(`模型 ${modelId} 不支持 ${targetDtype} 精度，使用默认精度 ${modelInfo.defaultDtype}`);
+            dtype = modelInfo.defaultDtype;
+        }
+
+        // 如果正在加载同一模型和精度，直接返回
+        if (this.currentModelId === modelId && 
+            this.currentDtype === targetDtype && 
+            this.model && 
+            this.processor && 
+            !this.isLoading) {
+            return true;
         }
 
         // 如果正在加载其他模型，先取消
         if (this.isLoading) {
             this.cancelLoading();
-            // 等待一小段时间确保取消完成
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         this.isLoading = true;
         this._cancelFlag = false;
         this._loadStartTime = Date.now();
-        this._emitStateChange('loading', modelName);
+        this._emitStateChange('loading', modelId);
 
         try {
+            // 计算实际大小用于显示
+            const actualSize = targetDtype === 'q8' && modelInfo.quantizedSize 
+                ? modelInfo.quantizedSize 
+                : modelInfo.baseSize;
+            
+            const dtypeDisplayName = DTYPE_OPTIONS[targetDtype]?.name || targetDtype;
+
             this._emitProgress({
-                step: 'downloading',
+                step: 'loading',
                 progress: 0,
-                message: `正在加载 ${MODEL_INFO[modelName]?.name || modelName} 模型...`
+                message: `正在加载 ${modelInfo.name} (${dtypeDisplayName}) 模型...`
             });
 
-            const session = await newSession(modelName, undefined, {
-                onProgress: (info) => {
-                    // 检查取消标志
+            // 配置 WASM 后端
+            if (env.backends?.onnx?.wasm) {
+                env.backends.onnx.wasm.proxy = true;
+            }
+
+            // 加载模型（从本地路径，指定精度类型）
+            // Transformers.js 会根据 dtype 自动选择 model.onnx 或 model_quantized.onnx
+            this.model = await AutoModel.from_pretrained(modelId, {
+                dtype: targetDtype,  // 指定精度类型
+                progress_callback: (progress) => {
                     if (this._cancelFlag) {
                         throw new Error('MODEL_LOADING_CANCELLED');
                     }
-
-                    // 计算预估剩余时间
-                    const elapsed = Date.now() - this._loadStartTime;
-                    const estimatedTotal = info.progress > 0 ? (elapsed / info.progress) * 100 : 0;
-                    const estimatedRemaining = Math.max(0, estimatedTotal - elapsed);
-
-                    this._emitProgress({
-                        step: info.step,
-                        progress: info.progress,
-                        message: this._formatProgressMessage(info, modelName, estimatedRemaining),
-                        estimatedRemaining
-                    });
+                    this._emitProgressFromTransformers(progress, modelId, dtypeDisplayName);
                 }
             });
 
-            // 再次检查取消标志
-            if (this._cancelFlag) {
-                throw new Error('MODEL_LOADING_CANCELLED');
+            // 加载处理器
+            this.processor = await AutoProcessor.from_pretrained(modelId);
+
+            if (!this.model || !this.processor) {
+                throw new Error('模型或处理器初始化失败');
             }
 
-            // 如果之前有不同模型的会话，释放旧会话
-            if (this.currentSession && this.currentModelName !== modelName) {
-                try {
-                    await this.currentSession.dispose();
-                } catch (e) {
-                    console.warn('释放旧模型会话失败:', e);
-                }
-            }
-
-            this.currentSession = session;
-            this.currentModelName = modelName;
+            this.currentModelId = modelId;
+            this.currentDtype = targetDtype;
             this.isLoading = false;
 
+            const loadTime = Date.now() - this._loadStartTime;
             this._emitProgress({
                 step: 'complete',
                 progress: 100,
-                message: `${MODEL_INFO[modelName]?.name || modelName} 模型加载完成`
+                message: `${modelInfo.name} (${dtypeDisplayName}) 模型加载完成 (${actualSize})`
             });
-            this._emitStateChange('ready', modelName);
-
-            return session;
+            this._emitStateChange('ready', modelId);
+            
+            console.log(`[ModelManager] 模型加载成功: ${modelId}, 精度: ${targetDtype}, 耗时: ${loadTime}ms`);
+            return true;
         } catch (error) {
             this.isLoading = false;
 
             if (error.message === 'MODEL_LOADING_CANCELLED') {
-                this._emitStateChange('cancelled', modelName);
+                this._emitStateChange('cancelled', modelId);
                 this._emitProgress({
                     step: 'complete',
                     progress: 0,
@@ -296,10 +353,21 @@ export class ModelManager {
             }
 
             console.error('模型加载失败:', error);
-            this._emitStateChange('error', modelName);
+            this._emitStateChange('error', modelId);
 
-            // 尝试回退到默认模型
-            if (modelName !== DEFAULT_MODEL) {
+            // 尝试回退策略
+            // 1. 如果量化版失败，尝试全精度版
+            if (targetDtype === 'q8' && modelInfo.supportedDtypes.includes('fp32')) {
+                console.warn(`量化模型加载失败，尝试回退到全精度版本...`);
+                try {
+                    return await this.loadModel(modelId, 'fp32');
+                } catch (fallbackError) {
+                    throw new Error(`模型加载失败，量化版和全精度版都无法加载: ${fallbackError.message}`);
+                }
+            }
+
+            // 2. 如果当前模型失败，尝试回退到默认模型
+            if (modelId !== DEFAULT_MODEL) {
                 console.warn(`尝试回退到默认模型 ${DEFAULT_MODEL}...`);
                 try {
                     return await this.loadModel(DEFAULT_MODEL);
@@ -313,6 +381,31 @@ export class ModelManager {
     }
 
     /**
+     * 将 Transformers.js 的进度回调转换为统一格式
+     * @param {Object} progress - Transformers.js 进度对象
+     * @param {string} modelId - 模型 ID
+     * @param {string} dtypeDisplayName - 精度类型显示名称
+     */
+    _emitProgressFromTransformers(progress, modelId, dtypeDisplayName) {
+        const modelDisplayName = MODEL_INFO[modelId]?.name || modelId;
+
+        if (progress.status === 'progress') {
+            const percent = progress.progress || 0;
+            this._emitProgress({
+                step: 'loading',
+                progress: percent,
+                message: `正在加载 ${modelDisplayName} (${dtypeDisplayName})... ${Math.round(percent)}%`
+            });
+        } else if (progress.status === 'done') {
+            this._emitProgress({
+                step: 'processing',
+                progress: 90,
+                message: `正在初始化 ${modelDisplayName} (${dtypeDisplayName}) 模型...`
+            });
+        }
+    }
+
+    /**
      * 取消当前模型加载
      */
     cancelLoading() {
@@ -322,124 +415,49 @@ export class ModelManager {
     }
 
     /**
-     * 切换到指定模型
-     * @param {string} modelName - 目标模型名称
-     * @returns {Promise<BaseSession>} 新的会话实例
+     * 切换到指定模型和精度
+     * @param {string} modelId - 目标模型 ID
+     * @param {string} dtype - 目标精度类型
+     * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchModel(modelName) {
-        if (this.currentModelName === modelName && this.currentSession) {
-            return this.currentSession;
+    async switchModel(modelId, dtype = null) {
+        if (this.currentModelId === modelId && 
+            this.currentDtype === dtype && 
+            this.model && 
+            this.processor) {
+            return true;
         }
-        return await this.loadModel(modelName);
+        return await this.loadModel(modelId, dtype);
     }
 
     /**
      * 释放当前模型资源
      */
     async disposeCurrentModel() {
-        if (this.currentSession) {
-            try {
-                await this.currentSession.dispose();
-            } catch (e) {
-                console.warn('释放模型资源失败:', e);
-            }
-            this.currentSession = null;
-            this.currentModelName = null;
-            this._emitStateChange('disposed', null);
-        }
-    }
-
-    /**
-     * 释放所有模型缓存和资源
-     */
-    async disposeAll() {
-        await this.disposeCurrentModel();
-        try {
-            await disposeAllSessions();
-            clearSessionCache();
-        } catch (e) {
-            console.warn('释放所有模型缓存失败:', e);
-        }
+        this.model = null;
+        this.processor = null;
+        this.currentModelId = null;
+        this.currentDtype = null;
         this._emitStateChange('disposed', null);
     }
 
     /**
-     * 清除指定模型的IndexedDB缓存
-     * @param {string} modelName - 模型名称
+     * 释放所有资源
      */
-    async clearModelCacheForModel(modelName) {
-        try {
-            await clearModelCacheForModel(modelName);
-        } catch (e) {
-            console.warn(`清除模型 ${modelName} 缓存失败:`, e);
-        }
+    async disposeAll() {
+        await this.disposeCurrentModel();
     }
 
     /**
-     * 清除所有模型的IndexedDB缓存
+     * 获取当前模型信息
+     * @returns {Object} 模型信息
      */
-    async clearAllModelCache() {
-        try {
-            await clearModelCache();
-        } catch (e) {
-            console.warn('清除所有模型缓存失败:', e);
-        }
-    }
-
-    /**
-     * 获取缓存统计信息
-     * @returns {Object} 缓存统计
-     */
-    getCacheStats() {
-        return getCacheStats();
-    }
-
-    /**
-     * 检查WebGPU是否可用
-     * @returns {Promise<boolean>} 是否可用
-     */
-    async isWebGPUAvailable() {
-        try {
-            const { isWebGPUAvailable } = await import('@bunnio/rembg-web');
-            return isWebGPUAvailable();
-        } catch {
-            return false;
-        }
-    }
-
-    /**
-     * 格式化进度消息
-     * @param {Object} info - 进度信息
-     * @param {string} modelName - 模型名称
-     * @param {number} estimatedRemaining - 预估剩余时间（毫秒）
-     * @returns {string} 格式化后的消息
-     */
-    _formatProgressMessage(info, modelName, estimatedRemaining) {
-        const modelDisplayName = MODEL_INFO[modelName]?.name || modelName;
-        const stepMessages = {
-            'downloading': '正在下载',
-            'processing': '正在处理',
-            'postprocessing': '正在后处理',
-            'complete': '完成'
+    getModelInfo() {
+        return {
+            currentModelId: this.currentModelId,
+            currentDtype: this.currentDtype,
+            isIOS: this.isIOS
         };
-        const stepText = stepMessages[info.step] || info.step;
-        const remainingText = estimatedRemaining > 0
-            ? ` (预计剩余 ${this._formatTime(estimatedRemaining)})`
-            : '';
-        return `${stepText} ${modelDisplayName} 模型... ${Math.round(info.progress)}%${remainingText}`;
-    }
-
-    /**
-     * 格式化时间
-     * @param {number} ms - 毫秒数
-     * @returns {string} 格式化后的时间字符串
-     */
-    _formatTime(ms) {
-        const seconds = Math.ceil(ms / 1000);
-        if (seconds < 60) return `${seconds}秒`;
-        const minutes = Math.floor(seconds / 60);
-        const remainSeconds = seconds % 60;
-        return `${minutes}分${remainSeconds}秒`;
     }
 
     /**
@@ -455,11 +473,11 @@ export class ModelManager {
     /**
      * 触发状态变更回调
      * @param {string} state - 新状态
-     * @param {string|null} modelName - 相关模型名称
+     * @param {string|null} modelId - 相关模型 ID
      */
-    _emitStateChange(state, modelName) {
+    _emitStateChange(state, modelId) {
         if (typeof this.onStateChange === 'function') {
-            this.onStateChange(state, modelName);
+            this.onStateChange(state, modelId);
         }
     }
 }

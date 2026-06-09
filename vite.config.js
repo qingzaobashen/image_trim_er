@@ -52,8 +52,8 @@ export default defineConfig({
                 assetFileNames: 'assets/[name]-[hash].[ext]',
                 // 手动分包
                 manualChunks: {
-                    'onnxruntime': ['onnxruntime-web'],
-                    'rembg': ['@bunnio/rembg-web'],
+                    'transformers': ['@huggingface/transformers'],
+                    'tensorflow': ['@tensorflow/tfjs', '@tensorflow-models/body-pix'],
                 },
             },
         },
@@ -67,10 +67,11 @@ export default defineConfig({
     server: {
         port: 18080,
         open: true,
-        // CORS 头（用于 onnxruntime-web 的 SharedArrayBuffer）
+        // CORS 头（用于 SharedArrayBuffer，Transformers.js WASM 后端需要）
         headers: {
             'Cross-Origin-Opener-Policy': 'same-origin',
-            'Cross-Origin-Embedder-Policy': 'require-corp',
+            'Cross-Origin-Embedder-Policy': 'credentialless',
+            'Cross-Origin-Resource-Policy': 'same-origin',
         },
     },
 
@@ -79,7 +80,8 @@ export default defineConfig({
         port: 18080,
         headers: {
             'Cross-Origin-Opener-Policy': 'same-origin',
-            'Cross-Origin-Embedder-Policy': 'require-corp',
+            'Cross-Origin-Embedder-Policy': 'credentialless',
+            'Cross-Origin-Resource-Policy': 'same-origin',
         },
     },
 

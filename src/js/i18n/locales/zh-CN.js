@@ -5,7 +5,7 @@
 
 export default {
     /** 页面标题 */
-    pageTitle: '专业免费抠白底图工具 - 在线图片处理',
+    pageTitle: '免费抠白底图工具 - 在线图片处理',
 
     /** 顶部导航栏 */
     header: {

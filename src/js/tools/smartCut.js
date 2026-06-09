@@ -1,17 +1,19 @@
 /**
  * 智能抠图工具模块
- * 集成 @bunnio/rembg-web 深度学习模型，提供多种智能抠图算法
- * 支持 AI 模型抠图（默认）和传统算法（颜色聚类、边缘检测、人体分割）作为回退
+ * 基于 @huggingface/transformers (Transformers.js) 实现深度学习背景移除
+ * 使用 RMBG-1.4 模型作为默认 AI 抠图方案，支持 WebGPU 加速的 MODNet 模型
+ * 保留传统算法（颜色聚类、边缘检测、人体分割）作为回退方案
+ * 参考 bg-remove (https://github.com/addyosmani/bg-remove) 的实现方案
  */
 
 import * as canvasUtils from '../utils/canvasUtils.js';
 import { ModelManager } from '../utils/modelManager.js';
-import { remove, removeToCanvas } from '@bunnio/rembg-web';
+import { RawImage } from '@huggingface/transformers';
 import * as bodyPix from '@tensorflow-models/body-pix';
 
 /**
  * 智能抠图类
- * 集成 rembg-web AI 模型与传统抠图算法
+ * 集成 Transformers.js AI 模型与传统抠图算法
  */
 export class SmartCutTool {
     /**
@@ -33,7 +35,7 @@ export class SmartCutTool {
         /** AI 模型是否可用 */
         this.isAIModelAvailable = false;
 
-        /** 当前使用的 AI 模型名称 */
+        /** 当前使用的 AI 模型 ID */
         this.currentAIModel = ModelManager.getDefaultModel();
     }
 
@@ -53,10 +55,12 @@ export class SmartCutTool {
         }
 
         try {
-            await this.modelManager.loadModel(ModelManager.getDefaultModel());
-            this.isAIModelAvailable = true;
-            this.currentAIModel = ModelManager.getDefaultModel();
-            return true;
+            const success = await this.modelManager.loadModel(ModelManager.getDefaultModel());
+            if (success) {
+                this.isAIModelAvailable = true;
+                this.currentAIModel = ModelManager.getDefaultModel();
+            }
+            return success;
         } catch (error) {
             console.warn('AI 模型初始化失败，将使用传统算法作为回退:', error);
             this.isAIModelAvailable = false;
@@ -66,25 +70,27 @@ export class SmartCutTool {
 
     /**
      * 切换 AI 模型
-     * @param {string} modelName - 目标模型名称
+     * @param {string} modelId - 目标模型 ID
      * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchAIModel(modelName) {
+    async switchAIModel(modelId) {
         try {
-            await this.modelManager.loadModel(modelName);
-            this.isAIModelAvailable = true;
-            this.currentAIModel = modelName;
-            return true;
+            const success = await this.modelManager.loadModel(modelId);
+            if (success) {
+                this.isAIModelAvailable = true;
+                this.currentAIModel = modelId;
+            }
+            return success;
         } catch (error) {
-            console.error(`切换 AI 模型 ${modelName} 失败:`, error);
+            console.error(`切换 AI 模型 ${modelId} 失败:`, error);
             this.isAIModelAvailable = this.modelManager.isModelLoaded();
             return false;
         }
     }
 
     /**
-     * 获取当前 AI 模型名称
-     * @returns {string|null} 当前模型名称
+     * 获取当前 AI 模型 ID
+     * @returns {string|null} 当前模型 ID
      */
     getCurrentAIModel() {
         return this.currentAIModel;
@@ -164,7 +170,9 @@ export class SmartCutTool {
     }
 
     /**
-     * 使用 AI 模型移除背景（rembg-web）
+     * 使用 Transformers.js AI 模型移除背景
+     * 基于 RMBG-1.4 / MODNet 模型，使用 AutoModel + AutoProcessor 进行推理
+     * 流程：Canvas → RawImage → Processor 预处理 → Model 推理 → 蒙版提取
      * @returns {Promise<Uint8ClampedArray>} 选区蒙版
      */
     async applyAIRemoveBg() {
@@ -172,20 +180,54 @@ export class SmartCutTool {
         const height = this.mainCanvas.height;
 
         try {
-            // 使用 rembg-web 的 removeToCanvas 获取抠图结果
-            const resultCanvas = await removeToCanvas(this.mainCanvas, {
-                session: this.modelManager.getCurrentSession(),
-                postProcessMask: true,
-                onProgress: (info) => {
-                    if (this.modelManager.onProgress) {
-                        this.modelManager.onProgress(info);
-                    }
-                }
+            const { model, processor } = this.modelManager.getModelAndProcessor();
+            if (!model || !processor) {
+                throw new Error('AI 模型未加载');
+            }
+
+            // 将 Canvas 转换为 Blob URL，再用 RawImage 加载
+            const blob = await new Promise((resolve) => {
+                this.mainCanvas.toBlob(resolve, 'image/png');
             });
+            const imageUrl = URL.createObjectURL(blob);
 
-            // 从结果画布中提取蒙版
-            const mask = this.extractMaskFromResult(resultCanvas, width, height);
+            // 使用 RawImage 从 URL 加载图像
+            const img = await RawImage.fromURL(imageUrl);
+            URL.revokeObjectURL(imageUrl);
 
+            // 预处理图像：获取像素值张量
+            const { pixel_values } = await processor(img);
+
+            // 模型推理：获取 alpha 蒙版
+            const { output } = await model({ input: pixel_values });
+
+            // 将输出张量缩放至 0-255 并调整回原始尺寸
+            const maskData = (
+                await RawImage.fromTensor(output[0].mul(255).to('uint8')).resize(
+                    img.width,
+                    img.height,
+                )
+            ).data;
+
+            // 创建蒙版数组
+            const mask = new Uint8ClampedArray(width * height);
+
+            // 将蒙版数据映射到原始画布尺寸
+            const scaleX = img.width / width;
+            const scaleY = img.height / height;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const srcX = Math.floor(x * scaleX);
+                    const srcY = Math.floor(y * scaleY);
+                    const srcIdx = srcY * img.width + srcX;
+                    const alpha = maskData[srcIdx];
+                    // alpha > 128 表示前景
+                    mask[y * width + x] = alpha > 128 ? 255 : 0;
+                }
+            }
+
+            // 平滑蒙版边缘
             if (this.smoothness > 0) {
                 this.smoothMask(mask, width, height, this.smoothness);
             }
@@ -197,36 +239,6 @@ export class SmartCutTool {
             // 回退到自动模式
             return await this.applyAutoSegmentation();
         }
-    }
-
-    /**
-     * 从抠图结果画布中提取蒙版
-     * @param {HTMLCanvasElement} resultCanvas - 抠图结果画布
-     * @param {number} width - 原始宽度
-     * @param {number} height - 原始高度
-     * @returns {Uint8ClampedArray} 蒙版数据
-     */
-    extractMaskFromResult(resultCanvas, width, height) {
-        const resultCtx = resultCanvas.getContext('2d');
-        const resultData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
-        const mask = new Uint8ClampedArray(width * height);
-
-        // rembg-web 返回的是带透明通道的结果，alpha 通道即为蒙版
-        const scaleX = resultCanvas.width / width;
-        const scaleY = resultCanvas.height / height;
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const srcX = Math.floor(x * scaleX);
-                const srcY = Math.floor(y * scaleY);
-                const srcIdx = (srcY * resultCanvas.width + srcX) * 4;
-                const alpha = resultData.data[srcIdx + 3];
-                // alpha > 128 表示前景
-                mask[y * width + x] = alpha > 128 ? 255 : 0;
-            }
-        }
-
-        return mask;
     }
 
     /**
@@ -634,20 +646,8 @@ export class SmartCutTool {
                     }
                 }
 
-                mask[index] = sum / count > 127 ? 255 : 0;
+                mask[index] = Math.round(sum / count);
             }
         }
-    }
-
-    /**
-     * 销毁模型和释放资源
-     */
-    async dispose() {
-        if (this.bodyPixModel) {
-            this.bodyPixModel = null;
-            this.isBodyPixLoaded = false;
-        }
-        await this.modelManager.disposeAll();
-        this.isAIModelAvailable = false;
     }
 }
