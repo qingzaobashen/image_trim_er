@@ -18,7 +18,7 @@ const LOCAL_MODEL_BASE_PATH = '/';
 /** MODNet 模型 ID（人像优化，25MB，速度快） */
 const MODNET_MODEL_ID = 'Xenova/modnet';
 
-/** RMBG-1.4 模型 ID（高质量通用背景移除） */
+/** RMBG-1.4 模型 ID（高质量通用背景移除，默认使用量化版44MB） */
 const RMBG_MODEL_ID = 'briaai/RMBG-1.4';
 
 /**
@@ -27,8 +27,8 @@ const RMBG_MODEL_ID = 'briaai/RMBG-1.4';
  * - q8: 8位量化（体积小75%，速度快，精度略降）
  */
 const DTYPE_OPTIONS = {
-    fp32: { name: '全精度', sizeFactor: 1, description: '精度最高，体积最大' },
-    q8: { name: '量化版', sizeFactor: 0.25, description: '体积小75%，速度快，精度略降' }
+    fp32: { name: '高精度', sizeFactor: 1, description: '精度最高，体积最大' },
+    q8: { name: '轻量', sizeFactor: 0.25, description: '体积小75%，速度快，精度略降' }
 };
 
 /**
@@ -43,29 +43,29 @@ const MODEL_INFO = {
         baseSize: '~25MB',
         quality: 'high',
         speed: 'fast',
-        recommended: true,
-        supportedDtypes: ['fp32'],  // MODNet 只有全精度版本
-        defaultDtype: 'fp32'
+        recommended: false,  // 不推荐，仅适合人像
+        supportedDtypes: ['q8'],  // MODNet 只有全精度版本
+        defaultDtype: 'q8'
     },
     [RMBG_MODEL_ID]: {
-        name: 'RMBG-1.4',
-        description_zh: '高质量通用背景移除模型，适合大多数场景',
-        description_en: 'High-quality general background removal model, suitable for most scenarios',
+        name: 'RMBG',
+        description_zh: '通用背景移除模型，适合大多数场景（默认）',
+        description_en: 'High-quality general background removal model, suitable for most scenarios (default)',
         baseSize: '~176MB',
         quality: 'highest',
         speed: 'medium',
-        recommended: false,
+        recommended: true,  // 推荐，通用性强
         supportedDtypes: ['fp32', 'q8'],  // 支持全精度和量化版
         defaultDtype: 'q8',  // 默认使用量化版（更小更快）
         quantizedSize: '~44MB'
     }
 };
 
-/** 默认模型 ID（MODNet，较小较快） */
-const DEFAULT_MODEL = MODNET_MODEL_ID;
+/** 默认模型 ID（RMBG-1.4，通用背景移除） */
+const DEFAULT_MODEL = RMBG_MODEL_ID;
 
-/** 高级模型列表 */
-const ADVANCED_MODELS = [RMBG_MODEL_ID];
+/** 高级模型列表（MODNet作为备选） */
+const ADVANCED_MODELS = [MODNET_MODEL_ID];
 
 /**
  * 模型管理器类
@@ -172,22 +172,72 @@ export class ModelManager {
 
     /**
      * 获取所有可用模型的详细信息列表（用于 UI 渲染）
+     * 对于支持多种精度的模型，会返回多个选项（如 RMBG-1.4 会返回 fp32 和 q8 两个选项）
      * @returns {Array<Object>} 模型信息数组
      */
     static getAvailableModels() {
-        const allModels = [DEFAULT_MODEL, ...ADVANCED_MODELS];
-        return allModels.map(id => {
+        const result = [];
+        
+        // 首先添加默认模型（使用默认精度）
+        const defaultInfo = MODEL_INFO[DEFAULT_MODEL];
+        if (defaultInfo) {
+            result.push({
+                name: `${defaultInfo.name} (${DTYPE_OPTIONS[defaultInfo.defaultDtype].name})`,
+                id: DEFAULT_MODEL,
+                dtype: defaultInfo.defaultDtype,
+                description: defaultInfo.description_zh,
+                size: defaultInfo.defaultDtype === 'q8' && defaultInfo.quantizedSize 
+                    ? defaultInfo.quantizedSize 
+                    : defaultInfo.baseSize,
+                quality: defaultInfo.quality === 'standard' ? '标准' :
+                         defaultInfo.quality === 'high' ? '高' :
+                         defaultInfo.quality === 'highest' ? '极高' : '快速',
+                speed: defaultInfo.speed,
+                recommended: defaultInfo.recommended,
+                dtypeName: DTYPE_OPTIONS[defaultInfo.defaultDtype]?.name || '全精度',
+                supportedDtypes: defaultInfo.supportedDtypes
+            });
+            
+            // 如果默认模型支持其他精度，也添加为备选
+            defaultInfo.supportedDtypes.forEach(dtype => {
+                if (dtype !== defaultInfo.defaultDtype) {
+                    const dtypeInfo = DTYPE_OPTIONS[dtype];
+                    const size = dtype === 'q8' && defaultInfo.quantizedSize 
+                        ? defaultInfo.quantizedSize 
+                        : defaultInfo.baseSize;
+                    
+                    result.push({
+                        name: `${defaultInfo.name} (${dtypeInfo.name})`,
+                        id: DEFAULT_MODEL,
+                        dtype: dtype,
+                        description: `${defaultInfo.description_zh}（${dtypeInfo.description}）`,
+                        size: size,
+                        quality: defaultInfo.quality === 'standard' ? '标准' :
+                                 defaultInfo.quality === 'high' ? '高' :
+                                 defaultInfo.quality === 'highest' ? '极高' : '快速',
+                        speed: dtype === 'q8' ? 'fast' : defaultInfo.speed,
+                        recommended: false,  // 非默认精度不标记为推荐
+                        dtypeName: dtypeInfo.name,
+                        supportedDtypes: defaultInfo.supportedDtypes
+                    });
+                }
+            });
+        }
+        
+        // 添加高级模型
+        ADVANCED_MODELS.forEach(id => {
             const info = MODEL_INFO[id];
-            if (!info) return null;
+            if (!info) return;
             
             // 计算实际大小（考虑量化）
             const actualSize = info.defaultDtype === 'q8' && info.quantizedSize 
                 ? info.quantizedSize 
                 : info.baseSize;
             
-            return {
-                name: info.name,
+            result.push({
+                name: `${info.name} (${DTYPE_OPTIONS[info.defaultDtype].name})`,
                 id: id,
+                dtype: info.defaultDtype,
                 description: info.description_zh,
                 size: actualSize,
                 quality: info.quality === 'standard' ? '标准' :
@@ -195,11 +245,12 @@ export class ModelManager {
                          info.quality === 'highest' ? '极高' : '快速',
                 speed: info.speed,
                 recommended: info.recommended,
-                dtype: info.defaultDtype,
                 dtypeName: DTYPE_OPTIONS[info.defaultDtype]?.name || '全精度',
                 supportedDtypes: info.supportedDtypes
-            };
-        }).filter(Boolean);
+            });
+        });
+        
+        return result;
     }
 
     /**

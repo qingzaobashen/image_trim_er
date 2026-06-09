@@ -26,8 +26,6 @@ export class SmartCutTool {
         this.overlayCanvas = overlayCanvas;
         this.bodyPixModel = null;
         this.isBodyPixLoaded = false;
-        this.smoothness = 50;
-        this.mode = 'auto';
 
         /** 模型管理器实例 */
         this.modelManager = new ModelManager();
@@ -71,18 +69,19 @@ export class SmartCutTool {
     /**
      * 切换 AI 模型
      * @param {string} modelId - 目标模型 ID
+     * @param {string} dtype - 精度类型（可选）
      * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchAIModel(modelId) {
+    async switchAIModel(modelId, dtype) {
         try {
-            const success = await this.modelManager.loadModel(modelId);
+            const success = await this.modelManager.loadModel(modelId, dtype);
             if (success) {
                 this.isAIModelAvailable = true;
                 this.currentAIModel = modelId;
             }
             return success;
         } catch (error) {
-            console.error(`切换 AI 模型 ${modelId} 失败:`, error);
+            console.error(`切换 AI 模型 ${modelId} (${dtype}) 失败:`, error);
             this.isAIModelAvailable = this.modelManager.isModelLoaded();
             return false;
         }
@@ -94,6 +93,14 @@ export class SmartCutTool {
      */
     getCurrentAIModel() {
         return this.currentAIModel;
+    }
+
+    /**
+     * 获取当前 AI 模型精度类型
+     * @returns {string|null} 当前精度类型
+     */
+    getCurrentAIDtype() {
+        return this.modelManager.getCurrentDtype();
     }
 
     /**
@@ -134,46 +141,35 @@ export class SmartCutTool {
     }
 
     /**
-     * 设置平滑度
-     * @param {number} value - 平滑度值 (0-100)
-     */
-    setSmoothness(value) {
-        this.smoothness = value;
-    }
-
-    /**
-     * 设置抠图模式
-     * @param {string} mode - 模式 ('auto', 'person', 'color', 'edge', 'ai')
-     */
-    setMode(mode) {
-        this.mode = mode;
-    }
-
-    /**
      * 执行智能抠图
-     * @returns {Promise<Uint8ClampedArray>} 选区蒙版
+     * 直接使用 AI 模型抠图，失败时回退到传统算法
+     * @returns {Promise<Uint8ClampedArray>} 选区蒙版（255=背景/要抠除，0=前景/要保留）
      */
     async apply() {
-        switch (this.mode) {
-            case 'ai':
+        // 优先使用 AI 模型
+        if (this.isAIModelReady()) {
+            try {
                 return await this.applyAIRemoveBg();
-            case 'person':
-                return await this.applyPersonSegmentation();
-            case 'color':
-                return this.applyColorBasedSegmentation();
-            case 'edge':
-                return this.applyEdgeBasedSegmentation();
-            case 'auto':
-            default:
-                return await this.applyAutoSegmentation();
+            } catch (error) {
+                console.warn('AI 模型抠图失败，回退到传统算法:', error);
+            }
         }
+        
+        // 回退到传统算法
+        return await this.applyAutoSegmentation();
     }
 
     /**
      * 使用 Transformers.js AI 模型移除背景
      * 基于 RMBG-1.4 / MODNet 模型，使用 AutoModel + AutoProcessor 进行推理
      * 流程：Canvas → RawImage → Processor 预处理 → Model 推理 → 蒙版提取
-     * @returns {Promise<Uint8ClampedArray>} 选区蒙版
+     * 
+     * **Mask 逻辑说明**：
+     * - AI 模型输出：alpha > 128 表示前景（要保留），alpha <= 128 表示背景（要抠除）
+     * - 返回的 mask：255 表示背景（要抠除的区域），0 表示前景（要保留的区域）
+     * - 这符合行业通用标准：mask 标记的是需要抠除的区域
+     * 
+     * @returns {Promise<Uint8ClampedArray>} 选区蒙版（255=背景/要抠除，0=前景/要保留）
      */
     async applyAIRemoveBg() {
         const width = this.mainCanvas.width;
@@ -213,6 +209,7 @@ export class SmartCutTool {
             const mask = new Uint8ClampedArray(width * height);
 
             // 将蒙版数据映射到原始画布尺寸
+            // **关键逻辑**：反转 mask，让 mask 标记背景（要抠除的区域）
             const scaleX = img.width / width;
             const scaleY = img.height / height;
 
@@ -222,14 +219,10 @@ export class SmartCutTool {
                     const srcY = Math.floor(y * scaleY);
                     const srcIdx = srcY * img.width + srcX;
                     const alpha = maskData[srcIdx];
-                    // alpha > 128 表示前景
-                    mask[y * width + x] = alpha > 128 ? 255 : 0;
+                    // alpha > 128 表示前景（要保留），mask 设为 0
+                    // alpha <= 128 表示背景（要抠除），mask 设为 255
+                    mask[y * width + x] = alpha > 128 ? 0 : 255;
                 }
-            }
-
-            // 平滑蒙版边缘
-            if (this.smoothness > 0) {
-                this.smoothMask(mask, width, height, this.smoothness);
             }
 
             return mask;
@@ -286,7 +279,12 @@ export class SmartCutTool {
 
     /**
      * 人体分割抠图
-     * @returns {Promise<Uint8ClampedArray>} 选区蒙版
+     * 
+     * **Mask 逻辑说明**：
+     * - BodyPix 输出：segmentation.data[i] === 1 表示人体（前景）
+     * - 返回的 mask：255 表示背景（要抠除的区域），0 表示前景（要保留的区域）
+     * 
+     * @returns {Promise<Uint8ClampedArray>} 选区蒙版（255=背景/要抠除，0=前景/要保留）
      */
     async applyPersonSegmentation() {
         if (!this.isBodyPixLoaded) {
@@ -304,12 +302,11 @@ export class SmartCutTool {
 
         const mask = new Uint8ClampedArray(width * height);
         
+        // **关键逻辑**：反转 mask，让 mask 标记背景（要抠除的区域）
         for (let i = 0; i < segmentation.data.length; i++) {
-            mask[i] = segmentation.data[i] === 1 ? 255 : 0;
-        }
-
-        if (this.smoothness > 0) {
-            this.smoothMask(mask, width, height, this.smoothness);
+            // segmentation.data[i] === 1 表示人体（前景），mask 设为 0（不抠除）
+            // segmentation.data[i] === 0 表示背景，mask 设为 255（要抠除）
+            mask[i] = segmentation.data[i] === 1 ? 0 : 255;
         }
 
         return mask;
@@ -317,7 +314,11 @@ export class SmartCutTool {
 
     /**
      * 基于颜色聚类的抠图
-     * @returns {Uint8ClampedArray} 选区蒙版
+     * 
+     * **Mask 逻辑说明**：
+     * - 返回的 mask：255 表示背景（要抠除的区域），0 表示前景（要保留的区域）
+     * 
+     * @returns {Uint8ClampedArray} 选区蒙版（255=背景/要抠除，0=前景/要保留）
      */
     applyColorBasedSegmentation() {
         const imageData = canvasUtils.getImageData(this.mainCanvas);
@@ -331,33 +332,36 @@ export class SmartCutTool {
         
         const mask = new Uint8ClampedArray(width * height);
         
+        // **关键逻辑**：反转 mask，让 mask 标记背景（要抠除的区域）
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const pixelColor = canvasUtils.getPixelColor(imageData, x, y);
                 const bgDistance = canvasUtils.colorDistance(pixelColor, bgColor);
                 const fgDistance = canvasUtils.colorDistance(pixelColor, fgColor);
                 
+                // fgDistance < bgDistance 表示前景（要保留），mask 设为 0
+                // bgDistance <= fgDistance 表示背景（要抠除），mask 设为 255
                 if (fgDistance < bgDistance) {
-                    mask[y * width + x] = 255;
+                    mask[y * width + x] = 0;  // 前景，不抠除
                 } else {
                     const ratio = bgDistance / (bgDistance + fgDistance);
-                    mask[y * width + x] = ratio > 0.6 ? 255 : 0;
+                    mask[y * width + x] = ratio > 0.6 ? 0 : 255;  // 背景概率高则抠除
                 }
             }
         }
         
         this.removeSmallRegions(mask, width, height, 100);
         
-        if (this.smoothness > 0) {
-            this.smoothMask(mask, width, height, this.smoothness);
-        }
-        
         return mask;
     }
 
     /**
      * 基于边缘检测的抠图
-     * @returns {Uint8ClampedArray} 选区蒙版
+     * 
+     * **Mask 逻辑说明**：
+     * - 返回的 mask：255 表示背景（要抠除的区域），0 表示前景（要保留的区域）
+     * 
+     * @returns {Uint8ClampedArray} 选区蒙版（255=背景/要抠除，0=前景/要保留）
      */
     applyEdgeBasedSegmentation() {
         const imageData = canvasUtils.getImageData(this.mainCanvas);
@@ -366,13 +370,16 @@ export class SmartCutTool {
         
         const edges = this.detectEdges(imageData);
         
-        const mask = this.floodFillFromCenter(edges, width, height);
+        // floodFillFromCenter 返回的是前景区域（255=前景）
+        const foregroundMask = this.floodFillFromCenter(edges, width, height);
+        
+        // **关键逻辑**：反转 mask，让 mask 标记背景（要抠除的区域）
+        const mask = new Uint8ClampedArray(width * height);
+        for (let i = 0; i < foregroundMask.length; i++) {
+            mask[i] = foregroundMask[i] > 0 ? 0 : 255;  // 前景设为0，背景设为255
+        }
         
         this.removeSmallRegions(mask, width, height, 100);
-        
-        if (this.smoothness > 0) {
-            this.smoothMask(mask, width, height, this.smoothness);
-        }
         
         return mask;
     }
@@ -610,43 +617,6 @@ export class SmartCutTool {
                 if (region.length < minSize) {
                     region.forEach(i => mask[i] = 0);
                 }
-            }
-        }
-    }
-
-    /**
-     * 平滑蒙版边缘
-     * @param {Uint8ClampedArray} mask - 蒙版数据
-     * @param {number} width - 宽度
-     * @param {number} height - 高度
-     * @param {number} amount - 平滑程度
-     */
-    smoothMask(mask, width, height, amount) {
-        const radius = Math.floor(amount / 10);
-        if (radius === 0) return;
-
-        const tempMask = new Uint8ClampedArray(mask);
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const index = y * width + x;
-                let sum = 0;
-                let count = 0;
-
-                for (let dy = -radius; dy <= radius; dy++) {
-                    for (let dx = -radius; dx <= radius; dx++) {
-                        const nx = x + dx;
-                        const ny = y + dy;
-
-                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                            const nIndex = ny * width + nx;
-                            sum += tempMask[nIndex];
-                            count++;
-                        }
-                    }
-                }
-
-                mask[index] = Math.round(sum / count);
             }
         }
     }

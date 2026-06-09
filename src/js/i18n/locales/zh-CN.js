@@ -52,7 +52,7 @@ export default {
         loadAIModel: '加载 AI 模型',
         cancelLoad: '取消',
         advancedModelOptions: '高级模型选项',
-        advancedModelHint: '高级模型提供更高质量的抠图效果，但体积更大、加载更慢。首次使用需下载模型文件，后续会自动缓存。',
+        advancedModelHint: '高级模型提供更高质量的抠图效果，但体积更大、加载更慢。点击上方“加载AI模型”按钮以加载。',
         modelQualityStandard: '标准',
         modelQualityHigh: '高',
         modelQualityHighest: '极高',

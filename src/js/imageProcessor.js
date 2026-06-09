@@ -64,10 +64,11 @@ export class ImageProcessor {
     /**
      * 切换 AI 模型
      * @param {string} modelName - 目标模型名称
+     * @param {string} dtype - 精度类型（可选）
      * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchAIModel(modelName) {
-        return await this.smartCutTool.switchAIModel(modelName);
+    async switchAIModel(modelName, dtype) {
+        return await this.smartCutTool.switchAIModel(modelName, dtype);
     }
 
     /**
@@ -84,6 +85,14 @@ export class ImageProcessor {
      */
     getCurrentAIModel() {
         return this.smartCutTool.getCurrentAIModel();
+    }
+
+    /**
+     * 获取当前 AI 模型精度类型
+     * @returns {string|null} 当前精度类型
+     */
+    getCurrentAIDtype() {
+        return this.smartCutTool.getCurrentAIDtype();
     }
 
     /**
@@ -148,12 +157,10 @@ export class ImageProcessor {
 
     /**
      * 应用智能抠图
-     * @param {number} smoothness - 平滑度
+     * 使用 AI 模型自动识别背景并生成选区
      * @returns {Promise<void>}
      */
-    async applySmartCut(smoothness = 50) {
-        this.smartCutTool.setSmoothness(smoothness);
-        
+    async applySmartCut() {
         try {
             this.currentMask = await this.smartCutTool.apply();
             this.renderSelection();
@@ -1210,7 +1217,13 @@ export class ImageProcessor {
 
     /**
      * 渲染选区
-     * 紫色(99,102,241) = 前景抠除选区
+     * 
+     * **Mask 逻辑说明**：
+     * - mask[i] > 0 表示背景区域（要抠除的部分）
+     * - mask[i] === 0 表示前景区域（要保留的部分）
+     * - 这符合行业通用标准：mask 标记的是需要抠除的区域
+     * 
+     * 紫色(99,102,241) = 背景抠除选区（要抠除的区域）
      * 粉色(236,72,153) = 阴影选区
      * 青色细线(0,200,255) = 边缘检测轮廓
      */
@@ -1219,6 +1232,7 @@ export class ImageProcessor {
         const ctx = canvasUtils.getContext(this.overlayCanvas);
         const imageData = ctx.createImageData(this.overlayCanvas.width, this.overlayCanvas.height);
 
+        // mask[i] > 0 表示背景（要抠除），显示为紫色选区
         for (let i = 0; i < this.currentMask.length; i++) {
             if (this.currentMask[i] > 0) {
                 const index = i * 4;

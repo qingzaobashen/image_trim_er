@@ -63,8 +63,6 @@ class App {
         this.toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
         this.paramGroups = document.querySelectorAll('.param-group');
 
-        this.smoothnessInput = document.getElementById('smoothness');
-        this.cutModeSelect = document.getElementById('cutMode');
         this.toleranceInput = document.getElementById('tolerance');
         this.contiguousInput = document.getElementById('contiguous');
         this.brushSizeInput = document.getElementById('brushSize');
@@ -155,7 +153,6 @@ class App {
             btn.addEventListener('click', () => this.handleToolSelect(btn.dataset.tool));
         });
 
-        this.smoothnessInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.toleranceInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.brushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.brushHardnessInput.addEventListener('input', (e) => this.updateParamValue(e));
@@ -304,15 +301,7 @@ class App {
      * 语言切换后需要重新设置 option 的显示文本
      */
     _updateSelectOptions() {
-        const cutModeSelect = document.getElementById('cutMode');
-        if (cutModeSelect) {
-            const options = cutModeSelect.options;
-            options[0].textContent = i18n.t('toolbar.cutModeAuto');
-            options[1].textContent = i18n.t('toolbar.cutModeAI');
-            options[2].textContent = i18n.t('toolbar.cutModeColor');
-            options[3].textContent = i18n.t('toolbar.cutModeEdge');
-            options[4].textContent = i18n.t('toolbar.cutModePerson');
-        }
+        // 抠图模式已移除，无需更新
     }
 
     /**
@@ -835,18 +824,16 @@ class App {
 
     /**
      * 处理应用智能抠图
+     * 直接使用 AI 模型抠图，无需选择模式
      */
     async handleApplySmartCut() {
         if (!this.isImageLoaded || this.isLoading) return;
 
         try {
-            const mode = this.cutModeSelect.value;
-            const smoothness = parseInt(this.smoothnessInput.value);
-
-            // AI 模式需要先加载模型
-            if ((mode === 'ai' || mode === 'auto') && !this.processor.isAIModelReady()) {
+            // AI 模型需要先加载
+            if (!this.processor.isAIModelReady()) {
                 const loaded = await this.handleLoadAIModel();
-                if (!loaded && mode === 'ai') {
+                if (!loaded) {
                     this.showNotification(i18n.t('toolbar.aiModelError'), 'error');
                     return;
                 }
@@ -854,8 +841,7 @@ class App {
 
             this.showLoading(i18n.t('toolbar.applyingSmartCut'));
 
-            this.processor.smartCutTool.setMode(mode);
-            await this.processor.applySmartCut(smoothness);
+            await this.processor.applySmartCut();
 
             this.updateButtons();
 
@@ -1009,12 +995,16 @@ class App {
 
         const models = this.processor.smartCutTool.modelManager.constructor.getAvailableModels();
         const currentModel = this.processor.getCurrentAIModel();
+        const currentDtype = this.processor.getCurrentAIDtype();
+        const currentKey = `${currentModel}:${currentDtype}`;
 
         this.modelList.innerHTML = '';
         models.forEach(model => {
+            const modelKey = `${model.id}:${model.dtype}`;
             const item = document.createElement('div');
-            item.className = 'model-item' + (model.id === currentModel ? ' active' : '');
+            item.className = 'model-item' + (modelKey === currentKey ? ' active' : '');
             item.dataset.model = model.id;
+            item.dataset.dtype = model.dtype;
 
             const qualityClass = model.quality === '极高' ? 'highest' :
                                  model.quality === '高' ? 'high' :
@@ -1027,12 +1017,11 @@ class App {
                 </div>
                 <div class="model-item-meta">
                     <span class="model-item-size">${model.size}</span>
-                    <span class="model-item-quality ${qualityClass}">${model.quality}</span>
                     ${model.recommended ? '<span class="model-item-recommended">' + i18n.t('toolbar.modelRecommended') + '</span>' : ''}
                 </div>
             `;
 
-            item.addEventListener('click', () => this._handleModelSelect(model.id));
+            item.addEventListener('click', () => this._handleModelSelect(model.id, model.dtype));
             this.modelList.appendChild(item);
         });
     }
@@ -1040,17 +1029,19 @@ class App {
     /**
      * 处理模型选择
      * @param {string} modelName - 模型名称
+     * @param {string} dtype - 精度类型
      */
-    async _handleModelSelect(modelName) {
+    async _handleModelSelect(modelName, dtype) {
         const currentModel = this.processor.getCurrentAIModel();
-        if (modelName === currentModel) return;
+        const currentDtype = this.processor.getCurrentAIDtype();
+        if (modelName === currentModel && dtype === currentDtype) return;
 
         try {
             // 显示进度条
             this.aiProgressContainer.style.display = 'flex';
             this._updateAIStatus('loading', i18n.t('toolbar.aiModelLoading'));
 
-            const success = await this.processor.switchAIModel(modelName);
+            const success = await this.processor.switchAIModel(modelName, dtype);
 
             if (success) {
                 this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
