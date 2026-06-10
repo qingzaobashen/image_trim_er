@@ -1041,17 +1041,13 @@ class App {
         if (!this.modelList) return;
 
         const models = this.processor.smartCutTool.modelManager.constructor.getAvailableModels();
-        const currentModel = this.processor.getCurrentAIModel();
-        const currentDtype = this.processor.getCurrentAIDtype();
-        const currentKey = `${currentModel}:${currentDtype}`;
+        const currentKey = this.processor.getCurrentAIModel();
 
         this.modelList.innerHTML = '';
         models.forEach(model => {
-            const modelKey = `${model.id}:${model.dtype}`;
             const item = document.createElement('div');
-            item.className = 'model-item' + (modelKey === currentKey ? ' active' : '');
-            item.dataset.model = model.id;
-            item.dataset.dtype = model.dtype;
+            item.className = 'model-item' + (model.key === currentKey ? ' active' : '');
+            item.dataset.modelKey = model.key;
 
             const qualityClass = model.quality === '极高' ? 'highest' :
                                  model.quality === '高' ? 'high' :
@@ -1060,7 +1056,6 @@ class App {
             item.innerHTML = `
                 <div class="model-item-info">
                     <span class="model-item-name">${model.displayName}</span>
-                    <span class="model-item-quality">${qualityClass}</span>
                     <span class="model-item-desc">${model.description}</span>
                 </div>
                 <div class="model-item-meta">
@@ -1069,32 +1064,29 @@ class App {
                 </div>
             `;
 
-            item.addEventListener('click', () => this._handleModelSelect(model.id, model.dtype));
+            item.addEventListener('click', () => this._handleModelSelect(model.key));
             this.modelList.appendChild(item);
         });
     }
 
     /**
      * 处理模型选择
-     * @param {string} modelName - 模型名称
-     * @param {string} dtype - 精度类型
+     * @param {string} modelKey - 模型键，格式为 "模型ID:精度"
      */
-    async _handleModelSelect(modelName, dtype) {
-        const currentModel = this.processor.getCurrentAIModel();
-        const currentDtype = this.processor.getCurrentAIDtype();
-        if (modelName === currentModel && dtype === currentDtype) return;
+    async _handleModelSelect(modelKey) {
+        const currentKey = this.processor.getCurrentAIModel();
+        if (modelKey === currentKey) return;
 
         try {
             // 显示进度条
             this.aiProgressContainer.style.display = 'flex';
             this._updateAIStatus('loading', i18n.t('toolbar.aiModelLoading'));
 
-            const success = await this.processor.switchAIModel(modelName, dtype);
+            const success = await this.processor.switchAIModel(modelKey);
 
             // 切换完成后重新获取实际状态（可能已回退到默认模型）
             const isReady = this.processor.isAIModelReady();
-            const actualModel = this.processor.getCurrentAIModel();
-            const actualDtype = this.processor.getCurrentAIDtype();
+            const actualKey = this.processor.getCurrentAIModel();
 
             if (success) {
                 this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
@@ -1104,7 +1096,7 @@ class App {
                 // 切换未完全成功，但回退后模型可用
                 this._updateAIStatus('ready', i18n.t('toolbar.aiModelReady'));
                 this.showNotification(
-                    `${i18n.t('toolbar.modelSwitchFailed')}，已回退到可用模型: ${actualModel} (${actualDtype})`,
+                    `${i18n.t('toolbar.modelSwitchFailed')}，已回退到可用模型: ${actualKey}`,
                     'warning'
                 );
                 this._renderModelList();

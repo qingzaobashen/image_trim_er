@@ -67,25 +67,23 @@ export class SmartCutTool {
 
     /**
      * 切换 AI 模型
-     * @param {string} modelId - 目标模型 ID
-     * @param {string} dtype - 精度类型（可选）
+     * @param {string} modelKey - 目标模型键，格式为 "模型ID:精度"
      * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchAIModel(modelId, dtype) {
+    async switchAIModel(modelKey) {
         // 记录切换前的状态，用于失败时回退
-        const previousModelId = this.currentAIModel;
-        const previousDtype = this.modelManager.getCurrentDtype();
+        const previousModelKey = this.currentAIModel;
         
         try {
-            const success = await this.modelManager.loadModel(modelId, dtype);
+            const success = await this.modelManager.loadModel(modelKey);
             if (success) {
                 this.isAIModelAvailable = true;
-                this.currentAIModel = modelId;
-                console.log(`[SmartCutTool] 模型切换成功: ${modelId}, 精度: ${this.modelManager.getCurrentDtype()}`);
+                this.currentAIModel = modelKey;
+                console.log(`[SmartCutTool] 模型切换成功: ${modelKey}`);
             }
             return success;
         } catch (error) {
-            console.error(`切换 AI 模型 ${modelId} (${dtype}) 失败:`, error);
+            console.error(`切换 AI 模型 ${modelKey} 失败:`, error);
             
             // 检查模型管理器当前状态
             const isLoaded = this.modelManager.isModelLoaded();
@@ -93,7 +91,7 @@ export class SmartCutTool {
             
             if (isLoaded) {
                 // 如果回退逻辑成功加载了默认模型，同步更新当前模型记录
-                this.currentAIModel = this.modelManager.getCurrentModelName();
+                this.currentAIModel = this.modelManager.getCurrentModelKey();
             } else {
                 // 彻底失败，重置状态
                 this.currentAIModel = null;

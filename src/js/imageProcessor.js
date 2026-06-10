@@ -63,12 +63,11 @@ export class ImageProcessor {
 
     /**
      * 切换 AI 模型
-     * @param {string} modelName - 目标模型名称
-     * @param {string} dtype - 精度类型（可选）
+     * @param {string} modelKey - 目标模型键，格式为 "模型ID:精度"
      * @returns {Promise<boolean>} 是否切换成功
      */
-    async switchAIModel(modelName, dtype) {
-        return await this.smartCutTool.switchAIModel(modelName, dtype);
+    async switchAIModel(modelKey) {
+        return await this.smartCutTool.switchAIModel(modelKey);
     }
 
     /**
