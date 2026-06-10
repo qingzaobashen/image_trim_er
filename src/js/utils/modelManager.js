@@ -145,14 +145,31 @@ export class ModelManager {
      */
     _configureLocalModels() {
         // 启用本地模型支持
-        env.allowLocalModels = false;
-        
+        env.allowLocalModels = true;
+
         // 设置本地模型路径（public 目录下的文件会被 Vite 自动服务）
         env.localModelPath = LOCAL_MODEL_BASE_PATH;
-        
+
         // 禁用远程模型下载
-        env.allowRemoteModels = true;
-        
+        env.allowRemoteModels = false;
+
+        // 设置 ONNX Runtime WASM 文件路径指向本地
+        // Transformers.js 默认从 jsDelivr CDN 加载 WASM，但 allowRemoteModels=false 会阻止
+        // 需要显式指向 public/onnx/ 下的本地 WASM 文件
+        if (env.backends?.onnx?.wasm) {
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const wasmBasePath = '/onnx/';
+            env.backends.onnx.wasm.wasmPaths = isSafari
+                ? {
+                      mjs: `${wasmBasePath}ort-wasm-simd-threaded.mjs`,
+                      wasm: `${wasmBasePath}ort-wasm-simd-threaded.wasm`,
+                  }
+                : {
+                      mjs: `${wasmBasePath}ort-wasm-simd-threaded.asyncify.mjs`,
+                      wasm: `${wasmBasePath}ort-wasm-simd-threaded.asyncify.wasm`,
+                  };
+        }
+
         console.log(`[ModelManager] 使用本地模型，路径: ${LOCAL_MODEL_BASE_PATH}`);
     }
 
