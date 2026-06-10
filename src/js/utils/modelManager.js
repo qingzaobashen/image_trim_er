@@ -362,8 +362,11 @@ export class ModelManager {
             });
 
             // 配置 WASM 后端
+            // 注意：proxy=true 会将 WASM 运行在 Web Worker 中，可避免 UI 卡顿，
+            // 但 Worker 初始化依赖 CDN 路径解析，与本地路径配置冲突。
+            // 此处关闭代理以确保本地 WASM 文件正确加载。
             if (env.backends?.onnx?.wasm) {
-                env.backends.onnx.wasm.proxy = true;
+                env.backends.onnx.wasm.proxy = false;
             }
 
             // 加载模型（从本地路径，指定精度类型）
