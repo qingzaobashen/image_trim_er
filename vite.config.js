@@ -36,6 +36,15 @@ export default defineConfig({
         },
     },
 
+    // 依赖预构建配置
+    optimizeDeps: {
+        include: [
+            '@huggingface/transformers',
+            '@tensorflow/tfjs',
+            '@tensorflow-models/body-pix',
+        ],
+    },
+
     // esbuild 配置：支持 top-level await
     esbuild: {
         target: 'esnext',
@@ -51,11 +60,6 @@ export default defineConfig({
                 entryFileNames: 'assets/[name]-[hash].js',
                 chunkFileNames: 'assets/[name]-[hash].js',
                 assetFileNames: 'assets/[name]-[hash].[ext]',
-                // 手动分包
-                manualChunks: {
-                    'transformers': ['@huggingface/transformers'],
-                    'tensorflow': ['@tensorflow/tfjs', '@tensorflow-models/body-pix'],
-                },
             },
         },
         // 输出目录
