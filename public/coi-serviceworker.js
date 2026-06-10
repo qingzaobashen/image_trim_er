@@ -27,6 +27,13 @@ if (typeof window === 'undefined') {
             return;
         }
 
+        // 仅拦截同源请求，跨域请求直接放行不修改头
+        // 避免对 Google Analytics 等第三方请求的干扰
+        const requestUrl = new URL(r.url);
+        if (requestUrl.origin !== self.location.origin) {
+            return;
+        }
+
         const request = (coepCredentialless && r.mode === "no-cors")
             ? new Request(r, {
                 credentials: "omit",
@@ -54,7 +61,14 @@ if (typeof window === 'undefined') {
                         headers: newHeaders,
                     });
                 })
-                .catch((e) => console.error(e))
+                .catch((e) => {
+                    console.error(e);
+                    // 返回原始请求的失败响应，而非吞掉错误
+                    return new Response('Fetch failed: ' + e.message, {
+                        status: 502,
+                        statusText: 'Service Worker Fetch Error',
+                    });
+                })
         );
     });
 
