@@ -145,13 +145,13 @@ export class ModelManager {
      */
     _configureLocalModels() {
         // 启用本地模型支持
-        env.allowLocalModels = true;
+        env.allowLocalModels = false;
         
         // 设置本地模型路径（public 目录下的文件会被 Vite 自动服务）
         env.localModelPath = LOCAL_MODEL_BASE_PATH;
         
         // 禁用远程模型下载
-        env.allowRemoteModels = false;
+        env.allowRemoteModels = true;
         
         console.log(`[ModelManager] 使用本地模型，路径: ${LOCAL_MODEL_BASE_PATH}`);
     }
