@@ -1,15 +1,19 @@
 # Simple workflow for deploying static content to GitHub Pages
+# 将静态内容部署到 GitHub Pages 的简易工作流程
 name: Deploy static content to Pages
 
 on:
   # Runs on pushes targeting the default branch
+  # 仅在推送到默认分支时运行。
   push:
     branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
+  # 这个选项可以使你手动在 Action tab 页面触发工作流
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# 设置 GITHUB_TOKEN 的权限，允许部署到 GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -17,6 +21,7 @@ permissions:
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# 允许最多有一个并发部署，跳过在运行中和最新排队的运行。
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -31,6 +36,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build
+        run: pnpm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
