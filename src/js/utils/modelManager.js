@@ -70,20 +70,6 @@ const MODEL_INFO = {
         recommended: true,  // 推荐，通用性强且体积适中
     },
 
-    /** RMBG-1.4 全精度版 — 最高精度，体积较大 */
-    [`${RMBG_MODEL_ID}:fp32`]: {
-        modelId: RMBG_MODEL_ID,
-        dtype: 'fp32',
-        name: 'RMBG',
-        displayName: '通用模型（高精度）',
-        description_zh: '通用背景移除模型，精度最高，体积较大',
-        description_en: 'General background removal model, highest precision, larger size',
-        size: '~176MB',
-        quality: 'highest',
-        speed: 'medium',
-        recommended: false,
-    },
-
     /** ISNet 半精度版 — 高质量通用，边缘质量优秀 */
     [`${ISNET_MODEL_ID}:fp16`]: {
         modelId: ISNET_MODEL_ID,

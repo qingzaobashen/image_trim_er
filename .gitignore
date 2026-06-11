@@ -26,3 +26,6 @@ TestCase/
 # 性能测试
 *.heapsnapshot
 trace-before.json.json.gz
+
+# 大型 ONNX 模型文件（超过 GitHub 100MB 限制，不直接提交）
+public/briaai/RMBG-1.4/onnx/model.onnx
