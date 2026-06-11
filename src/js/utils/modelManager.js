@@ -70,6 +70,20 @@ const MODEL_INFO = {
         recommended: true,  // 推荐，通用性强且体积适中
     },
 
+    /** RMBG-1.4 全精度版 — 最高精度，体积较大，先不用 */
+    // [`${RMBG_MODEL_ID}:fp32`]: {
+    //     modelId: RMBG_MODEL_ID,
+    //     dtype: 'fp32',
+    //     name: 'RMBG',
+    //     displayName: '通用模型（高精度）',
+    //     description_zh: '通用背景移除模型，精度最高，体积较大',
+    //     description_en: 'General background removal model, highest precision, larger size',
+    //     size: '~176MB',
+    //     quality: 'highest',
+    //     speed: 'medium',
+    //     recommended: false,
+    // },
+
     /** ISNet 半精度版 — 高质量通用，边缘质量优秀 */
     [`${ISNET_MODEL_ID}:fp16`]: {
         modelId: ISNET_MODEL_ID,
@@ -343,7 +357,7 @@ export class ModelManager {
 
             this._emitProgress({
                 step: 'loading',
-                progress: 0,
+                progress: 1,
                 message: `正在加载 ${modelInfo.name} (${dtypeDisplayName}) 模型...`
             });
 
@@ -408,7 +422,7 @@ export class ModelManager {
                 this._emitStateChange('cancelled', modelId);
                 this._emitProgress({
                     step: 'complete',
-                    progress: 0,
+                    progress: 1,
                     message: '模型加载已取消'
                 });
                 throw new Error('模型加载已取消');
@@ -475,7 +489,7 @@ export class ModelManager {
         } else if (progress.status === 'done') {
             this._emitProgress({
                 step: 'processing',
-                progress: 90,
+                progress: 100,
                 message: `正在初始化 ${modelDisplayName} (${dtypeDisplayName}) 模型...`
             });
         }
