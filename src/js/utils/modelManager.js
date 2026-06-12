@@ -387,7 +387,7 @@ export class ModelManager {
             this._emitProgress({
                 step: 'loading',
                 progress: 0,
-                message: `正在加载 ${modelInfo.name} (${dtypeDisplayName}) 模型...`
+                message: `loading ${modelInfo.name} (${dtypeDisplayName}) 模型...`
             });
 
             // 配置 WASM 后端
@@ -517,13 +517,13 @@ export class ModelManager {
             this._emitProgress({
                 step: 'loading',
                 progress: percent,
-                message: `正在加载 ${modelDisplayName} (${dtypeDisplayName})... ${Math.round(percent)}%`
+                message: `loading ${modelDisplayName} (${dtypeDisplayName})... ${Math.round(percent)}%`
             });
         } else if (progress.status === 'done' && progress.file?.includes('onnx')) {
             this._emitProgress({
                 step: 'processing',
                 progress: 100,
-                message: `正在初始化 ${modelDisplayName} (${dtypeDisplayName}) 模型...`
+                message: `initializing ${modelDisplayName} (${dtypeDisplayName}) model...`
             });
         }
     }
