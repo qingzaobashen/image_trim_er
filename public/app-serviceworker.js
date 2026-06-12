@@ -35,8 +35,8 @@ const FALLBACK_TIMEOUT_MS = 10000;
 /** 模型资源缓存版本号，发布新模型时建议 +1 让旧缓存失效 */
 const CACHE_NAME = 'models-cdn-fallback-v1';
 
-/** 匹配模型相关路径前缀：Xenova/、briaai/、imgly/、onnx/ */
-const MODEL_PATH_RE = /^\/(Xenova|briaai|imgly|onnx)\//;
+/** 匹配模型相关路径前缀：Xenova/、briaai/、imgly/、U-2-Netp/、onnx/ */
+const MODEL_PATH_RE = /^\/(Xenova|briaai|imgly|U-2-Netp|onnx)\//;
 
 /** 匹配模型相关文件后缀 */
 const MODEL_FILE_RE = /\.(onnx|json|wasm|mjs)(\?.*)?$/i;

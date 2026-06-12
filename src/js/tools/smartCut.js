@@ -217,9 +217,30 @@ export class SmartCutTool {
             const processorResult = await processor(img);
             pixel_values = processorResult.pixel_values;
 
-            // 模型推理：获取 alpha 蒙版
-            const modelResult = await model({ input: pixel_values });
-            outputTensor = modelResult.output;
+            // 动态获取模型期望的输入名：
+            //   - U-2-Net（config.json 里有 input_name 字段）→ "input.1"
+            //   - RMBG / ISNet / MODNet → "input"（Transformers.js 默认）
+            //   - 兜底：使用 ONNX Session 报告的首个输入名
+            const inputName =
+                model.config?.input_name ||
+                model.session?.inputNames?.[0] ||
+                'input';
+            const modelResult = await model({ [inputName]: pixel_values });
+
+            // 动态获取模型输出张量：
+            //   - U-2-Net：raw ONNX 模型返回 { "1959": Tensor, "1960": Tensor, ... }，
+            //              主输出由 model.config.output_composite 指定（"1959"）
+            //   - RMBG / ISNet / MODNet：自定义模型类把主输出封装到 .output
+            //   - 兜底：result 里第一个是 Tensor 的字段
+            const outputComposite = model.config?.output_composite;
+            outputTensor =
+                modelResult.output ||
+                (outputComposite && modelResult[outputComposite]) ||
+                Object.values(modelResult).find((v) => v && typeof v.mul === 'function');
+            if (!outputTensor) {
+                throw new Error(`无法解析模型输出，可用键: ${Object.keys(modelResult).join(', ')}`);
+            }
+            console.log(`[smartCut] 模型输出 shape:`, outputTensor.dims || outputTensor.shape);
 
             // 将输出张量缩放至 0-255 并调整回原始尺寸
             const maskData = (

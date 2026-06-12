@@ -32,7 +32,7 @@ const PROJECT_ROOT = join(__dirname, '..');
 const PUBLIC_DIR = join(PROJECT_ROOT, 'public');
 
 /** 需要上传的模型目录（与 app-serviceworker.js 中的 MODEL_PATH_RE 保持一致） */
-const MODEL_DIRS = ['Xenova', 'briaai', 'imgly'];
+const MODEL_DIRS = ['Xenova', 'briaai', 'imgly', 'U-2-Netp'];
 
 /** 文件后缀 → Content-Type 映射 */
 const EXT_TO_MIME = {

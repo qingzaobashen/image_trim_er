@@ -84,6 +84,12 @@ export default {
                     name: 'Edge Detection Model (Half Precision)',
                     desc: 'Edge-aware background removal with excellent edge segmentation for fine cutout'
                 }
+            },
+            u2netp: {
+                fp32: {
+                    name: 'Lightweight General Model',
+                    desc: 'Lightweight general background removal, small size and fast, ideal for low-power devices'
+                }
             }
         },
 

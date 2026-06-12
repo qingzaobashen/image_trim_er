@@ -2,7 +2,7 @@
  * 模型管理器模块
  * 基于 @huggingface/transformers (Transformers.js) 实现背景移除模型的加载与管理
  * 使用本地预下载的模型文件，避免网络下载问题
- * 支持模型：MODNet（人像优化）、RMBG-1.4（通用）、ISNet（高质量通用）
+ * 支持模型：MODNet（人像优化）、RMBG-1.4（通用）、ISNet（高质量通用）、U-2-Netp（轻量通用）
  */
 
 import {
@@ -25,6 +25,9 @@ const RMBG_MODEL_ID = 'briaai/RMBG-1.4';
 
 /** ISNet 模型 ID（高质量通用背景移除） */
 const ISNET_MODEL_ID = 'imgly/isnet';
+
+/** U-2-Netp 模型 ID（轻量通用背景移除，体积小、速度快） */
+const U2NETP_MODEL_ID = 'U-2-Netp';
 
 /**
  * 模型精度类型说明
@@ -106,6 +109,22 @@ const MODEL_INFO = {
         speed: 'medium',
         recommended: false,
     },
+
+    /** U-2-Netp 全精度版 — 轻量通用，体积最小、速度最快 */
+    // [`${U2NETP_MODEL_ID}:fp32`]: {
+    //     modelId: U2NETP_MODEL_ID,
+    //     dtype: 'fp32',
+    //     name: 'U-2-Netp',
+    //     displayNameKey: 'toolbar.models.u2netp.fp32.name',
+    //     descriptionKey: 'toolbar.models.u2netp.fp32.desc',
+    //     displayName: 'Lightweight General Model',
+    //     description_zh: '轻量通用背景移除模型，体积小、速度快，适合低算力设备',
+    //     description_en: 'Lightweight general background removal, small size and fast, ideal for low-power devices',
+    //     size: '~4.5MB',
+    //     quality: 'medium',
+    //     speed: 'fastest',
+    //     recommended: false,
+    // },
 };
 
 /** 默认模型键（RMBG-1.4 量化版，通用背景移除） */
