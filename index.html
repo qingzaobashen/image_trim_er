@@ -24,6 +24,30 @@
         留空则只走同源，不启用兜底。
     -->
     <script src="/app-serviceworker.js?base=https://bgwfkpxzerlihitexzzc.supabase.co/storage/v1/object/public/models"></script>
+    <script>
+        // 监听 Service Worker 广播的实时下载速率
+        // 在 DevTools Console 里可直接看到：来源 / 进度 / KB/s
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (e) => {
+                const m = e.data;
+                if (!m || !m.type) return;
+                if (m.type === 'model-download-start') {
+                    const mb = m.totalBytes ? (m.totalBytes / 1024 / 1024).toFixed(1) + 'MB' : '?';
+                    console.log(`[model] ${m.label} 开始下载: ${mb}`);
+                } else if (m.type === 'model-download-progress') {
+                    const recv = (m.receivedBytes / 1024 / 1024).toFixed(2);
+                    const total = m.totalBytes ? (m.totalBytes / 1024 / 1024).toFixed(1) : '?';
+                    const pct = m.totalBytes
+                        ? Math.round((m.receivedBytes / m.totalBytes) * 100) + '%'
+                        : '?';
+                    const speed = m.speedBps >= 1024 * 1024
+                        ? (m.speedBps / 1024 / 1024).toFixed(2) + ' MB/s'
+                        : (m.speedBps / 1024).toFixed(0) + ' KB/s';
+                    console.log(`[model] ${m.label}: ${recv}MB / ${total} (${pct}) @ ${speed}`);
+                }
+            });
+        }
+    </script>
 </head>
 <body>
     <div class="app-container">
