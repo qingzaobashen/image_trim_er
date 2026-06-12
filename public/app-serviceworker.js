@@ -1,47 +1,39 @@
 /**
  * 应用主 Service Worker
  *
- * 职责（合并自 coi-serviceworker v0.1.7 + 自研模型 CDN 兜底）：
+ * 职责（合并自 coi-serviceworker v0.1.7 + 自研模型 CDN 主备调度）：
  *  1. 为同源响应注入 COOP / COEP 头，启用 SharedArrayBuffer，
  *     满足 Transformers.js WASM 后端的跨源隔离要求。
- *  2. 对 .onnx / 配置文件 / ort-wasm-* 等模型资源做 CDN 兜底：
- *     优先同源（GitHub Pages），**边下载边测速**，速率持续低于 30 KB/s
- *     或硬超时 30s 即降级到 Supabase Storage，成功后写入 Cache API。
+ *  2. 对 .onnx / 配置文件 / ort-wasm-* 等模型资源做 CDN 主备调度：
+ *     优先 Supabase Storage（国内快，3s 紧超时），失败/超时再降级到
+ *     GitHub Pages（同源，可达但慢，给 10s 宽松超时），成功后写入
+ *     Cache API 供后续访问直接命中。
  *
- * 配置：在 index.html 通过 `?base=<url>` 查询参数传入 Supabase 兜底地址，
- * 例如：
+ * 配置：在 index.html 通过 `?base=<url>` 查询参数传入 Supabase 桶地址，例如：
  *   /app-serviceworker.js?base=https%3A%2F%2Fxxx.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fmodels
  *
  * 对 modelManager.js 完全透明，无需改动应用代码。
  */
 
-/* ----------------------------- 兜底 CDN 配置 ----------------------------- */
+/* ----------------------------- CDN 主备配置 ----------------------------- */
 
-/** 兜底 CDN 基础地址（从注册 URL 的 ?base= 解析得到） */
+/** 主 CDN 基础地址（从注册 URL 的 ?base= 解析得到，未配置则跳过主 CDN） */
 const SUPABASE_BASE = new URLSearchParams(self.location.search).get('base') || '';
+
+/**
+ * 主 CDN（Supabase）超时时间（毫秒）
+ * 紧超时：国内访问 Supabase Storage 通常 < 1s，超时意味着主源有问题
+ */
+const PRIMARY_TIMEOUT_MS = 3000;
+
+/**
+ * 备 CDN（GitHub Pages 同源）超时时间（毫秒）
+ * 宽松超时：能联通但慢，给足时间让慢源有机会成功
+ */
+const FALLBACK_TIMEOUT_MS = 10000;
 
 /** 模型资源缓存版本号，发布新模型时建议 +1 让旧缓存失效 */
 const CACHE_NAME = 'models-cdn-fallback-v1';
-
-/* ---------------------- 测速降级参数（可按需调整） ---------------------- */
-
-/** 判定为"过慢"的速率阈值：30 KB/s。
- *  对 25MB 模型 ≈ 14min，远低于用户耐心阈值；正常网络（>500KB/s）不会误触发 */
-const SLOW_THRESHOLD_BPS = 30 * 1024;
-
-/** 启动后免测速的宽限期：2s。
- *  避免 TCP 慢启动/首字节延迟造成的误判 */
-const WARMUP_MS = 2000;
-
-/** 测速窗口：每 3s 评估一次平均速率。
- *  窗口越大越不容易被瞬时抖动误判 */
-const SPEED_WINDOW_MS = 3000;
-
-/** 同源下载硬性超时：30s。即便速率尚可也强制切到兜底 */
-const HARD_TIMEOUT_MS = 30_000;
-
-/** 跳过测速的文件大小阈值：< 100KB 的小文件直接放行 */
-const SMALL_FILE_BYTES = 100 * 1024;
 
 /** 匹配模型相关路径前缀：Xenova/、briaai/、imgly/、onnx/ */
 const MODEL_PATH_RE = /^\/(Xenova|briaai|imgly|onnx)\//;
@@ -93,7 +85,7 @@ self.addEventListener('fetch', (event) => {
     // 跨域请求直接放行，避免影响 Google Fonts / Analytics 等第三方资源
     if (requestUrl.origin !== self.location.origin) return;
 
-    // 模型文件走 CDN 兜底流程
+    // 模型文件走 CDN 主备调度流程
     if (MODEL_PATH_RE.test(requestUrl.pathname) && MODEL_FILE_RE.test(requestUrl.pathname)) {
         event.respondWith(handleModelRequest(r, requestUrl));
         return;
@@ -130,11 +122,20 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-/* ----------------------------- 模型兜底核心 ----------------------------- */
+/* ----------------------------- 模型 CDN 主备核心 ----------------------------- */
 
 /**
- * 处理模型请求：缓存 → 同源（带超时）→ Supabase 兜底
- * @param {Request} req 浏览器发起的原始请求
+ * 构造主 CDN（Supabase）上的远端 URL
+ * @param {URL} requestUrl 浏览器请求的同源 URL
+ * @returns {string} 拼接后的远端 URL
+ */
+function buildPrimaryUrl(requestUrl) {
+    return SUPABASE_BASE.replace(/\/$/, '') + requestUrl.pathname;
+}
+
+/**
+ * 处理模型请求：缓存 → 主 CDN（Supabase，3s 紧超时）→ 备 CDN（GitHub，10s 宽松超时）
+ * @param {Request} req 浏览器发起的原始请求（同源）
  * @param {URL} requestUrl 解析后的请求 URL（避免重复解析）
  * @returns {Promise<Response>} 响应对象
  */
@@ -148,236 +149,83 @@ async function handleModelRequest(req, requestUrl) {
         return cached;
     }
 
-    // 2) 尝试同源：边下载边测速，速率持续过低立刻降级
+    // 2) 主 CDN：Supabase（国内快，紧超时 3s）
+    if (SUPABASE_BASE) {
+        const primaryUrl = buildPrimaryUrl(requestUrl);
+        try {
+            const r = await fetchWithTimeout(primaryUrl, PRIMARY_TIMEOUT_MS);
+            if (r.ok) {
+                // 给跨源响应补 CORP 头，避免被 credentialless COEP 拦截
+                const newHeaders = new Headers(r.headers);
+                newHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
+                const wrapped = new Response(r.clone().body, {
+                    status: r.status,
+                    statusText: r.statusText,
+                    headers: newHeaders,
+                });
+                cache.put(req, wrapped.clone());
+                console.log(`[app-sw] 主 CDN 命中: ${primaryUrl}`);
+                return wrapped;
+            }
+            console.warn(`[app-sw] 主 CDN 返回 ${r.status}，降级到 GitHub: ${primaryUrl}`);
+        } catch (e) {
+            console.warn(`[app-sw] 主 CDN 失败（${e.name}），降级到 GitHub: ${primaryUrl}`);
+        }
+    } else {
+        console.warn('[app-sw] 未配置主 CDN（?base= 为空），直接走 GitHub 同源');
+    }
+
+    // 3) 备 CDN：GitHub Pages 同源（可达但慢，宽松超时 10s）
     try {
-        const r = await fetchWithSpeedMonitor(req, {
-            label: 'GitHub',
-            minSpeedBps: SLOW_THRESHOLD_BPS,
-            warmupMs: WARMUP_MS,
-            windowMs: SPEED_WINDOW_MS,
-            hardTimeoutMs: HARD_TIMEOUT_MS,
-        });
+        const r = await fetchWithTimeout(req, FALLBACK_TIMEOUT_MS);
         if (r.ok) {
             cache.put(req, r.clone());
+            console.log(`[app-sw] 备 CDN 命中: ${req.url}`);
             return r;
         }
-        console.warn(`[app-sw] 同源返回非 2xx (${r.status})，准备降级: ${req.url}`);
+        return errorResponse(`备 CDN 状态 ${r.status}: ${req.url}`);
     } catch (e) {
-        console.warn(`[app-sw] 同源降级到 Supabase: ${req.url} (${e.message})`);
-    }
-
-    // 3) 降级到 Supabase Storage
-    if (!SUPABASE_BASE) {
-        return errorResponse('兜底 CDN 未配置：请通过 ?base=<url> 注册 SW');
-    }
-    const fallbackUrl = SUPABASE_BASE.replace(/\/$/, '') + requestUrl.pathname;
-    console.log(`[app-sw] 切换到兜底 CDN (Supabase): ${fallbackUrl}`);
-    try {
-        // 兜底不设速率阈值，但保留 60s 硬超时避免无响应卡死
-        const r = await fetchWithSpeedMonitor(new Request(fallbackUrl, {
-            method: req.method,
-            headers: req.headers,
-        }), {
-            label: 'Supabase',
-            minSpeedBps: 0, // 兜底不限速
-            hardTimeoutMs: 60_000,
-        });
-        if (r.ok) {
-            // 给跨源响应补 CORP 头，避免被 credentialless COEP 拦截
-            const newHeaders = new Headers(r.headers);
-            newHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
-            const wrapped = new Response(r.body, {
-                status: r.status,
-                statusText: r.statusText,
-                headers: newHeaders,
-            });
-            cache.put(req, wrapped.clone());
-            return wrapped;
-        }
-        return errorResponse(`兜底 CDN 状态 ${r.status}: ${fallbackUrl}`);
-    } catch (e) {
-        return errorResponse(`兜底 CDN 请求失败: ${e.message}`);
+        return errorResponse(`备 CDN 请求失败: ${e.message}`);
     }
 }
 
 /**
- * 带测速+超时的 fetch 工具
- *
- * 工作机制：
- *  1. 先建立连接并拿到响应头；
- *  2. 持续读取 body 字节流，每秒打印一次"已下载 X / 总 Y @ Z KB/s"；
- *  3. 启动后经过 WARMUP_MS 才开始测速，每 SPEED_WINDOW_MS 评估一次平均速率；
- *  4. 速率持续低于 minSpeedBps ⇒ 取消读取、抛出 SLOW_DOWNLOAD 错误（由调用方降级）；
- *  5. 总耗时超 hardTimeoutMs ⇒ 直接 abort（兜底防卡死）；
- *  6. 小于 SMALL_FILE_BYTES 的文件跳过测速，直接放行（避免对 config.json 误判）。
- *
+ * 带超时的 fetch 工具
  * @param {Request} req 请求对象
- * @param {Object} [options] 配置项
- * @param {string} [options.label='fetch'] 日志前缀，便于区分来源
- * @param {number} [options.minSpeedBps=30*1024] 低于此速率即判定为慢（设为 0 关闭测速）
- * @param {number} [options.warmupMs=2000] 启动后免测速的宽限期
- * @param {number} [options.windowMs=3000] 测速窗口长度
- * @param {number} [options.hardTimeoutMs=30000] 硬性超时上限
- * @returns {Promise<Response>} 完整响应
+ * @param {number} ms 超时毫秒数
+ * @returns {Promise<Response>} fetch 响应
  */
-async function fetchWithSpeedMonitor(req, options = {}) {
-    const {
-        label = 'fetch',
-        minSpeedBps = SLOW_THRESHOLD_BPS,
-        warmupMs = WARMUP_MS,
-        windowMs = SPEED_WINDOW_MS,
-        hardTimeoutMs = HARD_TIMEOUT_MS,
-    } = options;
-
+function fetchWithTimeout(req, ms) {
     const ctrl = new AbortController();
-    const hardTimer = setTimeout(() => ctrl.abort('hard-timeout'), hardTimeoutMs);
-
-    let res;
-    try {
-        res = await fetch(req, { signal: ctrl.signal });
-    } catch (e) {
-        clearTimeout(hardTimer);
-        throw e;
-    }
-
-    if (!res.ok) {
-        // 非 2xx：交给调用方判断是否降级
-        clearTimeout(hardTimer);
-        return res;
-    }
-
-    // 获取声明的文件大小
-    const contentLength = Number(res.headers.get('content-length') || 0);
-
-    // 小文件：跳过测速，直接透传原始响应（保留流式能力）
-    if (contentLength > 0 && contentLength < SMALL_FILE_BYTES) {
-        clearTimeout(hardTimer);
-        return res;
-    }
-
-    // 大文件：流式读取 + 实时测速
-    const reader = res.body.getReader();
-    const chunks = [];
-    let received = 0;
-    const startTime = performance.now();
-    let lastCheckTime = startTime;
-    let lastCheckBytes = 0;
-    let lastLogTime = startTime;
-
-    const fmtSpeed = (bps) => (bps >= 1024 * 1024
-        ? `${(bps / 1024 / 1024).toFixed(2)} MB/s`
-        : `${(bps / 1024).toFixed(0)} KB/s`);
-
-    try {
-        // 通知客户端开始下载（如果监听 message 事件）
-        notifyClients({
-            type: 'model-download-start',
-            label,
-            url: req.url,
-            totalBytes: contentLength,
-        });
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            chunks.push(value);
-            received += value.length;
-            const now = performance.now();
-            const elapsedMs = now - startTime;
-
-            // 每 1s 打印一次进度（便于在 DevTools 实时观测速率）
-            if (now - lastLogTime >= 1000) {
-                const avgBps = (received / elapsedMs) * 1000;
-                const percent = contentLength
-                    ? Math.min(100, Math.round((received / contentLength) * 100))
-                    : 0;
-                const logLine = `[app-sw] ${label}: ${(received / 1024).toFixed(0)}KB `
-                    + `(${percent}%) @ ${fmtSpeed(avgBps)}`;
-                console.log(logLine);
-                notifyClients({
-                    type: 'model-download-progress',
-                    label,
-                    url: req.url,
-                    receivedBytes: received,
-                    totalBytes: contentLength,
-                    speedBps: avgBps,
-                });
-                lastLogTime = now;
-            }
-
-            // 测速判断：宽限期过后，每 windowMs 评估一次
-            if (elapsedMs > warmupMs) {
-                const sinceCheck = now - lastCheckTime;
-                if (sinceCheck >= windowMs) {
-                    const speedBps = ((received - lastCheckBytes) / sinceCheck) * 1000;
-                    if (minSpeedBps > 0 && speedBps < minSpeedBps) {
-                        reader.cancel(); // 立即释放底层连接
-                        throw new Error(
-                            `SLOW_DOWNLOAD ${fmtSpeed(speedBps)} < ${fmtSpeed(minSpeedBps)}`
-                        );
-                    }
-                    lastCheckTime = now;
-                    lastCheckBytes = received;
-                }
-            }
-        }
-    } catch (e) {
-        clearTimeout(hardTimer);
-        throw e;
-    }
-
-    clearTimeout(hardTimer);
-    const totalMs = performance.now() - startTime;
-    console.log(
-        `[app-sw] ${label}: 完成 ${(received / 1024).toFixed(0)}KB ` +
-        `@ ${fmtSpeed((received / totalMs) * 1000)} 用时 ${(totalMs / 1000).toFixed(1)}s`
-    );
-
-    // 重组字节流为单一 Uint8Array（保持 headers / status 透传）
-    const totalBytes = chunks.reduce((acc, c) => acc + c.length, 0);
-    const body = new Uint8Array(totalBytes);
-    let pos = 0;
-    for (const c of chunks) {
-        body.set(c, pos);
-        pos += c.length;
-    }
-    return new Response(body, {
-        status: res.status,
-        statusText: res.statusText,
-        headers: res.headers,
-    });
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    return fetch(req, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
 /**
- * 向所有受控客户端广播消息（页面脚本可监听以显示实时速率）
- * @param {Object} payload 消息内容
- * @returns {void}
- */
-function notifyClients(payload) {
-    self.clients.matchAll({ includeUncontrolled: true }).then((clients) => {
-        for (const c of clients) c.postMessage(payload);
-    }).catch(() => { /* 静默失败 */ });
-}
-
-/**
- * 后台静默刷新缓存（命中缓存后异步重新拉取最新版本）
- * 关闭测速判定，避免误中断；只保留硬性超时
- * @param {Request} req 原始请求
+ * 后台静默刷新缓存（命中缓存后异步从主 CDN 拉取最新版本）
+ * 优先尝试主 CDN（Supabase），失败不重试（当前缓存版本仍可用）
+ * @param {Request} req 原始请求（同源 URL）
  * @param {Cache} cache Cache 实例
  * @returns {void}
  */
 function refreshInBackground(req, cache) {
-    fetchWithSpeedMonitor(req, {
-        label: 'refresh',
-        minSpeedBps: 0, // 关闭测速
-        hardTimeoutMs: 60_000, // 后台刷新可宽限
-    })
+    if (!SUPABASE_BASE) return;
+    const primaryUrl = buildPrimaryUrl(new URL(req.url));
+    fetchWithTimeout(primaryUrl, PRIMARY_TIMEOUT_MS)
         .then((r) => {
-            if (r.ok) cache.put(req, r.clone());
+            if (r.ok) {
+                const newHeaders = new Headers(r.headers);
+                newHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin');
+                const wrapped = new Response(r.clone().body, {
+                    status: r.status,
+                    statusText: r.statusText,
+                    headers: newHeaders,
+                });
+                cache.put(req, wrapped);
+            }
         })
         .catch(() => {
-            // 静默失败：当前缓存版本仍可用
+            // 静默失败：当前缓存版本仍可用，下次再试
         });
 }
 
@@ -402,7 +250,7 @@ if (typeof window !== 'undefined') {
         navigator.serviceWorker
             .register(window.document.currentScript.src)
             .then(() => {
-                console.log('[app-sw] 已注册，兜底 CDN:', SUPABASE_BASE || '(未配置)');
+                console.log('[app-sw] 已注册，主 CDN:', SUPABASE_BASE || '(未配置，将直接走 GitHub 同源)');
             })
             .catch((e) => console.warn('[app-sw] 注册失败:', e));
     }
