@@ -16,7 +16,14 @@
       gtag('js', new Date());
       gtag('config', 'G-G92XSNDE32');
     </script>
-    <script src="coi-serviceworker.js"></script>
+    <!--
+        应用主 Service Worker：注入 COOP/COEP 头启用跨源隔离，并对 .onnx / ort-wasm / 配置文件
+        做 CDN 兜底（GitHub Pages → Supabase Storage）。
+        把 ?base= 后面的地址替换为你的 Supabase 公共存储桶 URL，例如：
+        ?base=https%3A%2F%2Fxxx.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fmodels
+        留空则只走同源，不启用兜底。
+    -->
+    <script src="/app-serviceworker.js?base=https://bgwfkpxzerlihitexzzc.supabase.co/storage/v1/object/public/models"></script>
 </head>
 <body>
     <div class="app-container">
