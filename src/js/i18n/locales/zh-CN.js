@@ -26,7 +26,7 @@ export default {
         toolParams: '工具参数',
         postProcess: '后处理操作',
         shadowProcess: '阴影处理',
-        operations: '操作',
+        operations: '选区操作',
 
         /** 智能抠图 */
         smartCut: '智能抠图',
@@ -64,6 +64,28 @@ export default {
         modelSwitchFailed: '模型切换失败',
         modelLoadCancelled: '模型加载已取消',
         applyingSmartCut: '正在应用智能抠图...',
+
+        /** AI 模型列表 — 按 modelId.dtype 区分各变体 */
+        models: {
+            modnet: {
+                fp32: {
+                    name: '人像模型（高精度）',
+                    desc: '人像优化模型，适合人物照片抠图，速度快'
+                }
+            },
+            rmbg: {
+                q8: {
+                    name: '通用模型（轻量）',
+                    desc: '通用背景移除模型，适合大多数场景（默认）'
+                }
+            },
+            isnet: {
+                fp16: {
+                    name: '边缘识别模型（半精度）',
+                    desc: '边缘识别背景移除模型，边缘分割优秀，适合精细抠图'
+                }
+            }
+        },
 
         /** 魔术棒参数 */
         contiguous: '连续区域',
@@ -173,7 +195,7 @@ export default {
         instruction2: '选择智能抠图工具自动识别主体，或使用魔术棒点击选择相似颜色区域',
         instruction3: '使用画笔工具精细调整边缘',
         instruction4: '使用形状抠图快速创建规则选区，或使用后处理工具优化边缘',
-        instruction5: '点击"抠除选区"移除背景，再点击"下载图片"保存结果',
+        instruction5: '点击"抠除选区/鼠标中键"移除背景，再点击"下载图片"保存结果',
         shortcuts: '快捷键',
         shortcutUndo: '撤销',
         shortcutRedo: '重做',
@@ -269,7 +291,7 @@ export default {
         step3Title: '精细调整',
         step3Desc: '使用"画笔涂抹"工具对边缘进行精细修正，添加或取消不需要的选区部分',
         step4Title: '删除背景',
-        step4Desc: '确认选区无误后，点击"抠除选区"移除背景，保留透明主体',
+        step4Desc: '确认选区无误后，点击"抠除选区/鼠标中键"移除背景，保留透明主体',
         step5Title: '下载保存',
         step5Desc: '点击"下载图片"按钮，将处理后的 PNG 图片保存到本地',
         moreDetail: '更详细的操作说明请参考上方的完整教程文章。',

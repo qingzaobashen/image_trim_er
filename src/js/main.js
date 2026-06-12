@@ -319,9 +319,11 @@ class App {
         // 初始化语言切换器显示状态
         this._updateLangSwitcherUI(i18n.getLocale());
 
-        // 监听语言变更，更新 select 的 option 文本
+        // 监听语言变更，更新 select 的 option 文本与模型列表的本地化字段
         i18n.onChange(() => {
             this._updateSelectOptions();
+            // 重新渲染模型列表，使 displayName/description 跟随语言切换
+            this._renderModelList();
         });
     }
 
@@ -1049,9 +1051,8 @@ class App {
             item.className = 'model-item' + (model.key === currentKey ? ' active' : '');
             item.dataset.modelKey = model.key;
 
-            const qualityClass = model.quality === '极高' ? 'highest' :
-                                 model.quality === '高' ? 'high' :
-                                 model.quality === '快速' ? 'fast' : 'standard';
+            // model.quality 已是英文枚举（highest/high/standard），直接用作 CSS class 后缀
+            const qualityClass = model.quality || 'standard';
 
             item.innerHTML = `
                 <div class="model-item-info">

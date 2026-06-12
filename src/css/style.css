@@ -374,6 +374,12 @@ body {
     opacity: 1;
 }
 
+/* 阴影处理面板内容较多（边缘画笔/阴影参数/阴影画笔/应用按钮/操作流程/选区说明），
+   解除默认 800px 的高度限制，避免底部内容被截断 */
+.param-group[data-tool="shadowProcess"].active {
+    max-height: 2000px;
+}
+
 .param-item {
     margin-bottom: 16px;
 }

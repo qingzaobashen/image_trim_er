@@ -26,7 +26,7 @@ export default {
         toolParams: 'Parameters',
         postProcess: 'Post-processing',
         shadowProcess: 'Shadow Processing',
-        operations: 'Operations',
+        operations: 'Selection Operations',
 
         /** Smart cutout */
         smartCut: 'Smart Cutout',
@@ -64,6 +64,28 @@ export default {
         modelSwitchFailed: 'Model switch failed',
         modelLoadCancelled: 'Model loading cancelled',
         applyingSmartCut: 'Applying smart cutout...',
+
+        /** AI Model list — keyed by modelId.dtype for each variant */
+        models: {
+            modnet: {
+                fp32: {
+                    name: 'Portrait Model (High Precision)',
+                    desc: 'Portrait-optimized model, ideal for person photos, fast speed'
+                }
+            },
+            rmbg: {
+                q8: {
+                    name: 'General Model (Lightweight)',
+                    desc: 'General background removal model, suitable for most scenarios (default)'
+                }
+            },
+            isnet: {
+                fp16: {
+                    name: 'Edge Detection Model (Half Precision)',
+                    desc: 'Edge-aware background removal with excellent edge segmentation for fine cutout'
+                }
+            }
+        },
 
         /** Magic wand params */
         contiguous: 'Contiguous',
@@ -173,7 +195,7 @@ export default {
         instruction2: 'Use Smart Cutout to auto-detect subject, or Magic Wand to select similar colors',
         instruction3: 'Use Brush tool to fine-tune edges',
         instruction4: 'Use Shape Cutout for regular selections, or post-processing tools to refine edges',
-        instruction5: 'Click "Cut Out Selection" to remove the background, then "Download" to save',
+        instruction5: 'Click "Cut Out Selection / Middle Mouse Button" to remove the background, then "Download" to save',
         shortcuts: 'Shortcuts',
         shortcutUndo: 'Undo',
         shortcutRedo: 'Redo',

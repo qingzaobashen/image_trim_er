@@ -12,6 +12,8 @@ import {
     RawImage,
 } from '@huggingface/transformers';
 
+import i18n from '../i18n/i18n.js';
+
 /** 本地模型基础路径（Vite 会自动服务 public 目录下的文件） */
 const LOCAL_MODEL_BASE_PATH = '/';
 
@@ -47,9 +49,12 @@ const MODEL_INFO = {
         modelId: MODNET_MODEL_ID,
         dtype: 'fp32',
         name: 'MODNet',
-        displayName: '人像模型（高精度）',
+        displayNameKey: 'toolbar.models.modnet.fp32.name',
+        descriptionKey: 'toolbar.models.modnet.fp32.desc',
+        // 英文回退文案（i18n 缺失时使用）
+        displayName: 'Portrait Model (High Precision)',
         description_zh: '人像优化模型，适合人物照片抠图，速度快',
-        description_en: 'Portrait-optimized model, suitable for person photos',
+        description_en: 'Portrait-optimized model, ideal for person photos, fast speed',
         size: '~25MB',
         quality: 'high',
         speed: 'fast',
@@ -61,7 +66,9 @@ const MODEL_INFO = {
         modelId: RMBG_MODEL_ID,
         dtype: 'q8',
         name: 'RMBG',
-        displayName: '通用模型（轻量）',
+        displayNameKey: 'toolbar.models.rmbg.q8.name',
+        descriptionKey: 'toolbar.models.rmbg.q8.desc',
+        displayName: 'General Model (Lightweight)',
         description_zh: '通用背景移除模型，适合大多数场景（默认）',
         description_en: 'General background removal model, suitable for most scenarios (default)',
         size: '~44MB',
@@ -89,9 +96,11 @@ const MODEL_INFO = {
         modelId: ISNET_MODEL_ID,
         dtype: 'fp16',
         name: 'ISNet',
-        displayName: '边缘识别模型（半精度）',
+        displayNameKey: 'toolbar.models.isnet.fp16.name',
+        descriptionKey: 'toolbar.models.isnet.fp16.desc',
+        displayName: 'Edge Detection Model (Half Precision)',
         description_zh: '边缘识别背景移除模型，边缘分割优秀，适合精细抠图',
-        description_en: 'High-quality general model, excellent edge segmentation',
+        description_en: 'Edge-aware background removal with excellent edge segmentation for fine cutout',
         size: '~84MB',
         quality: 'highest',
         speed: 'medium',
@@ -225,25 +234,45 @@ export class ModelManager {
     }
 
     /**
+     * 解析 i18n 键对应的文本，缺失时回退到 fallback
+     * @param {string|undefined} key - i18n 键
+     * @param {string} fallback - 缺失时使用的回退文本
+     * @returns {string} 解析后的文本
+     */
+    static _resolveI18n(key, fallback) {
+        if (!key) return fallback;
+        const translated = i18n.t(key);
+        // i18n 缺失时 t() 会返回键名本身，需要识别这种回退
+        return (translated && translated !== key) ? translated : fallback;
+    }
+
+    /**
      * 获取所有可用模型的详细信息列表（用于 UI 渲染）
      * 扁平化结构下，每个条目本身就是独立的模型+精度组合，直接遍历即可
+     * 显示名称与描述优先使用 i18n 翻译结果，缺失时回退到 MODEL_INFO 中的英文/默认字段
      * @returns {Array<Object>} 模型信息数组
      */
     static getAvailableModels() {
         const result = [];
 
         Object.entries(MODEL_INFO).forEach(([key, info]) => {
+            // 解析 i18n 显示名称：先查翻译键，缺失时回退到 displayName（英文）
+            const resolvedDisplayName = ModelManager._resolveI18n(info.displayNameKey, info.displayName);
+            // 解析 i18n 描述：先查翻译键，缺失时回退到 description_en / description_zh
+            const resolvedDescription = ModelManager._resolveI18n(
+                info.descriptionKey,
+                info.description_en || info.description_zh
+            );
+
             result.push({
-                key: key,                           // 唯一键 "模型ID:精度"
-                name: info.name,                    // 模型名称（如 RMBG）
-                displayName: info.displayName,      // 显示名称（如 通用模型（轻量））
-                id: info.modelId,                   // 模型 ID（如 briaai/RMBG-1.4）
-                dtype: info.dtype,                  // 精度类型（如 q8）
-                description: info.description_zh,   // 中文描述
-                size: info.size,                    // 模型体积
-                quality: info.quality === 'standard' ? '标准' :
-                         info.quality === 'high' ? '高' :
-                         info.quality === 'highest' ? '极高' : '快速',
+                key: key,                                  // 唯一键 "模型ID:精度"
+                name: info.name,                           // 模型名称（如 RMBG）
+                displayName: resolvedDisplayName,          // 本地化后的显示名称
+                id: info.modelId,                          // 模型 ID（如 briaai/RMBG-1.4）
+                dtype: info.dtype,                         // 精度类型（如 q8）
+                description: resolvedDescription,          // 本地化后的描述
+                size: info.size,                           // 模型体积
+                quality: info.quality,                     // 原始 quality 值（UI 层自行翻译）
                 speed: info.speed,
                 recommended: info.recommended,
                 dtypeName: DTYPE_OPTIONS[info.dtype]?.name || info.dtype,
@@ -476,7 +505,11 @@ export class ModelManager {
      */
     _emitProgressFromTransformers(progress, modelKey) {
         const modelInfo = MODEL_INFO[modelKey];
-        const modelDisplayName = modelInfo?.displayName || modelKey;
+        // 优先使用 i18n 翻译后的显示名称，缺失时回退到 displayName（英文）
+        const modelDisplayName = ModelManager._resolveI18n(
+            modelInfo?.displayNameKey,
+            modelInfo?.displayName || modelKey
+        );
         const dtypeDisplayName = modelInfo ? (DTYPE_OPTIONS[modelInfo.dtype]?.name || modelInfo.dtype) : '';
 
         if (progress.status === 'progress' && progress.file?.includes('onnx')) {
