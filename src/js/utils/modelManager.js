@@ -357,7 +357,7 @@ export class ModelManager {
 
             this._emitProgress({
                 step: 'loading',
-                progress: 1,
+                progress: 0,
                 message: `正在加载 ${modelInfo.name} (${dtypeDisplayName}) 模型...`
             });
 
@@ -422,7 +422,7 @@ export class ModelManager {
                 this._emitStateChange('cancelled', modelId);
                 this._emitProgress({
                     step: 'complete',
-                    progress: 1,
+                    progress: 0,
                     message: '模型加载已取消'
                 });
                 throw new Error('模型加载已取消');
@@ -479,14 +479,14 @@ export class ModelManager {
         const modelDisplayName = modelInfo?.displayName || modelKey;
         const dtypeDisplayName = modelInfo ? (DTYPE_OPTIONS[modelInfo.dtype]?.name || modelInfo.dtype) : '';
 
-        if (progress.status === 'progress') {
+        if (progress.status === 'progress' && progress.file?.includes('onnx')) {
             const percent = progress.progress || 0;
             this._emitProgress({
                 step: 'loading',
                 progress: percent,
                 message: `正在加载 ${modelDisplayName} (${dtypeDisplayName})... ${Math.round(percent)}%`
             });
-        } else if (progress.status === 'done') {
+        } else if (progress.status === 'done' && progress.file?.includes('onnx')) {
             this._emitProgress({
                 step: 'processing',
                 progress: 100,
