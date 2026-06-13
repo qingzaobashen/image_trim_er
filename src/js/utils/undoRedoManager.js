@@ -5,19 +5,25 @@
  * 
  * 设计原则：
  * 1. 单一数据源：所有历史记录统一存储在一个管理器中
- * 2. 完整状态快照：每次保存时记录完整的应用状态，确保撤销/重做后状态一致
- * 3. 标准化接口：所有模块通过统一的 API 调用撤销/重做功能
- * 4. 作用域隔离：支持全局作用域和子作用域（如边缘画笔专属历史）
+ * 2. 增量快照：imageData 仅在图像像素变更时存储，mask-only 操作置 null
+ * 3. 锚点保护：始终保留第一个包含 imageData 的快照（锚点），确保可恢复到原始图片
+ * 4. 标准化接口：所有模块通过统一的 API 调用撤销/重做功能
  * 
  * 快照格式：
  * {
- *     imageData: ImageData,           // 主画布图像数据
+ *     imageData: ImageData|null,      // 主画布图像数据（仅图像像素变更时存储，否则为null）
  *     mask: Uint8ClampedArray,        // 当前选区蒙版
  *     shadowMask: Uint8ClampedArray|null,  // 阴影蒙版
  *     edgeData: Uint8ClampedArray|null,    // 边缘检测数据
- *     selectionHistory: Object,        // 选区历史序列化状态
+ *     operationType: string|null,     // 操作类型标识（"delete"|"denoise"|"shadow"等）
+ *     operationMetadata: Object|null, // 操作元数据
  *     timestamp: number               // 快照时间戳
  * }
+ * 
+ * 内存优化说明：
+ * - imageData 仅在图像像素实际变更时存储（delete/denoise/shadow），其余操作置null
+ * - 4096×4096 图片单次快照减少 64MB，mask-only 操作 5 步快照节省约 320MB
+ * - 锚点快照始终保留，确保 undo 回溯时能找到原始图片数据
  */
 
 /**
@@ -55,8 +61,22 @@ export class UndoRedoManager {
         this.history.push(snapshot);
 
         // 限制历史记录数量，超出时移除最旧的记录
+        // 锚点保护：如果第一个快照包含 imageData（锚点），不能被移除
+        // 否则 undo 回溯时找不到原始图片数据
         if (this.history.length > this.maxHistory) {
-            this.history.shift();
+            const firstSnapshot = this.history[0];
+            if (firstSnapshot && firstSnapshot.imageData) {
+                // 锚点存在：保留锚点，移除第二个（锚点之后最旧的）
+                if (this.history.length > 2) {
+                    this.history.splice(1, 1);
+                    // index 不变（因为删除的是 index 之前的元素）
+                    this.index--;
+                }
+                // 如果只有锚点+1个快照，不移除
+            } else {
+                // 没有锚点，正常移除最旧的
+                this.history.shift();
+            }
         } else {
             this.index++;
         }
@@ -118,23 +138,33 @@ export class UndoRedoManager {
      * @param {number} channels - 每像素通道数，默认4（RGBA）
      */
     adjustMaxHistoryByImageSize(pixelCount, channels = 4) {
-        // 估算单个快照内存占用（字节）
-        const snapshotSize = pixelCount * channels;
+        // 增量快照模式下，估算平均快照内存占用
+        // - imageChanged 快照：pixelCount * channels（完整 ImageData）
+        // - mask-only 快照：pixelCount * 1（仅 mask）+ pixelCount * 1（shadowMask 均值）
+        // 实际混合比例约 1:3（每4步操作约1步改变像素），平均约 pixelCount * 2
+        const avgSnapshotSize = pixelCount * 2;
         // 目标：历史记录总占用不超过 256MB
         const targetMemoryBytes = 256 * 1024 * 1024;
-        const maxStepsByMemory = Math.floor(targetMemoryBytes / snapshotSize);
+        const maxStepsByMemory = Math.floor(targetMemoryBytes / avgSnapshotSize);
 
-        // 限制在合理范围：最少3步，最多20步
-        const newMax = Math.max(3, Math.min(20, maxStepsByMemory));
+        // 限制在合理范围：最少5步，最多30步（增量模式下步数可以更多）
+        const newMax = Math.max(5, Math.min(30, maxStepsByMemory));
 
         if (newMax !== this.maxHistory) {
-            console.log(`[UndoRedo] 根据图像尺寸动态调整历史步数: ${this.maxHistory} → ${newMax} (单快照 ${(snapshotSize / 1024 / 1024).toFixed(2)} MB)`);
+            console.log(`[UndoRedo] 根据图像尺寸动态调整历史步数: ${this.maxHistory} → ${newMax} (平均单快照 ${(avgSnapshotSize / 1024 / 1024).toFixed(2)} MB)`);
             this.maxHistory = newMax;
 
-            // 如果当前历史超出新限制，裁剪旧记录
+            // 如果当前历史超出新限制，裁剪旧记录（保护锚点）
             while (this.history.length > this.maxHistory) {
-                this.history.shift();
-                this.index--;
+                const firstSnapshot = this.history[0];
+                if (firstSnapshot && firstSnapshot.imageData && this.history.length > 2) {
+                    // 锚点保护：移除第二个而不是第一个
+                    this.history.splice(1, 1);
+                    this.index--;
+                } else {
+                    this.history.shift();
+                    this.index--;
+                }
             }
             if (this.index < 0) this.index = Math.min(this.index, this.history.length - 1);
         }
@@ -154,6 +184,22 @@ export class UndoRedoManager {
      */
     getStepCount() {
         return this.index + 1;
+    }
+
+    /**
+     * 从历史记录中向前回溯查找最近的包含 imageData 的快照
+     * 用于增量快照模式下，undo/redo 到 mask-only 快照时恢复图像像素
+     * @param {number} [fromIndex] - 起始索引，默认为当前 index
+     * @returns {ImageData|null} 最近的 imageData，找不到返回 null
+     */
+    findNearestImageData(fromIndex) {
+        const startIdx = fromIndex !== undefined ? fromIndex : this.index;
+        for (let i = startIdx; i >= 0; i--) {
+            if (this.history[i] && this.history[i].imageData) {
+                return this.history[i].imageData;
+            }
+        }
+        return null;
     }
 
     /**
@@ -185,38 +231,43 @@ export class UndoRedoManager {
      * @param {Function} stateProviders.getMask - 获取当前选区蒙版的函数
      * @param {Function} stateProviders.getShadowMask - 获取阴影蒙版的函数
      * @param {Function} stateProviders.getEdgeData - 获取边缘数据的函数
-     * @param {Function} stateProviders.getSelectionHistoryState - 获取选区历史序列化状态的函数
+     * @param {boolean} [stateProviders.imageChanged=false] - 图像像素是否发生变化（仅delete/denoise/shadow等操作时为true）
+     * @param {string} [stateProviders.operationType=null] - 操作类型标识
+     * @param {Object} [stateProviders.operationMetadata=null] - 操作元数据
      * @returns {Object} 完整状态快照
      */
     static createSnapshot(stateProviders) {
-        return {
-            imageData: stateProviders.getImageData(),
+        const snapshot = {
+            imageData: stateProviders.imageChanged ? stateProviders.getImageData() : null,
             mask: stateProviders.getMask(),
             shadowMask: stateProviders.getShadowMask(),
             edgeData: stateProviders.getEdgeData(),
-            selectionHistory: stateProviders.getSelectionHistoryState()
+            operationType: stateProviders.operationType || null,
+            operationMetadata: stateProviders.operationMetadata || null
         };
+        return snapshot;
     }
 
     /**
      * 从快照恢复完整的应用状态
      * @param {Object} snapshot - 状态快照
      * @param {Object} restorers - 状态恢复函数对象
-     * @param {Function} restorers.restoreImageData - 恢复主画布ImageData的函数
+     * @param {Function} restorers.restoreImageData - 恢复主画布ImageData的函数（仅imageData非null时调用）
      * @param {Function} restorers.restoreMask - 恢复当前选区蒙版的函数
      * @param {Function} restorers.restoreShadowMask - 恢复阴影蒙版的函数
      * @param {Function} restorers.restoreEdgeData - 恢复边缘数据的函数
-     * @param {Function} restorers.restoreSelectionHistory - 恢复选区历史状态的函数
      * @param {Function} restorers.onRestoreComplete - 状态恢复完成后的回调（如重新渲染）
      */
     static restoreSnapshot(snapshot, restorers) {
         if (!snapshot) return;
 
-        restorers.restoreImageData(snapshot.imageData);
+        // 仅当图像像素实际变更时才恢复ImageData（mask-only操作不存储imageData）
+        if (snapshot.imageData) {
+            restorers.restoreImageData(snapshot.imageData);
+        }
         restorers.restoreMask(snapshot.mask);
         restorers.restoreShadowMask(snapshot.shadowMask);
         restorers.restoreEdgeData(snapshot.edgeData);
-        restorers.restoreSelectionHistory(snapshot.selectionHistory);
 
         if (restorers.onRestoreComplete) {
             restorers.onRestoreComplete();

@@ -836,7 +836,6 @@ class App {
         this.processor.originalImage = null;
         this.processor.currentMask = null;
         this.processor.undoRedoManager.clear();
-        this.processor.selectionHistory.clear();
         
         this.imageSizeInfo.textContent = '-';
         this.fileSizeInfo.textContent = '-';
@@ -885,6 +884,9 @@ class App {
             }
 
             this.showLoading(i18n.t('toolbar.applyingSmartCut'));
+
+            // 让浏览器有机会渲染 loading 界面，避免被后续同步计算阻塞
+            await new Promise(resolve => setTimeout(resolve, 0));
 
             await this.processor.applySmartCut();
 

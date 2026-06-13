@@ -181,6 +181,10 @@ export class ModelManager {
         // 禁用远程模型下载
         env.allowRemoteModels = false;
 
+        // 禁用浏览器缓存：模型文件已从本地 /public 加载，无需再缓存到 Cache Storage
+        // 禁用后可避免模型文件被重复存储，节省约 44MB 的 Cache Storage 空间
+        env.useBrowserCache = false;
+
         // 设置 ONNX Runtime WASM 文件路径指向本地
         // Transformers.js 默认从 jsDelivr CDN 加载 WASM，但 allowRemoteModels=false 会阻止
         // 需要显式指向 public/onnx/ 下的本地 WASM 文件

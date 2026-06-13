@@ -9,7 +9,6 @@ import { ShapeCutTool } from './tools/shapeCut.js';
 import { MagicWandTool } from './tools/magicWand.js';
 import { BrushTool, EraserTool } from './tools/brush.js';
 import { RegionSelector } from './tools/regionSelector.js';
-import { SelectionHistory } from './utils/selectionHistory.js';
 import { EdgeSmoother } from './tools/edgeSmoother.js';
 import { ShadowProcessor } from './tools/shadowProcessor.js';
 import { EdgeBrushTool } from './tools/edgeBrush.js';
@@ -39,7 +38,6 @@ export class ImageProcessor {
         this.isShadowBrushActive = false;
         this.isEdgeBrushActive = false;
 
-        this.selectionHistory = new SelectionHistory();
         this.smartCutTool = new SmartCutTool(mainCanvas, overlayCanvas);
         this.shapeCutTool = new ShapeCutTool(mainCanvas, overlayCanvas);
         this.magicWandTool = new MagicWandTool(mainCanvas, overlayCanvas);
@@ -102,6 +100,26 @@ export class ImageProcessor {
     }
 
     /**
+     * 确保原始图片备份存在
+     * 备份在 loadImage 时已创建，此方法仅做防御性检查
+     * 如果备份不存在（如 loadImage 未调用），则从当前画布创建
+     */
+    _ensureOriginImgBackup() {
+        if (this.originImgBackup) return;
+        // 防御性兜底：如果备份不存在，从当前画布创建
+        console.warn('[ImageProcessor] originImgBackup 不存在，从当前画布创建（可能不是原始像素）');
+        const imageData = canvasUtils.getImageData(this.mainCanvas);
+        this.originImgBackup = new Uint8ClampedArray(imageData.data);
+    }
+
+    /**
+     * 释放原始图片备份
+     */
+    _releaseOriginImgBackup() {
+        this.originImgBackup = null;
+    }
+
+    /**
      * 加载图片到主画布
      * 支持超大图自动缩放，避免内存溢出与网页崩溃
      * @param {File} file - 图片文件
@@ -145,15 +163,17 @@ export class ImageProcessor {
                     this.edgeBrush.reset();
                     this.undoRedoManager.clear();
 
+                    // 在 loadImage 时立即创建原始图片备份
+                    // 必须在此处创建，因为后续操作（如删除选区）会修改画布像素
+                    // 延迟加载会导致备份的是修改后的画布，而非原始像素
+                    this.originImgBackup = new Uint8ClampedArray(
+                        canvasUtils.getImageData(this.mainCanvas).data
+                    );
+
                     // 根据图片像素总数动态调整历史步数，防止大图导致内存溢出
                     this.undoRedoManager.adjustMaxHistoryByImageSize(width * height, 4);
 
-                    this.saveToHistory();
-
-                    const imageData = canvasUtils.getImageData(this.mainCanvas);
-
-                    this.originImgBackup = new Uint8ClampedArray(width * height * 4);
-                    this.originImgBackup.set(imageData.data); //将整个原始图形数据记录下来，以备回退和恢复的需求
+                    this.saveToHistory(true, 'loadImage');
 
                     resolve({
                         width,
@@ -182,9 +202,8 @@ export class ImageProcessor {
     async applySmartCut() {
         try {
             this.currentMask = await this.smartCutTool.apply();
-            this.selectionHistory.addSelection(this.currentMask, 'replace', { type: 'smartCut' });
             this.renderSelection();
-            this.saveToHistory();
+            this.saveToHistory(false, 'smartCut');
         } catch (error) {
             console.error('智能抠图失败:', error);
             throw error;
@@ -198,9 +217,8 @@ export class ImageProcessor {
     async applyColorBasedCut(tolerance = 30) {
         this.smartCutTool.setMode('color');
         this.currentMask = await this.smartCutTool.apply();
-        this.selectionHistory.addSelection(this.currentMask, 'replace', { type: 'colorBasedCut', tolerance });
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'colorBasedCut', { tolerance });
     }
 
     /**
@@ -237,10 +255,9 @@ export class ImageProcessor {
         const result = this.shapeCutTool.finishDrawing();
         if (result && result.mask) {
             this.currentMask = result.mask;
-            this.selectionHistory.addSelection(this.currentMask, 'replace', { type: 'shape' });
             this.renderSelection();
             this.shapeCutTool.getTransformManager().draw();
-            this.saveToHistory();
+            this.saveToHistory(false, 'shape');
             return true;
         }
         return false;
@@ -285,7 +302,6 @@ export class ImageProcessor {
         const mask = this.shapeCutTool.updateMaskFromBounds(newBounds);
         if (mask) {
             this.currentMask = mask;
-            this.selectionHistory.addSelection(this.currentMask, 'replace', { type: 'shapeTransform', bounds: newBounds });
             this.renderSelection();
             this.shapeCutTool.getTransformManager().draw();
         }
@@ -316,15 +332,8 @@ export class ImageProcessor {
             this.currentMask = newMask;
         }
         
-        // 记录操作后的完整选区快照
-        this.selectionHistory.addSelection(
-            this.currentMask,
-            'magicWand',
-            { x, y, tolerance, contiguous }
-        );
-        
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'magicWand', { x, y, tolerance, contiguous });
     }
 
     /**
@@ -336,15 +345,8 @@ export class ImageProcessor {
         const newMask = this.magicWandTool.addToSelection(x, y, this.currentMask);
         
         this.currentMask = newMask;
-        // 记录操作后的完整选区快照
-        this.selectionHistory.addSelection(
-            this.currentMask,
-            'add',
-            { x, y }
-        );
-        
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'add', { x, y });
     }
 
     /**
@@ -356,15 +358,8 @@ export class ImageProcessor {
         const newMask = this.magicWandTool.subtractFromSelection(x, y, this.currentMask);
         
         this.currentMask = newMask;
-        // 记录操作后的完整选区快照
-        this.selectionHistory.addSelection(
-            this.currentMask,
-            'subtract',
-            { x, y }
-        );
-        
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'subtract', { x, y });
     }
 
     /**
@@ -402,37 +397,20 @@ export class ImageProcessor {
         const brushMask = this.brushTool.getBrushMask();
         
         this.currentMask = this.brushTool.applyToMask(this.currentMask, brushMask);
-        // 记录操作后的完整选区快照
-        this.selectionHistory.addSelection(
-            this.currentMask,
-            this.brushTool.mode === 'add' ? 'brush' : 'subtract',
-            { size: this.brushTool.size, hardness: this.brushTool.hardness }
-        );
+        const mode = this.brushTool.mode === 'add' ? 'brush' : 'erase';
         
         this.brushTool.clear();
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, mode, { size: this.brushTool.size, hardness: this.brushTool.hardness });
     }
 
     /**
      * 撤销最后一次选择（右键功能）
+     * 直接使用统一的 undo 系统，撤销到上一步完整状态
      * @returns {boolean} 是否成功撤销
      */
     undoLastSelection() {
-        if (!this.selectionHistory.canUndo()) {
-            return false;
-        }
-
-        const previousMask = this.selectionHistory.undoLastSelection();
-        
-        if (previousMask) {
-            this.currentMask = previousMask;
-            this.renderSelection();
-            this.saveToHistory();
-            return true;
-        }
-        
-        return false;
+        return this.undo();
     }
 
     /**
@@ -488,9 +466,8 @@ export class ImageProcessor {
         this.shadowMask = new Uint8ClampedArray(width * height);
         this.edgeData = null;
         this.isShadowBrushActive = false;
-        this.selectionHistory.clear();
         canvasUtils.clearCanvas(this.overlayCanvas);
-        this.saveToHistory();
+        this.saveToHistory(false, 'clear');
     }
 
     /**
@@ -500,9 +477,8 @@ export class ImageProcessor {
         for (let i = 0; i < this.currentMask.length; i++) {
             this.currentMask[i] = this.currentMask[i] > 0 ? 0 : 255;
         }
-        this.selectionHistory.addSelection(this.currentMask, 'invert', {});
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'invert');
     }
 
     /**
@@ -526,8 +502,7 @@ export class ImageProcessor {
         canvasUtils.putImageData(this.mainCanvas, imageData);
         canvasUtils.clearCanvas(this.overlayCanvas);
         this.currentMask = new Uint8ClampedArray(width * height);
-        this.selectionHistory.addSelection(this.currentMask, 'delete', {});
-        this.saveToHistory();
+        this.saveToHistory(true, 'delete');
     }
 
     /**
@@ -538,6 +513,7 @@ export class ImageProcessor {
     removeSmallRegions(minArea = 100) {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
+        this._ensureOriginImgBackup();  // 确保原始图片备份存在
         const imageData = canvasUtils.getImageData(this.mainCanvas);
         
         let removedOpaqueRegions = 0;   // 移除的不透明区域（透明噪点）
@@ -632,7 +608,7 @@ export class ImageProcessor {
                     if (regionPixels.length < minArea) {
                         removedTransparentRegions++;
                         removedTransparentPixels += regionPixels.length;
-                        
+
                         for (const pixelIdx of regionPixels) {
                             if (this.originImgBackup && this.originImgBackup[pixelIdx * 4] !== undefined) {
                                 imageData.data[pixelIdx * 4] = this.originImgBackup[pixelIdx * 4];
@@ -647,7 +623,7 @@ export class ImageProcessor {
         }
 
         canvasUtils.putImageData(this.mainCanvas, imageData);
-        this.saveToHistory();
+        this.saveToHistory(true, 'denoiseImage', { minArea });
 
         return {
             removedRegions: removedOpaqueRegions + removedTransparentRegions,
@@ -668,6 +644,7 @@ export class ImageProcessor {
     removeSmallRegionsInArea(minArea = 100, region = null) {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
+        this._ensureOriginImgBackup();  // 确保原始图片备份存在
         const imageData = canvasUtils.getImageData(this.mainCanvas);
         
         let removedOpaqueRegions = 0;
@@ -782,7 +759,7 @@ export class ImageProcessor {
         }
 
         canvasUtils.putImageData(this.mainCanvas, imageData);
-        this.saveToHistory();
+        this.saveToHistory(true, 'denoiseImageArea', { minArea });
 
         return {
             removedRegions: removedOpaqueRegions + removedTransparentRegions,
@@ -911,9 +888,8 @@ export class ImageProcessor {
             }
         }
 
-        this.selectionHistory.addSelection(this.currentMask, 'denoise', { minArea });
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'denoiseSelection', { minArea });
 
         return {
             removedRegions: removedSelectedRegions + removedUnselectedRegions,
@@ -934,7 +910,7 @@ export class ImageProcessor {
     smoothEdges(strength = 3) {
         const success = this.edgeSmoother.smooth(strength);
         if (success) {
-            this.saveToHistory();
+            this.saveToHistory(true, 'smoothEdges', { strength });
         }
         return success;
     }
@@ -949,6 +925,7 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         let imageData;
+        this._ensureOriginImgBackup();  // 确保原始图片备份存在
         if (this.originImgBackup) {
             imageData = new ImageData(
                 new Uint8ClampedArray(this.originImgBackup),
@@ -983,7 +960,7 @@ export class ImageProcessor {
         this.edgeBrush.setShadowProcessor(this.shadowProcessor);
 
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'detectEdges', { minConfidence });
         return true;
     }
 
@@ -1007,6 +984,7 @@ export class ImageProcessor {
         const height = this.mainCanvas.height;
 
         let currentCanvasData = null;
+        this._ensureOriginImgBackup();  // 确保原始图片备份存在
         if (this.originImgBackup) {
             currentCanvasData = canvasUtils.getImageData(this.mainCanvas);
             const originalData = new ImageData(
@@ -1033,7 +1011,7 @@ export class ImageProcessor {
         }
 
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'detectShadows', options);
         return true;
     }
 
@@ -1095,7 +1073,7 @@ export class ImageProcessor {
         this.brushTool.clear();
         this.isShadowBrushActive = false;
         this.renderSelection();
-        this.saveToHistory();
+        this.saveToHistory(false, 'shadowBrush');
     }
 
     // ==================== 边缘画笔方法 ====================
@@ -1155,7 +1133,7 @@ export class ImageProcessor {
         this.isEdgeBrushActive = false;
 
         // 边缘画笔操作完成后，保存到系统统一的历史记录
-        this.saveToHistory();
+        this.saveToHistory(false, 'edgeBrush');
         this.renderSelection();
     }
 
@@ -1214,10 +1192,9 @@ export class ImageProcessor {
         this.shadowMask = new Uint8ClampedArray(width * height);
         this.edgeData = null;
         this.isShadowBrushActive = false;
-        this.selectionHistory.clear();
 
         canvasUtils.clearCanvas(this.overlayCanvas);
-        this.saveToHistory();
+        this.saveToHistory(true, 'shadow');
         return true;
     }
 
@@ -1297,15 +1274,20 @@ export class ImageProcessor {
 
     /**
      * 保存完整应用状态到统一的撤销/重做历史记录
-     * 包含：主画布图像数据、选区蒙版、阴影蒙版、边缘数据、选区历史状态
+     * 包含：主画布图像数据（仅图像变更时）、选区蒙版、阴影蒙版、边缘数据
+     * @param {boolean} [imageChanged=false] - 图像像素是否发生变化（delete/denoise/shadow等操作）
+     * @param {string} [operationType=null] - 操作类型标识
+     * @param {Object} [operationMetadata=null] - 操作元数据
      */
-    saveToHistory() {
+    saveToHistory(imageChanged = false, operationType = null, operationMetadata = null) {
         const snapshot = UndoRedoManager.createSnapshot({
+            imageChanged,
             getImageData: () => canvasUtils.getImageData(this.mainCanvas),
             getMask: () => new Uint8ClampedArray(this.currentMask),
             getShadowMask: () => this.shadowMask ? new Uint8ClampedArray(this.shadowMask) : null,
             getEdgeData: () => this.edgeData ? new Uint8ClampedArray(this.edgeData) : null,
-            getSelectionHistoryState: () => this.selectionHistory.serialize()
+            operationType,
+            operationMetadata
         });
         this.undoRedoManager.push(snapshot);
     }
@@ -1317,6 +1299,15 @@ export class ImageProcessor {
     undo() {
         const snapshot = this.undoRedoManager.undo();
         if (!snapshot) return false;
+
+        // 增量快照模式：如果当前快照 imageData 为 null（mask-only 操作），
+        // 需要向前回溯找到最近的 imageData 来恢复图像像素
+        if (!snapshot.imageData) {
+            const nearestImageData = this.undoRedoManager.findNearestImageData();
+            if (nearestImageData) {
+                canvasUtils.putImageData(this.mainCanvas, nearestImageData);
+            }
+        }
 
         UndoRedoManager.restoreSnapshot(snapshot, {
             restoreImageData: (imageData) => {
@@ -1337,9 +1328,6 @@ export class ImageProcessor {
                     this.edgeBrush.setEdgeData(this.edgeData, width, height);
                 }
             },
-            restoreSelectionHistory: (state) => {
-                this.selectionHistory.deserialize(state);
-            },
             onRestoreComplete: () => {
                 this.renderSelection();
             }
@@ -1355,6 +1343,15 @@ export class ImageProcessor {
     redo() {
         const snapshot = this.undoRedoManager.redo();
         if (!snapshot) return false;
+
+        // 增量快照模式：如果当前快照 imageData 为 null（mask-only 操作），
+        // 需要向前回溯找到最近的 imageData 来恢复图像像素
+        if (!snapshot.imageData) {
+            const nearestImageData = this.undoRedoManager.findNearestImageData();
+            if (nearestImageData) {
+                canvasUtils.putImageData(this.mainCanvas, nearestImageData);
+            }
+        }
 
         UndoRedoManager.restoreSnapshot(snapshot, {
             restoreImageData: (imageData) => {
@@ -1373,9 +1370,6 @@ export class ImageProcessor {
                     const height = this.mainCanvas.height;
                     this.edgeBrush.setEdgeData(this.edgeData, width, height);
                 }
-            },
-            restoreSelectionHistory: (state) => {
-                this.selectionHistory.deserialize(state);
             },
             onRestoreComplete: () => {
                 this.renderSelection();
@@ -1438,8 +1432,7 @@ export class ImageProcessor {
         this.shadowMask = new Uint8ClampedArray(width * height);
         this.edgeData = null;
         this.isShadowBrushActive = false;
-        this.selectionHistory.clear();
 
-        this.saveToHistory();
+        this.saveToHistory(false, 'reset');
     }
 }

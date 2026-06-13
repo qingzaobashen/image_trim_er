@@ -182,7 +182,7 @@ export class SmartCutTool {
     /**
      * 使用 Transformers.js AI 模型移除背景
      * 基于 RMBG-1.4 / MODNet 模型，使用 AutoModel + AutoProcessor 进行推理
-     * 流程：Canvas → RawImage → Processor 预处理 → Model 推理 → 蒙版提取
+     * 流程：Canvas → Processor 预处理 → Model 推理 → 蒙版提取
      * 
      * **Mask 逻辑说明**：
      * - AI 模型输出：alpha > 128 表示前景（要保留），alpha <= 128 表示背景（要抠除）
@@ -203,17 +203,10 @@ export class SmartCutTool {
                 throw new Error('AI 模型未加载');
             }
 
-            // 将 Canvas 转换为 Blob URL，再用 RawImage 加载
-            const blob = await new Promise((resolve) => {
-                this.mainCanvas.toBlob(resolve, 'image/png');
-            });
-            const imageUrl = URL.createObjectURL(blob);
-
-            // 使用 RawImage 从 URL 加载图像
-            const img = await RawImage.fromURL(imageUrl);
-            URL.revokeObjectURL(imageUrl);
-
-            // 预处理图像：获取像素值张量
+            // 使用 RawImage.fromCanvas() 从 Canvas 直接创建 RawImage，跳过 Blob/URL 中间层
+            // 原本流程：Canvas → toBlob → URL.createObjectURL → RawImage.fromURL
+            // 优化后：Canvas → RawImage.fromCanvas()（跳过 Blob 编码 + URL 对象，仍通过 RawImage 实例）
+            const img = RawImage.fromCanvas(this.mainCanvas);
             const processorResult = await processor(img);
             pixel_values = processorResult.pixel_values;
 
