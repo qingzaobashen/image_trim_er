@@ -58,7 +58,7 @@ const MODEL_INFO = {
         displayName: 'Portrait Model (High Precision)',
         description_zh: '人像优化模型，适合人物照片抠图，速度快',
         description_en: 'Portrait-optimized model, ideal for person photos, fast speed',
-        size: '~25MB',
+        size: '~30MB',
         quality: 'high',
         speed: 'fast',
         recommended: false,  // 不推荐，仅适合人像
@@ -74,7 +74,7 @@ const MODEL_INFO = {
         displayName: 'General Model (Lightweight)',
         description_zh: '通用背景移除模型，适合大多数场景（默认）',
         description_en: 'General background removal model, suitable for most scenarios (default)',
-        size: '~44MB',
+        size: '~50MB',
         quality: 'highest',
         speed: 'fast',
         recommended: true,  // 推荐，通用性强且体积适中
@@ -104,7 +104,7 @@ const MODEL_INFO = {
         displayName: 'Edge Detection Model (Half Precision)',
         description_zh: '边缘识别背景移除模型，边缘分割优秀，适合精细抠图',
         description_en: 'Edge-aware background removal with excellent edge segmentation for fine cutout',
-        size: '~84MB',
+        size: '~90MB',
         quality: 'highest',
         speed: 'medium',
         recommended: false,
