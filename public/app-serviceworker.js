@@ -113,7 +113,7 @@ self.addEventListener('fetch', (event) => {
                 });
             })
             .catch((e) => {
-                console.error('[app-sw] 同源 fetch 失败:', e);
+                //console.error('[app-sw] 同源 fetch 失败:', e);
                 return new Response(`[app-sw] fetch error: ${e.message}`, {
                     status: 502,
                     statusText: 'Bad Gateway',
@@ -164,15 +164,15 @@ async function handleModelRequest(req, requestUrl) {
                     headers: newHeaders,
                 });
                 cache.put(req, wrapped.clone());
-                console.log(`[app-sw] 主 CDN 命中: ${primaryUrl}`);
+                //console.log(`[app-sw] 主 CDN 命中: ${primaryUrl}`);
                 return wrapped;
             }
-            console.warn(`[app-sw] 主 CDN 返回 ${r.status}，降级到 GitHub: ${primaryUrl}`);
+            //console.warn(`[app-sw] 主 CDN 返回 ${r.status}，降级到 GitHub: ${primaryUrl}`);
         } catch (e) {
-            console.warn(`[app-sw] 主 CDN 失败（${e.name}），降级到 GitHub: ${primaryUrl}`);
+            //console.warn(`[app-sw] 主 CDN 失败（${e.name}），降级到 GitHub: ${primaryUrl}`);
         }
     } else {
-        console.warn('[app-sw] 未配置主 CDN（?base= 为空），直接走 GitHub 同源');
+        //console.warn('[app-sw] 未配置主 CDN（?base= 为空），直接走 GitHub 同源');
     }
 
     // 3) 备 CDN：GitHub Pages 同源（可达但慢，宽松超时 10s）
@@ -180,7 +180,7 @@ async function handleModelRequest(req, requestUrl) {
         const r = await fetchWithTimeout(req, FALLBACK_TIMEOUT_MS);
         if (r.ok) {
             cache.put(req, r.clone());
-            console.log(`[app-sw] 备 CDN 命中: ${req.url}`);
+            //console.log(`[app-sw] 备 CDN 命中: ${req.url}`);
             return r;
         }
         return errorResponse(`备 CDN 状态 ${r.status}: ${req.url}`);
@@ -250,7 +250,7 @@ if (typeof window !== 'undefined') {
         navigator.serviceWorker
             .register(window.document.currentScript.src)
             .then(() => {
-                console.log('[app-sw] 已注册，主 CDN:', SUPABASE_BASE || '(未配置，将直接走 GitHub 同源)');
+                //console.log('[app-sw] 已注册，主 CDN:', SUPABASE_BASE || '(未配置，将直接走 GitHub 同源)');
             })
             .catch((e) => console.warn('[app-sw] 注册失败:', e));
     }
