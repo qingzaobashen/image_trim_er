@@ -69,17 +69,16 @@ export class UndoRedoManager {
                 // 锚点存在：保留锚点，移除第二个（锚点之后最旧的）
                 if (this.history.length > 2) {
                     this.history.splice(1, 1);
-                    // index 不变（因为删除的是 index 之前的元素）
-                    this.index--;
                 }
                 // 如果只有锚点+1个快照，不移除
             } else {
                 // 没有锚点，正常移除最旧的
                 this.history.shift();
             }
-        } else {
-            this.index++;
         }
+
+        // push 后 index 始终指向最新添加的快照（即历史记录末尾）
+        this.index = this.history.length - 1;
     }
 
     /**
@@ -160,13 +159,12 @@ export class UndoRedoManager {
                 if (firstSnapshot && firstSnapshot.imageData && this.history.length > 2) {
                     // 锚点保护：移除第二个而不是第一个
                     this.history.splice(1, 1);
-                    this.index--;
                 } else {
                     this.history.shift();
-                    this.index--;
                 }
             }
-            if (this.index < 0) this.index = Math.min(this.index, this.history.length - 1);
+            // 裁剪后确保 index 在有效范围内
+            this.index = Math.max(0, Math.min(this.index, this.history.length - 1));
         }
     }
 

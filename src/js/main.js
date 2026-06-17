@@ -209,7 +209,7 @@ class App {
         
         this.canvasWrapper.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
         this.canvasWrapper.addEventListener('mousemove', (e) => this.handleCanvasMouseMove(e));
-        this.canvasWrapper.addEventListener('mouseup', () => this.handleCanvasMouseUp());
+        this.canvasWrapper.addEventListener('mouseup', (e) => this.handleCanvasMouseUp(e));
         this.canvasWrapper.addEventListener('mouseleave', () => this.handleCanvasMouseUp());
         this.canvasWrapper.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -691,9 +691,15 @@ class App {
 
     /**
      * 处理Canvas鼠标抬起
+     * @param {MouseEvent} [e] - 鼠标事件（mouseleave时不传入）
      */
-    async handleCanvasMouseUp() {
+    async handleCanvasMouseUp(e) {
         if (!this.isImageLoaded) return;
+
+        // 忽略右键释放：右键的 mousedown 已在 handleCanvasMouseDown 中处理撤销，
+        // 此处不应再触发工具完成操作，避免产生意外的历史记录
+        // 同样忽略中键释放：中键已用于确认删除选区
+        if (e && (e.button === 2 || e.button === 1)) return;
 
         if (this.currentTool === 'regionSelect') {
             this.handleRegionSelectEnd();
@@ -1506,7 +1512,12 @@ class App {
             switch (e.key.toLowerCase()) {
                 case 'z':
                     e.preventDefault();
-                    this.handleUndo();
+                    // Ctrl+Shift+Z 为重做，Ctrl+Z 为撤销
+                    if (e.shiftKey) {
+                        this.handleRedo();
+                    } else {
+                        this.handleUndo();
+                    }
                     break;
                 case 'y':
                     e.preventDefault();
