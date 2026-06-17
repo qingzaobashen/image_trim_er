@@ -38,6 +38,85 @@ class App {
 
         // 首次更新界面文本
         i18n.updateUI();
+
+        // 若通过 ?restore=1 进入且 sessionStorage 中存在压缩页写入的图，
+        // 则自动把压缩后的图片加载到画布
+        await this._maybeRestoreFromCompress();
+    }
+
+    /**
+     * 从压缩页 sessionStorage 恢复图片
+     * 触发条件：URL 包含 restore=1 且 sessionStorage 中存在 compress-restore-blob
+     * 恢复完成后清除 URL 参数与临时数据，避免刷新时重复处理
+     * @returns {Promise<void>}
+     */
+    async _maybeRestoreFromCompress() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('restore') !== '1') return;
+
+        const STORAGE_KEY = 'compress-restore-blob';
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            this._clearRestoreFlag();
+            return;
+        }
+
+        let payload;
+        try {
+            payload = JSON.parse(raw);
+        } catch (err) {
+            console.warn('[App] 解析压缩页数据失败，已清理', err);
+            sessionStorage.removeItem(STORAGE_KEY);
+            this._clearRestoreFlag();
+            return;
+        }
+
+        if (!payload || !payload.dataUrl) {
+            sessionStorage.removeItem(STORAGE_KEY);
+            this._clearRestoreFlag();
+            return;
+        }
+
+        try {
+            // 将 dataURL 转为 Blob，再走 handleFileSelect 同款流程
+            const blob = await (await fetch(payload.dataUrl)).blob();
+            // 优先使用压缩时记录的 mime，否则通过 Blob.type 推断，最后兜底 image/png
+            const mime = payload.type || blob.type || 'image/png';
+            const file = new File([blob], payload.name || 'restored-image', { type: mime });
+
+            this.showLoading(i18n.t('loading.loadingImage'));
+            const info = await this.processor.loadImage(file);
+
+            this.updateImageInfo(info);
+            this.showCanvas();
+            this.isImageLoaded = true;
+            this.updateButtons();
+            this.resetBtn.style.display = 'inline-flex';
+
+            setTimeout(() => {
+                this.zoomManager.fitToWindow();
+            }, 100);
+        } catch (err) {
+            console.error('[App] 从压缩页恢复图片失败:', err);
+            alert(i18n.t('notifications.imageLoadFailed'));
+        } finally {
+            sessionStorage.removeItem(STORAGE_KEY);
+            this._clearRestoreFlag();
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * 清除 URL 中的 restore=1 参数，保留其它查询串
+     */
+    _clearRestoreFlag() {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('restore') === '1') {
+            url.searchParams.delete('restore');
+            const newQuery = url.searchParams.toString();
+            const newUrl = url.pathname + (newQuery ? '?' + newQuery : '') + url.hash;
+            window.history.replaceState({}, '', newUrl);
+        }
     }
 
     /**

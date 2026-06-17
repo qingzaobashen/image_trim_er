@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<!--
+    图片压缩页面
+    支持单图/批量压缩，输出 JPEG/PNG/WebP，实时显示压缩前后大小与进度
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="在线图片压缩工具，支持单图与批量压缩，可输出 JPEG/PNG/WebP 格式，全程本地处理保护隐私。">
+    <title data-i18n-page-title="compressPage.pageTitle">图片压缩 - 抠白底图工具</title>
+    <link rel="stylesheet" href="../src/css/pages.css">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3359350154774191"
+     crossorigin="anonymous"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-G92XSNDE32"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-G92XSNDE32');
+    </script>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="page-nav">
+        <a href="../index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.logoText">抠白底</span>
+        </a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="compress.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5 5l-3 7 3 7M19 5l3 7-3 7"/></svg>
+                <span data-i18n="nav.compress">图片压缩</span>
+            </a></li>
+            <li><a href="tutorials.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
+        </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <!-- 页面主体 -->
+    <main class="page-main compress-main">
+        <div class="page-header">
+            <h1 data-i18n="compressPage.title">图片压缩</h1>
+            <p data-i18n="compressPage.subtitle">单图/批量压缩，支持 JPEG/PNG/WebP 输出，全程浏览器本地处理，隐私安全</p>
+        </div>
+
+        <!-- 压缩控制卡片 -->
+        <section class="content-card compress-card">
+            <h2>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span data-i18n="compressPage.settingsTitle">压缩设置</span>
+            </h2>
+
+            <!-- 模式选择：单图/批量 -->
+            <div class="compress-mode-row">
+                <div class="mode-tabs" role="tablist">
+                    <button class="mode-tab active" data-mode="batch" role="tab" aria-selected="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        <span data-i18n="compressPage.modeBatch">批量压缩</span>
+                    </button>
+                    <button class="mode-tab" data-mode="single" role="tab" aria-selected="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span data-i18n="compressPage.modeSingle">单图压缩</span>
+                    </button>
+                </div>
+                <span class="mode-hint" id="modeHint" data-i18n="compressPage.batchHint">最多支持 20 张图片同时压缩</span>
+            </div>
+
+            <!-- 设置项 -->
+            <div class="compress-params">
+                <div class="param-item">
+                    <label for="qualitySlider" data-i18n="compressPage.quality">压缩质量</label>
+                    <div class="param-slider-row">
+                        <input type="range" id="qualitySlider" min="30" max="100" value="75" step="1">
+                        <span class="param-value" id="qualityValue">75%</span>
+                    </div>
+                    <div class="param-hint" data-i18n="compressPage.qualityHint">值越小文件越小，过低会影响画质（PNG 不适用）</div>
+                </div>
+
+                <div class="param-item">
+                    <label data-i18n="compressPage.format">输出格式</label>
+                    <div class="format-tabs" id="formatTabs">
+                        <button class="format-tab active" data-format="image/jpeg">
+                            <span class="format-name">JPEG</span>
+                            <span class="format-desc" data-i18n="compressPage.formatJpegDesc">照片·有损</span>
+                        </button>
+                        <button class="format-tab" data-format="image/png">
+                            <span class="format-name">PNG</span>
+                            <span class="format-desc" data-i18n="compressPage.formatPngDesc">透明·无损</span>
+                        </button>
+                        <button class="format-tab" data-format="image/webp">
+                            <span class="format-name">WebP</span>
+                            <span class="format-desc" data-i18n="compressPage.formatWebpDesc">现代·更小</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="param-item">
+                    <label for="maxWidthInput" data-i18n="compressPage.maxWidth">最大宽度（像素，可选）</label>
+                    <div class="param-slider-row">
+                        <input type="range" id="maxWidthInput" min="0" max="4096" value="0" step="10">
+                        <span class="param-value" id="maxWidthValue">0</span>
+                    </div>
+                    <div class="param-hint" data-i18n="compressPage.maxWidthHint">设为 0 表示按原图尺寸压缩；等比缩放</div>
+                </div>
+            </div>
+
+            <!-- 上传区域 -->
+            <div class="compress-upload" id="compressUpload">
+                <input type="file" id="compressFileInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                <div class="upload-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="upload-title" data-i18n="compressPage.uploadTitle">点击或拖拽图片到此处</div>
+                <div class="upload-desc" id="uploadDesc" data-i18n="compressPage.uploadBatchDesc">支持 JPG、PNG、WebP；批量模式可一次选择多张</div>
+                <div class="upload-buttons">
+                    <button class="btn btn-primary" id="selectFilesBtn" data-i18n="compressPage.selectFiles">选择图片</button>
+                    <button class="btn btn-secondary" id="clearAllBtn" disabled data-i18n="compressPage.clearAll">清空列表</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 总体进度 -->
+        <section class="content-card compress-summary" id="compressSummary" hidden>
+            <div class="summary-row">
+                <div class="summary-item">
+                    <div class="summary-label" data-i18n="compressPage.totalOriginal">原始大小</div>
+                    <div class="summary-value" id="totalOriginal">0 KB</div>
+                </div>
+                <div class="summary-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label" data-i18n="compressPage.totalCompressed">压缩后</div>
+                    <div class="summary-value" id="totalCompressed">0 KB</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label" data-i18n="compressPage.totalSaved">节省</div>
+                    <div class="summary-value summary-saved" id="totalSaved">0%</div>
+                </div>
+            </div>
+            <div class="summary-progress">
+                <div class="summary-progress-fill" id="summaryProgressFill"></div>
+                <div class="summary-progress-text" id="summaryProgressText"></div>
+            </div>
+            <div class="summary-actions">
+                <button class="btn btn-primary" id="downloadAllBtn" disabled data-i18n="compressPage.downloadAll">下载全部 (ZIP)</button>
+            </div>
+        </section>
+
+        <!-- 图片列表 -->
+        <section class="compress-list" id="compressList"></section>
+
+        <!-- 使用提示 -->
+        <section class="content-card compress-tips">
+            <h3 data-i18n="compressPage.tipsTitle">使用说明</h3>
+            <ul class="compress-tip-list">
+                <li data-i18n="compressPage.tip1">支持 JPG、PNG、WebP 格式；批量模式最多 20 张</li>
+                <li data-i18n="compressPage.tip2">质量参数对 PNG 无效（PNG 为无损格式）</li>
+                <li data-i18n="compressPage.tip3">所有处理均在浏览器本地完成，图片不会上传到服务器</li>
+                <li data-i18n="compressPage.tip4">点击"替换原图"可在抠图工具中打开压缩结果继续编辑</li>
+            </ul>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="page-footer">
+        <p data-i18n="pageFooter.copyright">© 2024-2025 抠白底. 保留所有权利。</p>
+    </footer>
+
+    <script type="module" src="../src/js/compress.js"></script>
+</body>
+</html>
