@@ -423,7 +423,7 @@ body {
 .param-item input[type="range"] {
     width: calc(100% - 50px);
     height: 6px;
-    background: var(--bg-secondary);
+    background: #5c677b;
     border-radius: 3px;
     outline: none;
     -webkit-appearance: none;
@@ -520,6 +520,104 @@ body {
 
 .mode-btn.active svg {
     color: var(--primary-color);
+}
+
+/* ==================== 阴影色手动面板 ==================== */
+.shadow-color-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.shadow-color-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    /* 阻止按钮内部 <span> 被压成 2 字 2 行：让按钮文字单行 */
+}
+
+.shadow-color-row .btn {
+    white-space: nowrap;
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.shadow-color-row > input[type="color"] {
+    width: 40px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.shadow-color-row-range {
+    align-items: center;
+}
+
+.shadow-color-range-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.shadow-color-row-range > input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+
+.shadow-color-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+.shadow-color-swatch {
+    position: relative;
+    width: 32px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.shadow-color-swatch::after {
+    content: '×';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    line-height: 14px;
+    text-align: center;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.shadow-color-swatch:hover::after {
+    opacity: 1;
+}
+
+/* 取色画笔激活态：画布光标显示 */
+body.shadow-color-pick-mode {
+    cursor: crosshair;
 }
 
 #brushSubtractMode.active {

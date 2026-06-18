@@ -451,6 +451,46 @@
                                 <input type="range" id="shadowDiff" min="0" max="100" value="50">
                                 <span class="param-value">50</span>
                             </div>
+                            <!-- 阴影色源：自动识别 vs 用户指定 -->
+                            <div class="param-item">
+                                <label data-i18n="toolbar.shadowColorSource">阴影色来源</label>
+                                <div class="brush-mode-buttons">
+                                    <button class="mode-btn active" id="shadowColorAutoMode" data-i18n-title="toolbar.shadowColorAutoHint" title="自动：算法从画面边缘推断背景色">
+                                        <span data-i18n="toolbar.shadowColorAuto">自动识别</span>
+                                    </button>
+                                    <button class="mode-btn" id="shadowColorManualMode" data-i18n-title="toolbar.shadowColorManualHint" title="手动：颜色选择器 / 涂抹取色 / 提取主色">
+                                        <span data-i18n="toolbar.shadowColorManual">用户指定</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 手动模式面板 -->
+                            <div class="param-item" id="shadowColorManualPanel" style="display: none;">
+                                <div class="shadow-color-panel">
+                                    <!-- 方式 1：颜色选择器 + 添加 -->
+                                    <div class="shadow-color-row">
+                                        <input type="color" id="shadowColorPicker" value="#7a7a7a" title="选择颜色">
+                                        <button class="btn btn-full" id="addShadowColorBtn" data-i18n="toolbar.addShadowColor">添加颜色</button>
+                                    </div>
+                                    <!-- 方式 2：涂抹取色 + 大小 -->
+                                    <div class="shadow-color-row">
+                                        <button class="btn btn-full" id="toggleShadowColorPickBtn" data-i18n-title="toolbar.pickShadowColorHint" title="在画布上涂抹要采样的阴影区域">
+                                            <span data-i18n="toolbar.pickShadowColor">涂抹取色</span>
+                                        </button>
+                                    </div>
+                                    <div class="shadow-color-row shadow-color-row-range">
+                                        <span class="shadow-color-range-label" data-i18n="toolbar.shadowColorPickSize">画笔大小</span>
+                                        <input type="range" id="shadowColorPickSize" min="5" max="60" value="20" title="取色画笔大小">
+                                    </div>
+                                    <!-- 方式 3：提取主色 -->
+                                    <div class="shadow-color-row">
+                                        <button class="btn btn-full" id="extractShadowColorBtn" data-i18n-title="toolbar.extractShadowColorHint" title="从涂抹区域提取 3 种主色加入色卡">
+                                            <span data-i18n="toolbar.extractShadowColor">提取主色</span>
+                                        </button>
+                                    </div>
+                                    <div class="shadow-color-palette" id="shadowColorPalette"></div>
+                                    <button class="btn btn-full" id="clearShadowColorsBtn" data-i18n="toolbar.clearShadowColors">清空用户阴影色</button>
+                                </div>
+                            </div>
                             <button class="btn btn-full" id="detectShadowsBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 8px;">
                                     <circle cx="12" cy="12" r="10" opacity="0.3"/>

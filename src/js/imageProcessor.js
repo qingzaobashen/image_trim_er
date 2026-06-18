@@ -1033,6 +1033,51 @@ export class ImageProcessor {
         this.brushTool.startDrawing(x, y);
     }
 
+    // ==================== 阴影色取色画笔（不修改任何现有蒙版） ====================
+
+    /**
+     * 开始阴影色取样画笔
+     * 笔触结束时通过 onPick 回调把 brushMask 交给调用方（main.js），
+     * 由 main.js 合到累积取样 mask，不污染 currentMask / shadowMask
+     * @param {number} x - 画布坐标 X
+     * @param {number} y - 画布坐标 Y
+     * @param {number} size - 画笔大小
+     * @param {Function} onPick - 取样完成回调 (brushMask: Uint8ClampedArray) => void
+     */
+    startShadowColorPick(x, y, size, onPick) {
+        this.isShadowColorPickActive = true;
+        this.brushTool.setSize(size);
+        this.brushTool.setHardness(50);
+        this.brushTool.setMode('add');
+        this._shadowColorPickCallback = onPick;
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        this.brushTool.startDrawing(x, y);
+    }
+
+    /**
+     * 阴影色取样画笔绘制中
+     */
+    drawShadowColorPick(x, y) {
+        if (!this.isShadowColorPickActive) return;
+        this.brushTool.draw(x, y);
+    }
+
+    /**
+     * 停止阴影色取样画笔
+     * 把 brushMask 透传给 onPick 回调
+     */
+    stopShadowColorPick() {
+        if (!this.isShadowColorPickActive) return;
+        this.brushTool.stopDrawing();
+        const brushMask = this.brushTool.getBrushMask();
+        this.brushTool.clear();
+        this.isShadowColorPickActive = false;
+        if (this._shadowColorPickCallback) {
+            this._shadowColorPickCallback(brushMask);
+            this._shadowColorPickCallback = null;
+        }
+    }
+
     /**
      * 阴影画笔绘制
      * @param {number} x - X坐标
@@ -1061,9 +1106,10 @@ export class ImageProcessor {
 
         const currentMode = this.brushTool.mode;
         for (let i = 0; i < brushMask.length; i++) {
-            if (currentMode === 'add' && brushMask[i] === 255) {
+            if (brushMask[i] !== 255) continue;
+            if (currentMode === 'add') {
                 this.shadowMask[i] = 255;
-            } else if (currentMode === 'subtract' && brushMask[i] === 128) {
+            } else if (currentMode === 'subtract') {
                 this.shadowMask[i] = 0;
             }
         }

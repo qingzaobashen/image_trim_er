@@ -858,6 +858,7 @@ export class ShadowProcessor {
     detectShadows(mask, edges, options = {}) {
         const maxDistance = options.maxDistance ?? 60;
         const shadowDiff = options.shadowDiff ?? 50;
+        const userShadowColors = options.shadowColors; // [{r,g,b}, ...] 用户手动指定/提取的阴影色集
 
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
@@ -876,6 +877,11 @@ export class ShadowProcessor {
         const minColorDiff = 5 + (1 - shadowDiff / 100) * 20;
         const maxColorDiff = Math.min(120, shadowDiff);
 
+        // 用户色模式：任一用户阴影色距离 < 阈值即视为候选阴影
+        // 阈值与 shadowDiff 同源：shadowDiff 越大越宽松
+        // 注意要 < 256 避免溢出
+        const userColorThreshold = Math.max(15, Math.min(120, shadowDiff + 10));
+
         const shadowMask = new Uint8ClampedArray(width * height);
 
         for (let y = 0; y < height; y++) {
@@ -892,21 +898,84 @@ export class ShadowProcessor {
 
                 const colorDiff = canvasUtils.colorDistance(pixel, this.bgColor);
 
-                if (colorDiff > maxColorDiff) continue;
-
                 const grayness = this.calculateGrayness(pixel);
-                if (grayness < 0.5) continue;
-
                 const pixelBrightness = (pixel.r + pixel.g + pixel.b) / 3;
-                if (pixelBrightness > bgBrightness) continue;
+                const isDarkerThanBg = pixelBrightness <= bgBrightness;
 
-                shadowMask[idx] = 255;
+                // 路径 A：自动模式 —— 暗于背景 + 中性灰 + 与背景色差在 [min, maxColorDiff]
+                const autoMatch = (
+                    colorDiff > minColorDiff &&
+                    colorDiff <= maxColorDiff &&
+                    grayness >= 0.5 &&
+                    isDarkerThanBg
+                );
+
+                // 路径 B：用户色模式 —— 像素与任一用户阴影色相似
+                let userColorMatch = false;
+                if (!autoMatch && userShadowColors && userShadowColors.length > 0) {
+                    for (let i = 0; i < userShadowColors.length; i++) {
+                        const d = canvasUtils.colorDistance(pixel, userShadowColors[i]);
+                        if (d < userColorThreshold) {
+                            userColorMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (autoMatch || userColorMatch) {
+                    shadowMask[idx] = 255;
+                }
             }
         }
 
         this.filterIsolatedShadow(shadowMask, width, height, 3);
 
         return shadowMask;
+    }
+
+    /**
+     * 从涂抹取样 mask 中提取主色（颜色直方图 top-K）
+     * 输入是用户涂抹在画布上的区域 mask（255=取样像素），输出最频繁的 K 个代表色
+     * @param {Uint8ClampedArray} sampleMask - 取样蒙版（255=用户涂抹的像素）
+     * @param {number} k - 提取的主色数量
+     * @returns {Array<{r:number,g:number,b:number}>} 主色数组
+     */
+    extractShadowColorsFromSamples(sampleMask, k = 3) {
+        if (!sampleMask) return [];
+        const width = this.mainCanvas.width;
+        const height = this.mainCanvas.height;
+        const imageData = canvasUtils.getImageData(this.mainCanvas);
+
+        // 颜色直方图：把 RGB 各压缩到 4 bit (16^3 = 4096 bins)
+        // 过滤掉几乎全白 (>= 250) 的取样 —— 用户涂抹到白墙上的反例
+        const bins = new Map();
+        for (let i = 0; i < sampleMask.length; i++) {
+            if (sampleMask[i] !== 255) continue;
+            const r = imageData.data[i * 4];
+            const g = imageData.data[i * 4 + 1];
+            const b = imageData.data[i * 4 + 2];
+            // 跳过近乎全白：阴影不会是纯白
+            if (r >= 250 && g >= 250 && b >= 250) continue;
+            const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+            const bucket = bins.get(key);
+            if (bucket) {
+                bucket.rSum += r; bucket.gSum += g; bucket.bSum += b; bucket.count++;
+            } else {
+                bins.set(key, { rSum: r, gSum: g, bSum: b, count: 1 });
+            }
+        }
+
+        if (bins.size === 0) return [];
+
+        // 按出现频次降序取 top-K
+        const sorted = Array.from(bins.values()).sort((a, b) => b.count - a.count);
+        const top = sorted.slice(0, Math.min(k, sorted.length));
+
+        return top.map(b => ({
+            r: Math.round(b.rSum / b.count),
+            g: Math.round(b.gSum / b.count),
+            b: Math.round(b.bSum / b.count)
+        }));
     }
 
     /**

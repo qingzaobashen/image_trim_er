@@ -175,6 +175,23 @@ class App {
         this.applyShadowProcessBtn = document.getElementById('applyShadowProcess');
         this.shadowBrushMode = 'add';
 
+        // 阴影色手动模式（取色画笔 + 颜色选择器 + 提取 + 清除）
+        this.shadowColorAutoModeBtn = document.getElementById('shadowColorAutoMode');
+        this.shadowColorManualModeBtn = document.getElementById('shadowColorManualMode');
+        this.shadowColorManualPanel = document.getElementById('shadowColorManualPanel');
+        this.shadowColorPicker = document.getElementById('shadowColorPicker');
+        this.addShadowColorBtn = document.getElementById('addShadowColorBtn');
+        this.toggleShadowColorPickBtn = document.getElementById('toggleShadowColorPickBtn');
+        this.shadowColorPickSizeInput = document.getElementById('shadowColorPickSize');
+        this.extractShadowColorBtn = document.getElementById('extractShadowColorBtn');
+        this.clearShadowColorsBtn = document.getElementById('clearShadowColorsBtn');
+        this.shadowColorPaletteEl = document.getElementById('shadowColorPalette');
+        this.shadowColorSource = 'auto';        // 'auto' | 'manual'
+        this.userShadowColors = [];             // [{r,g,b}, ...] 用户指定的阴影色集
+        this.isShadowColorPickMode = false;     // 取色画笔是否激活
+        this.isShadowColorPickActive = false;   // 当前是否在画布上拖动
+        this.shadowColorSamples = null;         // Uint8ClampedArray 累积取样 mask
+
         this.edgeBrushAddModeBtn = document.getElementById('edgeBrushAddMode');
         this.edgeBrushSubtractModeBtn = document.getElementById('edgeBrushSubtractMode');
         this.edgeBrushSizeInput = document.getElementById('edgeBrushSize');
@@ -278,6 +295,15 @@ class App {
         this.detectShadowsBtn.addEventListener('click', () => this.handleDetectShadows());
         this.shadowBrushAddModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('add'));
         this.shadowBrushSubtractModeBtn.addEventListener('click', () => this.handleShadowBrushModeChange('subtract'));
+
+        // 阴影色源切换（自动/手动）
+        this.shadowColorAutoModeBtn.addEventListener('click', () => this.handleShadowColorSourceChange('auto'));
+        this.shadowColorManualModeBtn.addEventListener('click', () => this.handleShadowColorSourceChange('manual'));
+        this.addShadowColorBtn.addEventListener('click', () => this.handleAddShadowColorFromPicker());
+        this.toggleShadowColorPickBtn.addEventListener('click', () => this.handleToggleShadowColorPickMode());
+        this.extractShadowColorBtn.addEventListener('click', () => this.handleExtractShadowColors());
+        this.clearShadowColorsBtn.addEventListener('click', () => this.handleClearShadowColors());
+        this.shadowColorPickSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.applyShadowProcessBtn.addEventListener('click', () => this.handleApplyShadowProcess());
 
         this.edgeBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
@@ -678,6 +704,17 @@ class App {
         const y = canvasPos.y;
 
         if (this.currentTool === 'shadowProcess') {
+            // 阴影色取样画笔优先于其他画笔
+            if (this.isShadowColorPickMode) {
+                const size = parseInt(this.shadowColorPickSizeInput.value);
+                const scale = this.zoomManager.getScale();
+                const canvasSize = size / scale;
+                this.processor.startShadowColorPick(x, y, canvasSize, (brushMask) => {
+                    this.accumulateShadowColorSamples(brushMask);
+                });
+                return;
+            }
+
             // 如果处于边缘画笔模式，使用边缘画笔
             if (this.isEdgeBrushMode) {
                 const size = parseInt(this.edgeBrushSizeInput.value);
@@ -760,6 +797,11 @@ class App {
         const y = canvasPos.y;
         const scale = this.zoomManager.getScale();
 
+        if (this.processor.isShadowColorPickActive) {
+            this.processor.drawShadowColorPick(x, y);
+            return;
+        }
+
         if (this.processor.isShadowBrushActive) {
             this.processor.shadowBrushDraw(x, y, scale);
             return;
@@ -804,6 +846,11 @@ class App {
         }
 
         if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
+
+        if (this.processor.isShadowColorPickActive) {
+            this.processor.stopShadowColorPick();
+            return;
+        }
 
         if (this.processor.isShadowBrushActive) {
             this.processor.stopShadowBrush();
@@ -1357,6 +1404,10 @@ class App {
 
         const maxDistance = parseInt(this.shadowMaxDistanceInput.value);
         const shadowDiff = parseInt(this.shadowDiffInput.value);
+        // 手动模式下传用户阴影色集；自动模式下不传（detectShadows 走纯自动路径）
+        const shadowColors = this.shadowColorSource === 'manual' && this.userShadowColors.length > 0
+            ? this.userShadowColors
+            : null;
 
         this.showLoading('阴影检测中...');
 
@@ -1364,11 +1415,15 @@ class App {
             try {
                 const success = this.processor.detectShadows({
                     maxDistance,
-                    shadowDiff
+                    shadowDiff,
+                    shadowColors
                 });
 
                 if (success) {
-                    this.showNotification('阴影检测完成，粉色区域为阴影选区', 'success');
+                    const tip = this.shadowColorSource === 'manual' && this.userShadowColors.length > 0
+                        ? `阴影检测完成（用户色模式，${this.userShadowColors.length} 个色）`
+                        : '阴影检测完成，粉色区域为阴影选区';
+                    this.showNotification(tip, 'success');
                 } else {
                     this.showNotification('没有活跃的选区，请先进行抠图', 'warning');
                 }
@@ -1386,6 +1441,9 @@ class App {
      * @param {string} mode - 模式 ('add' 或 'subtract')
      */
     handleShadowBrushModeChange(mode) {
+        // 启动阴影画笔前先退出取色画笔
+        this.exitShadowColorPickMode();
+
         this.shadowBrushMode = mode;
         this.isEdgeBrushMode = false; // 退出边缘画笔模式
 
@@ -1400,12 +1458,180 @@ class App {
         this.showNotification(`阴影画笔模式：${modeText}`, 'info');
     }
 
+    // ==================== 阴影色源（自动/手动） ====================
+
+    /**
+     * 切换阴影色源：auto = 算法自动识别背景色；manual = 用户指定的阴影色集优先
+     * @param {'auto'|'manual'} source
+     */
+    handleShadowColorSourceChange(source) {
+        this.shadowColorSource = source;
+        this.shadowColorAutoModeBtn.classList.toggle('active', source === 'auto');
+        this.shadowColorManualModeBtn.classList.toggle('active', source === 'manual');
+        this.shadowColorManualPanel.style.display = source === 'manual' ? '' : 'none';
+        if (source === 'auto') {
+            // 退出取色画笔模式
+            this.exitShadowColorPickMode();
+        }
+    }
+
+    /**
+     * 把当前颜色选择器的颜色加入用户阴影色集
+     */
+    handleAddShadowColorFromPicker() {
+        const hex = this.shadowColorPicker.value;
+        const rgb = this.hexToRgb(hex);
+        if (!rgb) return;
+        this.userShadowColors.push(rgb);
+        this.renderShadowColorPalette();
+        this.showNotification(`已添加阴影色：${hex}`, 'success');
+    }
+
+    /**
+     * 切换取色画笔模式（再次点或换工具则退出）
+     */
+    handleToggleShadowColorPickMode() {
+        if (this.isShadowColorPickMode) {
+            this.exitShadowColorPickMode();
+        } else {
+            this.enterShadowColorPickMode();
+        }
+    }
+
+    enterShadowColorPickMode() {
+        if (this.shadowColorSource !== 'manual') {
+            this.handleShadowColorSourceChange('manual');
+        }
+        this.isShadowColorPickMode = true;
+        this.toggleShadowColorPickBtn.classList.add('active');
+        document.body.classList.add('shadow-color-pick-mode');
+        // 与其他画笔模式互斥
+        this.isEdgeBrushMode = false;
+        this.edgeBrushAddModeBtn.classList.remove('active');
+        this.edgeBrushSubtractModeBtn.classList.remove('active');
+        this.shadowBrushAddModeBtn.classList.remove('active');
+        this.shadowBrushSubtractModeBtn.classList.remove('active');
+        this.showNotification('取色画笔已开启：在画布上涂抹要采样的阴影区域', 'info');
+    }
+
+    exitShadowColorPickMode() {
+        this.isShadowColorPickMode = false;
+        this.toggleShadowColorPickBtn.classList.remove('active');
+        document.body.classList.remove('shadow-color-pick-mode');
+    }
+
+    /**
+     * 把单次笔触的 brushMask 累加到 shadowColorSamples
+     * brushMask 是 0/128/255 三值：add 模式 255=笔触内
+     * @param {Uint8ClampedArray} brushMask
+     */
+    accumulateShadowColorSamples(brushMask) {
+        if (!brushMask) return;
+        if (!this.shadowColorSamples || this.shadowColorSamples.length !== brushMask.length) {
+            this.shadowColorSamples = new Uint8ClampedArray(brushMask.length);
+        }
+        for (let i = 0; i < brushMask.length; i++) {
+            if (brushMask[i] === 255) {
+                this.shadowColorSamples[i] = 255;
+            }
+        }
+        // 给用户一点反馈
+        const sampleCount = this.countSamples(this.shadowColorSamples);
+        this.showNotification(`已取样 ${sampleCount} 像素（点击"提取主色"加入色卡）`, 'info');
+    }
+
+    countSamples(mask) {
+        let n = 0;
+        for (let i = 0; i < mask.length; i++) if (mask[i] === 255) n++;
+        return n;
+    }
+
+    /**
+     * 从累积取样中提取 K-Means 风格的主色 top-K，加入色卡
+     */
+    handleExtractShadowColors() {
+        if (!this.shadowColorSamples || this.countSamples(this.shadowColorSamples) === 0) {
+            this.showNotification('请先在画布上涂抹要采样的阴影区域', 'warning');
+            return;
+        }
+        const colors = this.processor.shadowProcessor
+            ? this.processor.shadowProcessor.extractShadowColorsFromSamples(this.shadowColorSamples, 3)
+            : null;
+        if (!colors || colors.length === 0) {
+            this.showNotification('未提取到有效阴影色（取样可能全是白色）', 'warning');
+            return;
+        }
+        this.userShadowColors.push(...colors);
+        // 一次性涂抹只取样一次，避免重复提取
+        this.shadowColorSamples = null;
+        this.renderShadowColorPalette();
+        this.showNotification(`已提取 ${colors.length} 个阴影色`, 'success');
+    }
+
+    /**
+     * 清空用户阴影色集
+     */
+    handleClearShadowColors() {
+        if (this.userShadowColors.length === 0 && !this.shadowColorSamples) {
+            return;
+        }
+        this.userShadowColors = [];
+        this.shadowColorSamples = null;
+        this.renderShadowColorPalette();
+        this.showNotification('已清空用户阴影色', 'info');
+    }
+
+    /**
+     * 重绘色卡预览区
+     */
+    renderShadowColorPalette() {
+        if (!this.shadowColorPaletteEl) return;
+        this.shadowColorPaletteEl.innerHTML = '';
+        for (let i = 0; i < this.userShadowColors.length; i++) {
+            const c = this.userShadowColors[i];
+            const hex = this.rgbToHex(c.r, c.g, c.b);
+            const swatch = document.createElement('div');
+            swatch.className = 'shadow-color-swatch';
+            swatch.style.background = hex;
+            swatch.title = hex;
+            swatch.addEventListener('click', () => {
+                this.userShadowColors.splice(i, 1);
+                this.renderShadowColorPalette();
+            });
+            this.shadowColorPaletteEl.appendChild(swatch);
+        }
+    }
+
+    /**
+     * hex 颜色转 {r,g,b}
+     * @param {string} hex - 形如 #rrggbb
+     */
+    hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!m) return null;
+        return {
+            r: parseInt(m[1], 16),
+            g: parseInt(m[2], 16),
+            b: parseInt(m[3], 16)
+        };
+    }
+
+    /**
+     * rgb 转 hex
+     */
+    rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
     /**
      * 处理边缘画笔模式切换
      * 切换到边缘画笔模式时，自动退出阴影画笔模式
      * @param {string} mode - 模式（'add'=正画笔 / 'subtract'=负画笔）
      */
     handleEdgeBrushModeChange(mode) {
+        // 启动边缘画笔前先退出取色画笔
+        this.exitShadowColorPickMode();
+
         this.edgeBrushMode = mode;
         this.isEdgeBrushMode = true; // 进入边缘画笔模式
 
