@@ -26,6 +26,8 @@ export class ImageProcessor {
     constructor(mainCanvas, overlayCanvas) {
         this.mainCanvas = mainCanvas;
         this.overlayCanvas = overlayCanvas;
+        /** @type {string|null} 当前加载图片的原始文件名（用于下载默认命名） */
+        this.currentFileName = null;
         this.originalImage = null;
         this.currentMask = null;
         this.originImgBackup = null;
@@ -35,6 +37,8 @@ export class ImageProcessor {
 
         this.shadowMask = null;
         this.edgeData = null;
+        /** 边缘线显示开关：检测完成后开启，工具切换/清空时关闭 */
+        this.showEdgeLines = false;
         this.isShadowBrushActive = false;
         this.isEdgeBrushActive = false;
 
@@ -126,6 +130,8 @@ export class ImageProcessor {
      * @returns {Promise<Object>} 图片信息
      */
     async loadImage(file) {
+        // 记录原始文件名，供下载时复用
+        this.currentFileName = file && file.name ? file.name : null;
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
 
@@ -158,6 +164,7 @@ export class ImageProcessor {
                     this.currentMask = new Uint8ClampedArray(width * height);
                     this.shadowMask = new Uint8ClampedArray(width * height);
                     this.edgeData = null;
+                    this.showEdgeLines = false;
                     this.isShadowBrushActive = false;
                     this.isEdgeBrushActive = false;
                     this.edgeBrush.reset();
@@ -959,7 +966,12 @@ export class ImageProcessor {
         this.edgeBrush.setOriginalImageData(this.originImgBackup, width, height);
         this.edgeBrush.setShadowProcessor(this.shadowProcessor);
 
+        // 检测完成，开启边缘线显示
+        this.showEdgeLines = true;
         this.renderSelection();
+        // 边缘检测为纯选区/边缘数据操作，图像像素未变；保存参数以便撤销历史展示
+        // minConfidence 为旧版本残留字段，保留 options 入口以兼容历史快照
+        const minConfidence = options.minConfidence ?? 30;
         this.saveToHistory(false, 'detectEdges', { minConfidence });
         return true;
     }
@@ -983,18 +995,8 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
 
-        let currentCanvasData = null;
-        this._ensureOriginImgBackup();  // 确保原始图片备份存在
-        if (this.originImgBackup) {
-            currentCanvasData = canvasUtils.getImageData(this.mainCanvas);
-            const originalData = new ImageData(
-                new Uint8ClampedArray(this.originImgBackup),
-                width,
-                height
-            );
-            canvasUtils.putImageData(this.mainCanvas, originalData);
-        }
-
+        // 阴影检测基于当前主画布状态（含已应用的抠图/擦除等操作），
+        // 而非原始图片——否则主体已变化后阴影参考点会失真
         if (!this.edgeData) {
             this.detectEdges();
         }
@@ -1005,10 +1007,6 @@ export class ImageProcessor {
         }
 
         this.shadowMask = this.shadowProcessor.detectShadows(binaryMask, this.edgeData, options);
-
-        if (currentCanvasData) {
-            canvasUtils.putImageData(this.mainCanvas, currentCanvasData);
-        }
 
         this.renderSelection();
         this.saveToHistory(false, 'detectShadows', options);
@@ -1143,7 +1141,18 @@ export class ImageProcessor {
      */
     clearEdgeData() {
         this.edgeData = null;
+        this.showEdgeLines = false;
         this.edgeBrush.reset();
+        this.renderSelection();
+    }
+
+    /**
+     * 设置边缘线显示开关
+     * @param {boolean} show - true=显示青色边缘线，false=隐藏
+     */
+    setShowEdgeLines(show) {
+        if (this.showEdgeLines === show) return;
+        this.showEdgeLines = !!show;
         this.renderSelection();
     }
 
@@ -1162,14 +1171,8 @@ export class ImageProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
 
-        if (this.originImgBackup) {
-            const originalData = new ImageData(
-                new Uint8ClampedArray(this.originImgBackup),
-                width,
-                height
-            );
-            canvasUtils.putImageData(this.mainCanvas, originalData);
-        }
+        // 阴影应用直接基于当前主画布（含已应用抠图的状态），
+        // 不再临时回退到原图——否则主体抠除/擦除效果会丢失
 
         const foregroundMask = new Uint8ClampedArray(this.currentMask.length);
         for (let i = 0; i < this.currentMask.length; i++) {
@@ -1257,7 +1260,8 @@ export class ImageProcessor {
             }
         }
 
-        if (this.edgeData) {
+        if (this.edgeData && this.showEdgeLines) {
+            // 仅在显示态渲染边缘线，避免切工具后青线残留
             for (let i = 0; i < this.edgeData.length; i++) {
                 if (this.edgeData[i] > 0 && this.currentMask[i] === 0 && (!this.shadowMask || this.shadowMask[i] === 0)) {
                     const index = i * 4;
@@ -1407,14 +1411,38 @@ export class ImageProcessor {
 
     /**
      * 下载图片
-     * @param {string} filename - 文件名
+     * 默认使用上传时的原始文件名（扩展名按输出格式自动调整）
+     * @param {string} [filename] - 文件名；省略时使用 loadImage 时记录的原名
+     * @param {string} [mime='image/png'] - 导出 MIME，用于决定扩展名
      */
-    downloadImage(filename = 'processed-image.png') {
-        const dataURL = this.exportImage();
+    downloadImage(filename, mime = 'image/png') {
+        if (!filename && this.currentFileName) {
+            filename = swapExtension(this.currentFileName, mimeToExt(mime));
+        }
+        if (!filename) {
+            filename = `processed-image.${mimeToExt(mime)}`;
+        }
+        const dataURL = this.exportImage(mime, 1);
         const link = document.createElement('a');
         link.download = filename;
         link.href = dataURL;
         link.click();
+    }
+
+    /**
+     * 获取当前文件原始名
+     * @returns {string|null}
+     */
+    getCurrentFileName() {
+        return this.currentFileName;
+    }
+
+    /**
+     * 设置当前文件名（用于恢复等场景覆盖）
+     * @param {string} name
+     */
+    setCurrentFileName(name) {
+        this.currentFileName = name;
     }
 
     /**
@@ -1435,4 +1463,34 @@ export class ImageProcessor {
 
         this.saveToHistory(false, 'reset');
     }
+}
+
+/* ==================== 模块级工具函数 ==================== */
+
+/**
+ * MIME 类型到文件扩展名映射
+ * @param {string} mime
+ * @returns {string} 不含点的扩展名
+ */
+function mimeToExt(mime) {
+    switch (mime) {
+        case 'image/jpeg': return 'jpg';
+        case 'image/png': return 'png';
+        case 'image/webp': return 'webp';
+        default: return 'png';
+    }
+}
+
+/**
+ * 替换文件名的扩展名（保留基本名）
+ * @param {string} filename 原文件名（含扩展名）
+ * @param {string} newExt 新扩展名（不含点）
+ * @returns {string} 替换后的文件名
+ */
+function swapExtension(filename, newExt) {
+    if (!filename) return `processed-image.${newExt}`;
+    const dot = filename.lastIndexOf('.');
+    // 没有扩展名，或文件名以 '.' 开头（如 ".gitignore"），整体视为基本名
+    const base = dot > 0 ? filename.slice(0, dot) : filename;
+    return `${base}.${newExt}`;
 }

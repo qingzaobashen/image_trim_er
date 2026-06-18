@@ -1005,16 +1005,13 @@ export class ShadowProcessor {
             colors.push(canvasUtils.getPixelColor(imageData, width - 3, Math.floor(i * height / sampleSize)));
         }
 
-        const clusters = this.kMeansClustering(colors, 3, 10);
-
-        let maxCluster = clusters[0];
-        for (const cluster of clusters) {
-            if (cluster.points.length > maxCluster.points.length) {
-                maxCluster = cluster;
-            }
-        }
-
-        return maxCluster.center;
+        // 阴影检测的本意是"暗于背景的投影"，真背景应当是画面中最亮色。
+        // 不用 K-Means 选最大簇：① K-Means 在边框/装饰物包围的图
+        // （相框、横幅、产品图）容易被边框颜色主导；
+        // ② kMeansClustering 的 return 语句错误地返回了空 points 数组，
+        // 导致"选最大簇"永远退化为取 clusters[0]（即采样点 0 的颜色）
+        const brightness = c => (c.r + c.g + c.b) / 3;
+        return colors.reduce((a, c) => brightness(c) > brightness(a) ? c : a);
     }
 
     /**
@@ -1107,6 +1104,13 @@ export class ShadowProcessor {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         const imageData = canvasUtils.getImageData(this.mainCanvas);
+
+        // 防御：bgColor 只在 detectShadows 内被赋值；如果用户跳过检测直接应用
+        // （或 imageData 因抠图变化后 bgColor 已与当前画布脱钩），按当前画布重算一次
+        if (!this.bgColor || typeof this.bgColor.r !== 'number') {
+            this.bgColor = this.detectBackgroundColor(imageData);
+        }
+
         const intensityFactor = intensity / 100;
 
         const distanceMap = this.computeBackgroundDistanceMap(mask, width, height);

@@ -537,6 +537,11 @@ class App {
             group.classList.toggle('active', group.dataset.tool === tool);
         });
 
+        // 切换工具时收起边缘线显示，避免在其他工具操作时青线持续渲染
+        if (this.processor && typeof this.processor.setShowEdgeLines === 'function') {
+            this.processor.setShowEdgeLines(false);
+        }
+
         if (tool === 'brush' || tool === 'shadowProcess') {
             this.overlayCanvas.style.cursor = 'crosshair';
         } else {
