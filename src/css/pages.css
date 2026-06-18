@@ -1575,6 +1575,17 @@ body {
     color: var(--warning-color);
 }
 
+.ci-note {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary, #6b7280);
+}
+
+.ci-note.ci-note-warn {
+    color: var(--warning-color, #d97706);
+}
+
 .ci-progress {
     position: relative;
     height: 18px;

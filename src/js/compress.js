@@ -26,6 +26,18 @@ const TARGET_RATIO = 30;
 const MAX_RESTORE_BYTES = 2 * 1024 * 1024;
 /** 还原键名 */
 const RESTORE_STORAGE_KEY = 'compress-restore-blob';
+
+/**
+ * 将 PNG 质量（30-100）映射到调色板大小（64-256）
+ * 这是 pngquant 风格：质量越高颜色越多，文件越大
+ * 30% → 64色（最强压缩，渐变图可能出现轻微色带）
+ * 100% → 256色（PNG-8 标准上限）
+ */
+function pngQualityToColors(q) {
+    const minC = 64, maxC = 256;
+    const ratio = (q - MIN_QUALITY) / (MAX_QUALITY - MIN_QUALITY);
+    return Math.max(minC, Math.min(maxC, Math.round(minC + ratio * (maxC - minC))));
+}
 /** 支持的输入 MIME 列表 */
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -58,6 +70,9 @@ let nextId = 1;
  * @property {string|null} error
  * @property {number} progress 0-100
  * @property {number} finalQuality 实际生效质量
+ * @property {boolean} notReduced 压缩后体积未减小（用于给出提示）
+ * @property {boolean} hasAlpha 原图含透明通道（仅 PNG 输出时有意义）
+ * @property {boolean} isPngFallback PNG 输出反而更大时回退到原图（说明浏览器重编码已达极限）
  */
 
 /* ==================== DOM 引用 ==================== */
@@ -95,6 +110,7 @@ async function init() {
     initLangSwitcher();
     i18n.updateUI();
     refreshUploadHint();
+    updateQualityHint();
 }
 
 /** 缓存所有 DOM 引用 */
@@ -212,10 +228,25 @@ function switchFormat(mime) {
     dom.formatTabs.forEach(tab => {
         tab.classList.toggle('active', tab.dataset.format === mime);
     });
-    // PNG 不支持质量参数时，给出禁用态
-    const qualityDisabled = (mime === 'image/png');
-    dom.qualitySlider.disabled = qualityDisabled;
-    dom.qualityValue.style.opacity = qualityDisabled ? '0.5' : '1';
+    // 质量滑块对所有格式都有效：
+    //   JPEG / WebP → 调画质
+    //   PNG → 调调色板大小（30%→64色，100%→256色，pngquant 风格）
+    // 因此不再 disabled；只更新提示文案
+    dom.qualitySlider.disabled = false;
+    dom.qualityValue.style.opacity = '1';
+    updateQualityHint();
+}
+
+/**
+ * 根据当前输出格式更新质量滑块旁的提示文案
+ * 抽出为独立函数便于 i18n 切换语言时复用
+ */
+function updateQualityHint() {
+    const key = outputFormat === 'image/png' ? 'compressPage.qualityHintPng' : 'compressPage.qualityHintLossy';
+    const el = document.querySelector('[data-role="qualityHint"]');
+    if (el && i18n && typeof i18n.t === 'function') {
+        el.textContent = i18n.t(key);
+    }
 }
 
 /** 根据当前模式刷新上传区提示文案 */
@@ -294,7 +325,10 @@ function createItem(file) {
         status: 'pending',
         error: null,
         progress: 0,
-        finalQuality: quality
+        finalQuality: quality,
+        notReduced: false,
+        hasAlpha: false,
+        isPngFallback: false
     };
 }
 
@@ -328,6 +362,9 @@ async function processItem(item) {
         item.compressedSize = result.blob.size;
         item.compressedUrl = URL.createObjectURL(result.blob);
         item.finalQuality = result.usedQuality;
+        item.notReduced = result.notReduced;
+        item.hasAlpha = result.hasAlpha;
+        item.isPngFallback = result.isPngFallback;
         item.status = 'done';
         item.progress = 100;
         updateItemResult(item);
@@ -344,9 +381,12 @@ async function processItem(item) {
 /**
  * 核心压缩：使用 Canvas 重绘并通过 toBlob 输出
  * 若输出大于原始且未达到目标压缩率，自动逐步降质重试
+ * PNG 输出时：
+ *  - 检测原图是否含透明像素，无 alpha 时绘制填白底以提升 DEFLATE 压缩率
+ *  - 压缩后若反而 > 原图，标记 notReduced，让 UI 给出"无明显效果"提示
  * @param {File} file
  * @param {{format:string, quality:number, maxWidth:number, onProgress:(p:number)=>void}} opts
- * @returns {Promise<{blob:Blob, usedQuality:number}>}
+ * @returns {Promise<{blob:Blob, usedQuality:number, notReduced:boolean, hasAlpha:boolean}>}
  */
 async function compressImage(file, opts) {
     const { format, quality: initialQ, maxWidth, onProgress } = opts;
@@ -375,15 +415,38 @@ async function compressImage(file, opts) {
     if (!ctx) throw new Error('Canvas 2D 上下文不可用');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+
+    // 4) 透明度处理：仅对 PNG 通道做检测；无 alpha 时绘制填白底提升 DEFLATE 效率
+    const hasAlpha = isLossless ? detectAlpha(img, ctx) : false;
+    if (isLossless && !hasAlpha) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetW, targetH);
+    }
     ctx.drawImage(img, 0, 0, targetW, targetH);
     onProgress(60);
 
-    // 4) 输出 Blob（PNG 不支持质量参数）
+    // 4.5) PNG 色彩量化：把 RGBA 颜色减少到 numColors，让浏览器输出的 PNG 显著缩小
+    //      这是 pngquant 的核心思路——量化为 PNG-8 等价（颜色减少后 DEFLATE 压缩率大幅提升）
+    //      quality 滑块映射到调色板大小：100%→256色，30%→64色
+    if (isLossless) {
+        const numColors = pngQualityToColors(initialQ);
+        try {
+            const imageData = ctx.getImageData(0, 0, targetW, targetH);
+            const palette = medianCutQuantize(imageData.data, targetW * targetH, numColors, hasAlpha);
+            applyPalette(imageData, palette);
+            ctx.putImageData(imageData, 0, 0);
+        } catch (err) {
+            // 跨域图像无法 getImageData 时静默回退
+            console.warn('[Compress] PNG 色彩量化失败，使用原始像素:', err);
+        }
+    }
+
+    // 5) 输出 Blob（PNG 不支持 quality 参数，色彩已在上一步量化）
     let usedQuality = initialQ;
     let blob = await canvasToBlob(canvas, format, isUnsupportedQ ? undefined : initialQ);
     onProgress(80);
 
-    // 5) 自适应降质：对有损格式，若结果 > 目标比例，循环降质
+    // 6) 自适应降质：对有损格式，若结果 > 目标比例，循环降质
     if (!isUnsupportedQ) {
         const targetBytes = file.size * (TARGET_RATIO / 100);
         let q = initialQ;
@@ -400,8 +463,219 @@ async function compressImage(file, opts) {
         }
     }
 
+    // 7) PNG 兜底：浏览器 canvas 编码 PNG 不如 pngcrush/oxipng 等专业工具高效，
+    //    对已优化的 PNG 重新编码常常反而更大。
+    //    若输出 PNG 且 >= 原图，且原图本身已是 PNG，则直接回退使用原文件，
+    //    保证用户拿到的不会比原图大（仅原图为 PNG 时回退，跨格式仍以用户选择为准）。
+    const isPngFallback = (isLossless && blob.size >= file.size && file.type === 'image/png');
+    if (isPngFallback) {
+        blob = file;
+    }
+    const notReduced = !isPngFallback && blob.size >= file.size;
+
     onProgress(100);
-    return { blob, usedQuality };
+    return { blob, usedQuality, notReduced, hasAlpha, isPngFallback };
+}
+
+/**
+ * 检测图片是否含透明像素（alpha < 255）
+ * 仅在 PNG 输出路径调用，避免对 JPEG 浪费一次全像素扫描
+ * @param {HTMLImageElement} img
+ * @param {CanvasRenderingContext2D} ctx
+ * @returns {boolean}
+ */
+function detectAlpha(img, ctx) {
+    // 透明度检测不需要全分辨率，缩放到 1x1 等价会丢失 alpha；
+    // 这里采样原图尺寸，但只取一次 getImageData，开销可控
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (w === 0 || h === 0) return false;
+    const probe = document.createElement('canvas');
+    probe.width = w;
+    probe.height = h;
+    const pctx = probe.getContext('2d');
+    if (!pctx) return false;
+    pctx.drawImage(img, 0, 0);
+    let data;
+    try {
+        data = pctx.getImageData(0, 0, w, h).data;
+    } catch (err) {
+        // 跨域图像读取像素会抛错，按"无透明"处理
+        return false;
+    }
+    // 步进采样：每隔 64 个像素检查一次，最多 4096 次检测
+    const step = Math.max(4, Math.floor((w * h) / 4096) * 4);
+    for (let i = 3; i < data.length; i += step) {
+        if (data[i] < 255) return true;
+    }
+    return false;
+}
+
+/**
+ * 中位切分色彩量化（Median Cut）
+ * 把图像的颜色从 PNG-24（1600 万色）减少到指定调色板大小（如 256 色）
+ * 这是 pngquant 的核心算法，可让 PNG 体积显著缩小
+ *
+ * 实现要点：
+ * 1) 对大图采样（如最多 10 万像素）以加速
+ * 2) 反复按"色彩范围最大的通道"中位数切分桶
+ * 3) 直到桶数 = numColors
+ * 4) 每个桶的平均色作为调色板项
+ *
+ * @param {Uint8ClampedArray} pixels - RGBA 像素数组
+ * @param {number} pixelCount
+ * @param {number} numColors - 调色板大小（建议 32-256）
+ * @param {boolean} preserveAlpha - 是否保留 alpha 通道
+ * @returns {Array<[number,number,number,number]>} 调色板 RGBA 数组
+ */
+function medianCutQuantize(pixels, pixelCount, numColors, preserveAlpha) {
+    if (pixelCount === 0 || numColors <= 0) return [];
+
+    // 1) 采样像素以加速
+    const maxSamples = 100000;
+    const step = Math.max(1, Math.floor(pixelCount / maxSamples));
+    const samples = [];
+    for (let i = 0; i < pixelCount; i += step) {
+        const off = i * 4;
+        // 跳过完全透明的像素（无视觉贡献）
+        if (!preserveAlpha && pixels[off + 3] === 0) continue;
+        samples.push([pixels[off], pixels[off + 1], pixels[off + 2], preserveAlpha ? pixels[off + 3] : 255]);
+    }
+    if (samples.length === 0) return [[0, 0, 0, 255]];
+
+    // 2) 初始桶 = 全部样本
+    let buckets = [samples];
+
+    // 3) 迭代切分直到达到目标桶数
+    while (buckets.length < numColors) {
+        // 找"色彩范围最大"的桶
+        let bestIdx = -1;
+        let bestRange = 0;
+        for (let i = 0; i < buckets.length; i++) {
+            const b = buckets[i];
+            if (b.length < 2) continue;
+            const r = bucketRange(b);
+            if (r > bestRange) {
+                bestRange = r;
+                bestIdx = i;
+            }
+        }
+        if (bestIdx < 0) break; // 没有可切分的桶
+
+        const bucket = buckets[bestIdx];
+        // 找色彩范围最大的通道
+        const ch = dominantChannel(bucket);
+        // 按该通道排序
+        bucket.sort((a, b) => a[ch] - b[ch]);
+        const mid = bucket.length >> 1;
+        const left = bucket.slice(0, mid);
+        const right = bucket.slice(mid);
+
+        buckets.splice(bestIdx, 1, left, right);
+    }
+
+    // 4) 每个桶的平均色作为调色板
+    return buckets.map(bucketAverage);
+}
+
+/** 计算一个桶的色彩范围（RGB 三通道最大值 - 最小值之和） */
+function bucketRange(bucket) {
+    let rMin = 256, rMax = -1;
+    let gMin = 256, gMax = -1;
+    let bMin = 256, bMax = -1;
+    for (let i = 0; i < bucket.length; i++) {
+        const p = bucket[i];
+        if (p[0] < rMin) rMin = p[0];
+        if (p[0] > rMax) rMax = p[0];
+        if (p[1] < gMin) gMin = p[1];
+        if (p[1] > gMax) gMax = p[1];
+        if (p[2] < bMin) bMin = p[2];
+        if (p[2] > bMax) bMax = p[2];
+    }
+    return (rMax - rMin) + (gMax - gMin) + (bMax - bMin);
+}
+
+/** 找色彩范围最大的通道 0=R / 1=G / 2=B */
+function dominantChannel(bucket) {
+    let rMin = 256, rMax = -1;
+    let gMin = 256, gMax = -1;
+    let bMin = 256, bMax = -1;
+    for (let i = 0; i < bucket.length; i++) {
+        const p = bucket[i];
+        if (p[0] < rMin) rMin = p[0];
+        if (p[0] > rMax) rMax = p[0];
+        if (p[1] < gMin) gMin = p[1];
+        if (p[1] > gMax) gMax = p[1];
+        if (p[2] < bMin) bMin = p[2];
+        if (p[2] > bMax) bMax = p[2];
+    }
+    const rR = rMax - rMin, gR = gMax - gMin, bR = bMax - bMin;
+    if (rR >= gR && rR >= bR) return 0;
+    if (gR >= bR) return 1;
+    return 2;
+}
+
+/** 计算一个桶的 RGBA 平均颜色 */
+function bucketAverage(bucket) {
+    let r = 0, g = 0, b = 0, a = 0;
+    for (let i = 0; i < bucket.length; i++) {
+        r += bucket[i][0];
+        g += bucket[i][1];
+        b += bucket[i][2];
+        a += bucket[i][3];
+    }
+    const n = bucket.length || 1;
+    return [Math.round(r / n), Math.round(g / n), Math.round(b / n), Math.round(a / n)];
+}
+
+/**
+ * 在 ImageData 上应用调色板：每个像素替换为调色板中最近的颜色
+ * 使用 RGB 立方距离，alpha 不参与距离计算（保留 alpha 通道）
+ *
+ * @param {ImageData} imageData
+ * @param {Array<[number,number,number,number]>} palette
+ */
+function applyPalette(imageData, palette) {
+    if (!palette || palette.length === 0) return;
+    const data = imageData.data;
+    const palLen = palette.length;
+    // 把调色板展开成 Int32Array 以加速
+    const pR = new Int32Array(palLen);
+    const pG = new Int32Array(palLen);
+    const pB = new Int32Array(palLen);
+    const pA = new Uint8ClampedArray(palLen);
+    for (let i = 0; i < palLen; i++) {
+        pR[i] = palette[i][0];
+        pG[i] = palette[i][1];
+        pB[i] = palette[i][2];
+        pA[i] = palette[i][3];
+    }
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        // 找最近调色板颜色（按 RGB 欧氏距离平方）
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let p = 0; p < palLen; p++) {
+            const dr = pR[p] - r;
+            const dg = pG[p] - g;
+            const db = pB[p] - b;
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestDist) {
+                bestDist = d;
+                bestIdx = p;
+                if (d === 0) break; // 完全匹配，提前退出
+            }
+        }
+        data[i] = pR[bestIdx];
+        data[i + 1] = pG[bestIdx];
+        data[i + 2] = pB[bestIdx];
+        // 保留原 alpha（调色板的 alpha 仅供参考）
+        data[i + 3] = a;
+    }
 }
 
 /**
@@ -502,9 +776,19 @@ function updateItemResult(item) {
     const ratioClass = saved > 0 ? 'ci-saved' : 'ci-warn';
 
     const comp = card.querySelector('[data-role="compressed"]');
+    // 提示优先级：PNG 回退（已保留原图）> 通用"无明显效果" > PNG 含 alpha 提示
+    let note = '';
+    if (item.isPngFallback) {
+        note = `<div class="ci-note">${i18n.t('compressPage.pngFallbackNote')}</div>`;
+    } else if (item.notReduced) {
+        note = `<div class="ci-note ci-note-warn">${i18n.t('compressPage.notReducedNote')}</div>`;
+    } else if (item.hasAlpha && outputFormat === 'image/png') {
+        note = `<div class="ci-note">${i18n.t('compressPage.pngAlphaNote')}</div>`;
+    }
     comp.innerHTML = `
         <b>${formatSize(item.compressedSize)}</b>
         <span class="ci-badge ${ratioClass}">${saved > 0 ? '-' : ''}${Math.abs(saved)}%</span>
+        ${note}
     `;
 
     const progTxt = card.querySelector('[data-role="progressText"]');

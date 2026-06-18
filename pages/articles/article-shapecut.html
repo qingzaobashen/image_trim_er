@@ -140,8 +140,8 @@ function createRectangleMask(x1, y1, x2, y2, width, height) {
     const minY = Math.max(0, Math.floor(Math.min(y1, y2)));
     const maxY = Math.min(height, Math.ceil(Math.max(y1, y2)));
     
-    for (let y = minY; y < maxY; y++) {
-        for (let x = minX; x < maxX; x++) {
+    for (let y = minY; y &lt; maxY; y++) {
+        for (let x = minX; x &lt; maxX; x++) {
             mask[y * width + x] = 255; // 选中
         }
     }
@@ -158,11 +158,11 @@ function createEllipseMask(cx, cy, rx, ry, width, height) {
     const minY = Math.max(0, Math.floor(cy - ry));
     const maxY = Math.min(height, Math.ceil(cy + ry));
     
-    for (let y = minY; y < maxY; y++) {
-        for (let x = minX; x < maxX; x++) {
+    for (let y = minY; y &lt; maxY; y++) {
+        for (let x = minX; x &lt; maxX; x++) {
             const dx = (x - cx) / rx;
             const dy = (y - cy) / ry;
-            if (dx * dx + dy * dy <= 1) {
+            if (dx * dx + dy * dy &lt;= 1) {
                 mask[y * width + x] = 255;
             }
         }
@@ -178,7 +178,7 @@ function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, heig
     
     // 生成星形顶点
     const points = [];
-    for (let i = 0; i < numPoints * 2; i++) {
+    for (let i = 0; i &lt; numPoints * 2; i++) {
         const angle = (i * Math.PI) / numPoints - Math.PI / 2;
         const radius = i % 2 === 0 ? outerRadius : innerRadius;
         points.push({
@@ -188,8 +188,8 @@ function createStarMask(cx, cy, outerRadius, innerRadius, numPoints, width, heig
     }
     
     // 使用射线法判断点是否在多边形内
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y &lt; height; y++) {
+        for (let x = 0; x &lt; width; x++) {
             if (isPointInPolygon(x, y, points)) {
                 mask[y * width + x] = 255;
             }

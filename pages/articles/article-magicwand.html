@@ -128,7 +128,7 @@ function shouldSelect(seedColor, targetColor, tolerance) {
     );
     // 容差映射到 0-441.6 范围（RGB最大差值）
     const maxDistance = (tolerance / 100) * 441.6;
-    return distance <= maxDistance;
+    return distance &lt;= maxDistance;
 }</code></pre>
                     <p><strong data-i18n="articleMagicwand.toleranceSettingTitle">容差设置建议：</strong></p>
                     <ul style="margin: 16px 0; padding-left: 24px; color: var(--text-secondary);">
@@ -181,7 +181,7 @@ function floodFillBFS(imageData, startX, startY, tolerance) {
             const ny = neighbor.y;
             
             // 边界检查
-            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+            if (nx &lt; 0 || nx &gt;= width || ny &lt; 0 || ny &gt;= height) continue;
             
             const nIndex = ny * width + nx;
             if (mask[nIndex] === 1) continue; // 已访问
@@ -193,7 +193,7 @@ function floodFillBFS(imageData, startX, startY, tolerance) {
                 data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2]
             );
             
-            if (dist <= tolerance * 4.416) {
+            if (dist &lt;= tolerance * 4.416) {
                 mask[nIndex] = 1;
                 queue.push({x: nx, y: ny});
             }

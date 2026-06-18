@@ -118,8 +118,8 @@ function labelConnectedComponents(mask, width, height) {
     let currentLabel = 0;
     
     // 使用BFS进行区域标记
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y &lt; height; y++) {
+        for (let x = 0; x &lt; width; x++) {
             const idx = y * width + x;
             if (mask[idx] > 128 && labels[idx] === 0) {
                 currentLabel++;
@@ -150,16 +150,16 @@ function filterNoiseByArea(labels, mask, width, height, minArea) {
     const areaCount = {};
     
     // 统计每个区域的面积
-    for (let i = 0; i < labels.length; i++) {
-        if (labels[i] > 0) {
+    for (let i = 0; i &lt; labels.length; i++) {
+        if (labels[i] &gt; 0) {
             areaCount[labels[i]] = (areaCount[labels[i]] || 0) + 1;
         }
     }
     
     // 移除小于阈值的区域
     const result = new Uint8ClampedArray(mask.length);
-    for (let i = 0; i < labels.length; i++) {
-        if (labels[i] > 0 && areaCount[labels[i]] >= minArea) {
+    for (let i = 0; i &lt; labels.length; i++) {
+        if (labels[i] &gt; 0 &amp;&amp; areaCount[labels[i]] &gt;= minArea) {
             result[i] = 255;
         }
     }
@@ -255,8 +255,8 @@ function smoothEdges(mask, width, height, strength) {
 function detectEdges(mask, width, height) {
     const edges = new Uint8Array(width * height);
     
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
+    for (let y = 1; y &lt; height - 1; y++) {
+        for (let x = 1; x &lt; width - 1; x++) {
             const idx = y * width + x;
             const neighbors = [
                 mask[(y-1) * width + x],
@@ -287,17 +287,17 @@ function gaussianBlurMask(mask, width, height, radius, edges) {
     const kernel = createGaussianKernel(radius);
     const kernelSize = radius * 2 + 1;
     
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y &lt; height; y++) {
+        for (let x = 0; x &lt; width; x++) {
             const idx = y * width + x;
             
-            if (edges[idx] > 0) {
+            if (edges[idx] &gt; 0) {
                 // 边缘像素：应用高斯模糊
                 let sum = 0;
                 let weightSum = 0;
                 
-                for (let ky = -radius; ky <= radius; ky++) {
-                    for (let kx = -radius; kx <= radius; kx++) {
+                for (let ky = -radius; ky &lt;= radius; ky++) {
+                    for (let kx = -radius; kx &lt;= radius; kx++) {
                         const px = Math.min(Math.max(x + kx, 0), width - 1);
                         const py = Math.min(Math.max(y + ky, 0), height - 1);
                         const pIdx = py * width + px;
@@ -326,8 +326,8 @@ function createGaussianKernel(radius) {
     const sigma = radius / 3;
     let sum = 0;
     
-    for (let y = -radius; y <= radius; y++) {
-        for (let x = -radius; x <= radius; x++) {
+    for (let y = -radius; y &lt;= radius; y++) {
+        for (let x = -radius; x &lt;= radius; x++) {
             const value = Math.exp(-(x*x + y*y) / (2 * sigma * sigma));
             kernel[(y + radius) * size + (x + radius)] = value;
             sum += value;
@@ -335,7 +335,7 @@ function createGaussianKernel(radius) {
     }
     
     // 归一化
-    for (let i = 0; i < kernel.length; i++) {
+    for (let i = 0; i &lt; kernel.length; i++) {
         kernel[i] /= sum;
     }
     
