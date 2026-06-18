@@ -140,52 +140,57 @@
                     <div class="param-hint" data-i18n="compressPage.maxWidthHint">设为 0 表示按原图尺寸压缩；等比缩放</div>
                 </div>
             </div>
+        </section>
 
+        <!-- 压缩工作区：上传 / 进度 / 列表三列并排 -->
+        <div class="compress-workspace">
             <!-- 上传区域 -->
-            <div class="compress-upload" id="compressUpload">
-                <input type="file" id="compressFileInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
-                <div class="upload-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <section class="content-card compress-upload-card">
+                <div class="compress-upload" id="compressUpload">
+                    <input type="file" id="compressFileInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                    <div class="upload-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </div>
+                    <div class="upload-title" data-i18n="compressPage.uploadTitle">点击或拖拽图片到此处</div>
+                    <div class="upload-desc" id="uploadDesc" data-i18n="compressPage.uploadBatchDesc">支持 JPG、PNG、WebP；批量模式可一次选择多张</div>
+                    <div class="upload-buttons">
+                        <button class="btn btn-primary" id="selectFilesBtn" data-i18n="compressPage.selectFiles">选择图片</button>
+                        <button class="btn btn-secondary" id="clearAllBtn" disabled data-i18n="compressPage.clearAll">清空列表</button>
+                    </div>
                 </div>
-                <div class="upload-title" data-i18n="compressPage.uploadTitle">点击或拖拽图片到此处</div>
-                <div class="upload-desc" id="uploadDesc" data-i18n="compressPage.uploadBatchDesc">支持 JPG、PNG、WebP；批量模式可一次选择多张</div>
-                <div class="upload-buttons">
-                    <button class="btn btn-primary" id="selectFilesBtn" data-i18n="compressPage.selectFiles">选择图片</button>
-                    <button class="btn btn-secondary" id="clearAllBtn" disabled data-i18n="compressPage.clearAll">清空列表</button>
-                </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- 总体进度 -->
-        <section class="content-card compress-summary" id="compressSummary" hidden>
-            <div class="summary-row">
-                <div class="summary-item">
-                    <div class="summary-label" data-i18n="compressPage.totalOriginal">原始大小</div>
-                    <div class="summary-value" id="totalOriginal">0 KB</div>
+            <!-- 总体进度 -->
+            <section class="content-card compress-summary" id="compressSummary" hidden>
+                <div class="summary-row">
+                    <div class="summary-item">
+                        <div class="summary-label" data-i18n="compressPage.totalOriginal">原始大小</div>
+                        <div class="summary-value" id="totalOriginal">0 KB</div>
+                    </div>
+                    <div class="summary-arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label" data-i18n="compressPage.totalCompressed">压缩后</div>
+                        <div class="summary-value" id="totalCompressed">0 KB</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label" data-i18n="compressPage.totalSaved">节省</div>
+                        <div class="summary-value summary-saved" id="totalSaved">0%</div>
+                    </div>
                 </div>
-                <div class="summary-arrow">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <div class="summary-progress">
+                    <div class="summary-progress-fill" id="summaryProgressFill"></div>
+                    <div class="summary-progress-text" id="summaryProgressText"></div>
                 </div>
-                <div class="summary-item">
-                    <div class="summary-label" data-i18n="compressPage.totalCompressed">压缩后</div>
-                    <div class="summary-value" id="totalCompressed">0 KB</div>
+                <div class="summary-actions">
+                    <button class="btn btn-primary" id="downloadAllBtn" disabled data-i18n="compressPage.downloadAll">下载全部 (ZIP)</button>
                 </div>
-                <div class="summary-item">
-                    <div class="summary-label" data-i18n="compressPage.totalSaved">节省</div>
-                    <div class="summary-value summary-saved" id="totalSaved">0%</div>
-                </div>
-            </div>
-            <div class="summary-progress">
-                <div class="summary-progress-fill" id="summaryProgressFill"></div>
-                <div class="summary-progress-text" id="summaryProgressText"></div>
-            </div>
-            <div class="summary-actions">
-                <button class="btn btn-primary" id="downloadAllBtn" disabled data-i18n="compressPage.downloadAll">下载全部 (ZIP)</button>
-            </div>
-        </section>
+            </section>
 
-        <!-- 图片列表 -->
-        <section class="compress-list" id="compressList"></section>
+            <!-- 图片列表 -->
+            <section class="compress-list" id="compressList"></section>
+        </div>
 
         <!-- 使用提示 -->
         <section class="content-card compress-tips">

@@ -1259,20 +1259,21 @@ body {
     color: var(--primary-light);
 }
 
-/* 上传区 */
+/* 上传区 —— 紧凑版本，配合三列并排布局 */
 .compress-upload {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 40px 24px;
+    gap: 10px;
+    padding: 20px 16px;
     background: var(--bg-tertiary);
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-lg);
     color: var(--text-secondary);
     cursor: pointer;
     transition: border-color var(--transition-fast), background var(--transition-fast);
+    min-height: 220px;
 }
 
 .compress-upload:hover,
@@ -1283,8 +1284,8 @@ body {
 }
 
 .upload-icon {
-    width: 56px;
-    height: 56px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1294,25 +1295,33 @@ body {
 }
 
 .upload-icon svg {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
 }
 
 .upload-title {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: center;
 }
 
 .upload-desc {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-muted);
     text-align: center;
+    line-height: 1.4;
 }
 
 .upload-buttons {
     display: flex;
-    gap: 12px;
-    margin-top: 8px;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.upload-buttons .btn {
+    padding: 8px 16px;
+    font-size: 13px;
 }
 
 /* 通用按钮（页面内） */
@@ -1400,20 +1409,34 @@ body {
 .summary-row {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 16px;
     margin-bottom: 16px;
     flex-wrap: wrap;
+}
+
+/* 桌面端三列布局下，摘要较窄，让三项纵向堆叠 */
+@media (min-width: 1024px) {
+    .summary-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .summary-arrow {
+        transform: rotate(90deg);
+        margin-top: 0;
+        margin-left: 0;
+    }
 }
 
 .summary-item {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    min-width: 120px;
+    gap: 2px;
+    min-width: 100px;
 }
 
 .summary-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1421,7 +1444,7 @@ body {
 
 .summary-value {
     font-family: var(--font-display);
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -1474,12 +1497,94 @@ body {
     justify-content: flex-end;
 }
 
-/* 任务列表 */
-.compress-list {
+/* 压缩工作区 —— 三列并排布局：上传 / 进度 / 列表 */
+.compress-workspace {
+    display: grid;
+    gap: 16px;
+    margin-top: 24px;
+    /* 默认：上传独占一行（未选图时） */
+    grid-template-columns: 1fr;
+    grid-template-areas:
+        "upload"
+        "summary"
+        "list";
+}
+
+.compress-workspace > .compress-upload-card {
+    grid-area: upload;
+}
+
+.compress-workspace > .compress-summary {
+    grid-area: summary;
+    margin-top: 0; /* 覆盖原有 margin-top: 24px */
+}
+
+.compress-workspace > .compress-list {
+    grid-area: list;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    margin-top: 24px;
+    margin-top: 0; /* 覆盖原有 margin-top: 24px */
+}
+
+/* 桌面端（≥1024px）：三列并排 */
+@media (min-width: 1024px) {
+    .compress-workspace {
+        grid-template-columns: 1fr 1.4fr 2.6fr;
+        grid-template-areas: "upload summary list";
+        align-items: start;
+    }
+
+    /* 桌面端列表：单列更利于阅读 */
+    .compress-workspace > .compress-list {
+        grid-template-columns: 1fr;
+        max-height: 70vh;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    /* 摘要顶部跟随 */
+    .compress-workspace > .compress-summary {
+        position: sticky;
+        top: 16px;
+    }
+
+    /* 未选图时：让上传区在桌面端也占满整行，更显眼 */
+    .compress-workspace:not(:has(.compress-item)) {
+        grid-template-columns: 1fr;
+        grid-template-areas: "upload";
+    }
+}
+
+/* 平板（768-1023px）：上传独占一行，摘要与列表两列 */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .compress-workspace {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "upload upload"
+            "summary list";
+    }
+}
+
+/* 移动端（<768px）：全部单列 */
+@media (max-width: 767px) {
+    .compress-workspace {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "upload"
+            "summary"
+            "list";
+    }
+    .compress-workspace > .compress-list {
+        grid-template-columns: 1fr;
+    }
+    .summary-row {
+        flex-direction: row;
+        gap: 12px;
+    }
+    .summary-arrow {
+        transform: none;
+    }
 }
 
 .compress-item {
@@ -1520,7 +1625,7 @@ body {
 .ci-preview img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .ci-body {
@@ -1669,12 +1774,8 @@ body {
 }
 
 /* 压缩页面响应式 */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     .compress-params {
-        grid-template-columns: 1fr;
-    }
-
-    .compress-list {
         grid-template-columns: 1fr;
     }
 
