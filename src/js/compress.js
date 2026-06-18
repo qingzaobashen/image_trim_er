@@ -11,6 +11,7 @@
 
 import i18n from './i18n/i18n.js';
 import { initLangSwitcher } from './i18n/langSwitcher.js';
+import { createZip } from './zip-writer.js';
 
 /* ==================== 常量配置 ==================== */
 
@@ -878,17 +879,43 @@ function downloadItem(item) {
     triggerDownload(item.compressedBlob, newName);
 }
 
-/** 顺序触发所有已完成项的下载 */
-function downloadAll() {
+/**
+ * 将所有已完成项打包为 ZIP 后下载
+ * 仅 1 张时退化为直接下载原文件（避免无意义打包）
+ */
+async function downloadAll() {
     const doneItems = items.filter(it => it.status === 'done' && it.compressedBlob);
     if (doneItems.length === 0) return;
-    // 浏览器通常会拦截连续下载，逐个触发并附带小延时
-    doneItems.forEach((item, idx) => {
-        setTimeout(() => {
-            const ext = mimeToExt(outputFormat);
-            triggerDownload(item.compressedBlob, renameWithExt(item.name, ext));
-        }, idx * 150);
-    });
+
+    // 临时显示加载态，防止用户重复点击
+    const btn = dom.downloadAllBtn;
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = i18n.t('compressPage.packaging') || '打包中...';
+
+    try {
+        const ext = mimeToExt(outputFormat);
+        const files = doneItems.map(item => ({
+            name: renameWithExt(item.name, ext),
+            blob: item.compressedBlob
+        }));
+
+        // 单张：直接下载，避免额外打包开销
+        if (files.length === 1) {
+            triggerDownload(files[0].blob, files[0].name);
+            return;
+        }
+
+        const zipBlob = await createZip(files);
+        const zipName = `compressed_${Date.now()}.zip`;
+        triggerDownload(zipBlob, zipName);
+    } catch (err) {
+        console.error('[compress] 打包下载失败：', err);
+        alert(i18n.t('compressPage.zipFailed') || '打包下载失败，请重试');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+    }
 }
 
 /**
