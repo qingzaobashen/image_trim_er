@@ -16,6 +16,7 @@ export default {
         download: 'Download',
         tutorials: 'Tutorials',
         compress: 'Compress',
+        crop: 'Crop',
         about: 'About',
         contact: 'Contact',
         language: 'Language'
@@ -249,6 +250,7 @@ export default {
     nav: {
         home: 'Home',
         compress: 'Compress',
+        crop: 'Crop',
         tutorials: 'Tutorials',
         about: 'About',
         contact: 'Contact',
@@ -1101,5 +1103,38 @@ export default {
         tip2: 'PNG quality controls palette size (30%→64 colors, 100%→256 colors, pngquant-style)',
         tip3: 'All processing happens locally in your browser. No upload to any server.',
         tip4: 'Click "Use in Tool" to open the compressed result in the cutout tool for further editing.'
+    },
+
+    /** Image cropping page */
+    cropPage: {
+        pageTitle: 'Image Cropper - SmartCut',
+        title: 'Image Cropper',
+        subtitle: 'Crop images with rectangle, circle, ellipse, polygon shapes and grid splitting. Real-time preview, all locally processed.',
+        uploadTitle: 'Click or drop an image here',
+        uploadDesc: 'Supports JPG, PNG, WebP and other common image formats',
+        selectImage: 'Select Image',
+        shapeLabel: 'Shape:',
+        shapeRect: 'Rectangle Crop',
+        shapeCircle: 'Circle Crop',
+        shapeEllipse: 'Ellipse Crop',
+        shapePolygon: 'Polygon Crop',
+        gridLabel: 'Grid:',
+        gridNone: 'No Grid',
+        gridCustom: 'Custom',
+        reset: 'Reset',
+        cropSize: 'Crop Size:',
+        originalSize: 'Original Size:',
+        gridCellsTitle: 'Grid Cells (Click to select for individual export)',
+        exportSelected: 'Export Selected',
+        exportAllCells: 'Export All Cells',
+        applyCrop: 'Crop & Download',
+        reselect: 'Reselect Image',
+        invalidType: 'Please select an image file',
+        tipsTitle: 'Instructions',
+        tip1: 'Drag on the image to draw a crop area. Drag handles to resize.',
+        tip2: 'Drag inside the crop area to move it. Right-click to quickly reset.',
+        tip3: 'In grid mode, select specific cells below for individual export.',
+        tip4: 'In polygon mode, click to add vertices, double-click or press Enter to close the polygon.',
+        tip5: 'All processing happens locally in your browser. No image upload to any server.'
     }
 };

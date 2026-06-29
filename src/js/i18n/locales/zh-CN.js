@@ -16,6 +16,7 @@ export default {
         download: '下载图片',
         tutorials: '教程',
         compress: '图片压缩',
+        crop: '图片裁剪',
         about: '关于我们',
         contact: '联系我们',
         language: '语言'
@@ -249,6 +250,7 @@ export default {
     nav: {
         home: '首页',
         compress: '图片压缩',
+        crop: '图片裁剪',
         tutorials: '教程',
         about: '关于我们',
         contact: '联系我们',
@@ -1176,5 +1178,38 @@ export default {
         tip2: '质量参数对 PNG 映射为调色板大小（30%→64 色，100%→256 色，类似 pngquant）',
         tip3: '所有处理均在浏览器本地完成，图片不会上传到服务器',
         tip4: '点击"替换原图"可在抠图工具中打开压缩结果继续编辑'
+    },
+
+    /** 图片裁剪页 */
+    cropPage: {
+        pageTitle: '图片裁剪 - 抠白底图工具',
+        title: '图片裁剪',
+        subtitle: '支持矩形/圆形/椭圆/多边形裁剪及宫格切图，实时预览调整，全程本地处理',
+        uploadTitle: '点击或拖拽图片到此处',
+        uploadDesc: '支持 JPG、PNG、WebP 等常见图片格式',
+        selectImage: '选择图片',
+        shapeLabel: '形状：',
+        shapeRect: '矩形裁剪',
+        shapeCircle: '圆形裁剪',
+        shapeEllipse: '椭圆裁剪',
+        shapePolygon: '多边形裁剪',
+        gridLabel: '宫格：',
+        gridNone: '无宫格',
+        gridCustom: '自定义',
+        reset: '重置',
+        cropSize: '裁剪尺寸：',
+        originalSize: '原图尺寸：',
+        gridCellsTitle: '宫格区域（点击选中，可单独导出）',
+        exportSelected: '导出选中区域',
+        exportAllCells: '导出全部区域',
+        applyCrop: '裁剪并下载',
+        reselect: '重新选择图片',
+        invalidType: '请选择图片文件',
+        tipsTitle: '使用说明',
+        tip1: '拖动鼠标在图片上绘制裁剪区域，拖动边框或角点可调整大小',
+        tip2: '拖动裁剪区域内部可移动位置；右键点击裁剪区域可快速重置',
+        tip3: '选择宫格模式后，可在下方面板中选择特定区域单独导出',
+        tip4: '多边形模式下，点击添加顶点，双击或回车封闭多边形',
+        tip5: '所有处理均在浏览器本地完成，图片不会上传到服务器'
     }
 };

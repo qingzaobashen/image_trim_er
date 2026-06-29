@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<!--
+    图片裁剪页面
+    支持矩形/圆形/椭圆/多边形形状裁剪，宫格模式（1x2/2x2/3x3等），
+    实时预览、拖拽调整，与主应用无缝协作
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="在线图片裁剪工具，支持矩形、圆形、椭圆、自定义多边形形状裁剪及宫格裁剪模式，全程本地处理保护隐私。">
+    <title data-i18n-page-title="cropPage.pageTitle">图片裁剪 - 抠白底图工具</title>
+    <link rel="stylesheet" href="../src/css/pages.css">
+    <!-- Google Analytics -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3359350154774191"
+     crossorigin="anonymous"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-G92XSNDE32"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-G92XSNDE32');
+    </script>
+    <!-- 裁剪页面专用样式 -->
+    <style>
+        /* ==================== 裁剪页面布局 ==================== */
+        .crop-main {
+            max-width: 1100px;
+        }
+
+        .crop-page-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .crop-page-header h1 {
+            font-family: var(--font-display);
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .crop-page-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        /* ==================== 上传区域 ==================== */
+        .crop-upload-section {
+            display: none;
+        }
+
+        .crop-upload-section.visible {
+            display: block;
+        }
+
+        .crop-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 48px 24px;
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-lg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: border-color var(--transition-fast), background var(--transition-fast);
+            min-height: 280px;
+        }
+
+        .crop-upload:hover {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.06);
+            color: var(--text-primary);
+        }
+
+        .crop-upload .upload-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border-radius: 50%;
+            color: var(--primary-color);
+        }
+
+        .crop-upload .upload-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .crop-upload .upload-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .crop-upload .upload-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .crop-upload .upload-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        /* ==================== 裁剪工作区 ==================== */
+        .crop-workspace {
+            display: none;
+        }
+
+        .crop-workspace.visible {
+            display: block;
+        }
+
+        /* 控制栏 */
+        .crop-control-card {
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        .crop-control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .crop-control-row .control-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* 形状选择按钮组 */
+        .shape-btn-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        .shape-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            padding: 0;
+        }
+
+        .shape-btn:hover {
+            border-color: var(--border-light);
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .shape-btn.active {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        .shape-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 宫格选择器 */
+        .grid-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-select select {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            min-width: 120px;
+        }
+
+        .grid-select select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .grid-custom-inputs {
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .grid-custom-inputs.visible {
+            display: flex;
+        }
+
+        .grid-custom-inputs input {
+            width: 56px;
+            padding: 6px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: var(--font-display);
+            text-align: center;
+        }
+
+        .grid-custom-inputs input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .grid-custom-inputs span {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        /* Canvas 容器 */
+        .crop-canvas-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            min-height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .crop-canvas-container canvas {
+            display: block;
+            cursor: crosshair;
+            max-width: 100%;
+            max-height: 70vh;
+        }
+
+        /* 宫格单元格选择面板 */
+        .grid-cells-panel {
+            display: none;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .grid-cells-panel.visible {
+            display: block;
+        }
+
+        .grid-cells-panel h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-cells-panel h3 svg {
+            width: 20px;
+            height: 20px;
+            color: var(--primary-color);
+        }
+
+        .grid-cells-grid {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .grid-cell-item {
+            aspect-ratio: 1;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .grid-cell-item:hover {
+            border-color: var(--primary-light);
+        }
+
+        .grid-cell-item.selected {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        .grid-cell-item canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .grid-cell-item .cell-label {
+            position: absolute;
+            top: 4px;
+            left: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary-light);
+            background: rgba(15, 23, 42, 0.7);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            pointer-events: none;
+        }
+
+        .grid-cell-item .cell-check {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .grid-cell-item.selected .cell-check {
+            display: flex;
+        }
+
+        .grid-cell-item .cell-check svg {
+            width: 12px;
+            height: 12px;
+            color: white;
+        }
+
+        /* 操作按钮栏 */
+        .crop-actions-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 20px 24px;
+        }
+
+        /* 尺寸信息 */
+        .crop-info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            padding: 0 24px 20px;
+        }
+
+        .crop-info-item {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .crop-info-item span {
+            color: var(--primary-light);
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+
+        /* ==================== 按钮样式 ==================== */
+        .crop-control-card .btn,
+        .crop-actions-row .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid transparent;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: var(--font-sans);
+            text-decoration: none;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--border-light);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover:not(:disabled) {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        /* 提示卡片 */
+        .crop-tips-card {
+            margin-top: 24px;
+        }
+
+        .crop-tips-card h3 {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .crop-tips-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .crop-tips-list li {
+            position: relative;
+            padding: 6px 0 6px 22px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .crop-tips-list li::before {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 14px;
+            width: 6px;
+            height: 6px;
+            background: var(--primary-color);
+            border-radius: 50%;
+        }
+
+        /* ==================== 响应式 ==================== */
+        @media (max-width: 768px) {
+            .crop-control-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .crop-control-row .spacer {
+                display: none;
+            }
+
+            .crop-control-row .divider {
+                width: 100%;
+                height: 1px;
+            }
+
+            .crop-actions-row {
+                flex-direction: column;
+            }
+
+            .crop-actions-row .btn {
+                width: 100%;
+            }
+
+            .crop-page-header h1 {
+                font-size: 28px;
+            }
+
+            .crop-canvas-container {
+                min-height: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="page-nav">
+        <a href="../index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.logoText">抠白底</span>
+        </a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span data-i18n="nav.home">首页</span>
+            </a></li>
+            <li><a href="compress.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5 5l-3 7 3 7M19 5l3 7-3 7"/></svg>
+                <span data-i18n="nav.compress">图片压缩</span>
+            </a></li>
+            <li><a href="crop.html" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L2 6v12l4 4M18 22l4-4V6l-4-4M2 16l8-8 4 4 8-8"/></svg>
+                <span data-i18n="nav.crop">图片裁剪</span>
+            </a></li>
+            <li><a href="tutorials.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span data-i18n="nav.tutorials">教程</span>
+            </a></li>
+            <li><a href="about.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span data-i18n="nav.about">关于我们</span>
+            </a></li>
+            <li><a href="contact.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span data-i18n="nav.contact">联系我们</span>
+            </a></li>
+        </ul>
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-switcher-btn" id="langSwitcherBtn" title="Language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span id="currentLangLabel">中文</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown">
+                <button class="lang-option active" data-locale="zh-CN">中文</button>
+                <button class="lang-option" data-locale="en-US">English</button>
+            </div>
+        </div>
+        <button class="nav-mobile-toggle" id="navMobileToggle" data-i18n-title="nav.mobileToggle" aria-label="切换导航菜单">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <!-- 页面主体 -->
+    <main class="page-main crop-main">
+        <!-- 页面标题 -->
+        <div class="crop-page-header">
+            <h1 data-i18n="cropPage.title">图片裁剪</h1>
+            <p data-i18n="cropPage.subtitle">支持矩形/圆形/椭圆/多边形裁剪及宫格切图，实时预览调整，全程本地处理</p>
+        </div>
+
+        <!-- 上传区域（初始显示） -->
+        <section class="content-card crop-upload-section visible" id="uploadSection">
+            <div class="crop-upload" id="uploadArea">
+                <input type="file" id="fileInput" accept="image/*" hidden>
+                <div class="upload-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="upload-title" data-i18n="cropPage.uploadTitle">点击或拖拽图片到此处</div>
+                <div class="upload-desc" data-i18n="cropPage.uploadDesc">支持 JPG、PNG、WebP 等常见图片格式</div>
+                <div class="upload-buttons">
+                    <button class="btn btn-primary" id="selectFileBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span data-i18n="cropPage.selectImage">选择图片</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 裁剪工作区（加载图片后显示） -->
+        <div class="crop-workspace" id="cropWorkspace">
+            <!-- 控制栏 -->
+            <section class="content-card crop-control-card">
+                <div class="crop-control-row">
+                    <span class="control-label" data-i18n="cropPage.shapeLabel">形状：</span>
+                    <div class="shape-btn-group" id="shapeBtnGroup">
+                        <button class="shape-btn active" data-shape="rect" data-i18n-title="cropPage.shapeRect" title="矩形裁剪">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
+                        </button>
+                        <button class="shape-btn" data-shape="circle" data-i18n-title="cropPage.shapeCircle" title="圆形裁剪">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+                        </button>
+                        <button class="shape-btn" data-shape="ellipse" data-i18n-title="cropPage.shapeEllipse" title="椭圆裁剪">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="10" ry="6"/></svg>
+                        </button>
+                        <button class="shape-btn" data-shape="polygon" data-i18n-title="cropPage.shapePolygon" title="多边形裁剪">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 22,9 19,20 5,20 2,9"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <span class="control-label" data-i18n="cropPage.gridLabel">宫格：</span>
+                    <div class="grid-select">
+                        <select id="gridModeSelect">
+                            <option value="none" data-i18n="cropPage.gridNone">无宫格</option>
+                            <option value="1x2">1×2</option>
+                            <option value="2x1">2×1</option>
+                            <option value="2x2">2×2</option>
+                            <option value="3x3">3×3</option>
+                            <option value="4x4">4×4</option>
+                            <option value="custom" data-i18n="cropPage.gridCustom">自定义</option>
+                        </select>
+                        <div class="grid-custom-inputs" id="gridCustomInputs">
+                            <input type="number" id="gridCustomCols" min="1" max="10" value="2" placeholder="列">
+                            <span>×</span>
+                            <input type="number" id="gridCustomRows" min="1" max="10" value="2" placeholder="行">
+                        </div>
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <button class="btn btn-ghost" id="resetCropBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        <span data-i18n="cropPage.reset">重置</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Canvas 预览区 -->
+            <section class="content-card" style="padding: 16px;">
+                <div class="crop-canvas-container" id="canvasContainer">
+                    <canvas id="cropCanvas"></canvas>
+                </div>
+                <div class="crop-info-row" id="cropInfoRow" style="display:none;">
+                    <div class="crop-info-item"><span data-i18n="cropPage.cropSize">裁剪尺寸：</span><span id="cropSizeInfo">—</span></div>
+                    <div class="crop-info-item"><span data-i18n="cropPage.originalSize">原图尺寸：</span><span id="originalSizeInfo">—</span></div>
+                </div>
+            </section>
+
+            <!-- 宫格单元格面板 -->
+            <section class="content-card grid-cells-panel" id="gridCellsPanel">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    <span data-i18n="cropPage.gridCellsTitle">宫格区域（点击选中，可单独导出）</span>
+                </h3>
+                <div class="grid-cells-grid" id="gridCellsGrid"></div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn btn-primary btn-sm" id="exportSelectedCellBtn" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span data-i18n="cropPage.exportSelected">导出选中区域</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="exportAllCellsBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5 5l-3 7 3 7M19 5l3 7-3 7"/></svg>
+                        <span data-i18n="cropPage.exportAllCells">导出全部区域</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 操作按钮 -->
+            <section class="content-card crop-actions-row">
+                <button class="btn btn-primary" id="applyCropBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span data-i18n="cropPage.applyCrop">裁剪并下载</span>
+                </button>
+                <button class="btn btn-secondary" id="reselectBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span data-i18n="cropPage.reselect">重新选择图片</span>
+                </button>
+            </section>
+        </div>
+
+        <!-- 使用提示 -->
+        <section class="content-card crop-tips-card">
+            <h3 data-i18n="cropPage.tipsTitle">使用说明</h3>
+            <ul class="crop-tips-list">
+                <li data-i18n="cropPage.tip1">拖动鼠标在图片上绘制裁剪区域，拖动边框或角点可调整大小</li>
+                <li data-i18n="cropPage.tip2">拖动裁剪区域内部可移动位置；右键点击裁剪区域可快速重置</li>
+                <li data-i18n="cropPage.tip3">选择宫格模式后，可在下方面板中选择特定区域单独导出</li>
+                <li data-i18n="cropPage.tip4">多边形模式下，点击添加顶点，双击或回车封闭多边形</li>
+                <li data-i18n="cropPage.tip5">所有处理均在浏览器本地完成，图片不会上传到服务器</li>
+            </ul>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="page-footer">
+        <p data-i18n="pageFooter.copyright">© 2024-2025 抠白底. 保留所有权利。</p>
+    </footer>
+
+    <script type="module" src="../src/js/crop.js"></script>
+</body>
+</html>
