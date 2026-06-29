@@ -1133,8 +1133,9 @@ export default {
         tipsTitle: 'Instructions',
         tip1: 'Drag on the image to draw a crop area. Drag handles to resize.',
         tip2: 'Drag inside the crop area to move it. Right-click to quickly reset.',
-        tip3: 'In grid mode, select specific cells below for individual export.',
-        tip4: 'In polygon mode, click to add vertices, double-click or press Enter to close the polygon.',
-        tip5: 'All processing happens locally in your browser. No image upload to any server.'
+        tip3: 'Scroll to zoom, middle-click to pan. Ctrl+scroll for precise zoom.',
+        tip4: 'In grid mode, select specific cells below for individual export.',
+        tip5: 'In polygon mode, click to add vertices, double-click or press Enter to close the polygon.',
+        tip6: 'All processing happens locally in your browser. No image upload to any server.'
     }
 };

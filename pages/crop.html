@@ -248,6 +248,37 @@
             flex-shrink: 0;
         }
 
+        /* 缩放控制 */
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .zoom-controls .zoom-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-controls .zoom-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .zoom-level {
+            min-width: 48px;
+            text-align: center;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-light);
+            font-variant-numeric: tabular-nums;
+        }
+
         .spacer {
             flex: 1;
         }
@@ -264,13 +295,12 @@
             overflow: hidden;
             min-height: 400px;
             margin-bottom: 20px;
+            padding: 0;
         }
 
         .crop-canvas-container canvas {
             display: block;
             cursor: crosshair;
-            max-width: 100%;
-            max-height: 70vh;
         }
 
         /* 宫格单元格选择面板 */
@@ -661,6 +691,21 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                         <span data-i18n="cropPage.reset">重置</span>
                     </button>
+
+                    <div class="divider"></div>
+
+                    <div class="zoom-controls">
+                        <button class="btn btn-ghost zoom-btn" id="zoomOutBtn" title="缩小">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                        </button>
+                        <span class="zoom-level" id="zoomLevel">100%</span>
+                        <button class="btn btn-ghost zoom-btn" id="zoomInBtn" title="放大">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                        </button>
+                        <button class="btn btn-ghost zoom-btn" id="zoomResetBtn" title="适应窗口">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -713,9 +758,10 @@
             <ul class="crop-tips-list">
                 <li data-i18n="cropPage.tip1">拖动鼠标在图片上绘制裁剪区域，拖动边框或角点可调整大小</li>
                 <li data-i18n="cropPage.tip2">拖动裁剪区域内部可移动位置；右键点击裁剪区域可快速重置</li>
-                <li data-i18n="cropPage.tip3">选择宫格模式后，可在下方面板中选择特定区域单独导出</li>
-                <li data-i18n="cropPage.tip4">多边形模式下，点击添加顶点，双击或回车封闭多边形</li>
-                <li data-i18n="cropPage.tip5">所有处理均在浏览器本地完成，图片不会上传到服务器</li>
+                <li data-i18n="cropPage.tip3">鼠标滚轮缩放，中键拖拽平移；Ctrl+滚轮可精准缩放</li>
+                <li data-i18n="cropPage.tip4">选择宫格模式后，可在下方面板中选择特定区域单独导出</li>
+                <li data-i18n="cropPage.tip5">多边形模式下，点击添加顶点，双击或回车封闭多边形</li>
+                <li data-i18n="cropPage.tip6">所有处理均在浏览器本地完成，图片不会上传到服务器</li>
             </ul>
         </section>
     </main>

@@ -62,8 +62,6 @@ class CropApp {
         this.draggingGridLine = null;
         /** @type {number} 当前拖拽的宫格线索引 */
         this.draggingGridLineIndex = -1;
-        /** @type {{x:number,y:number}} 拖拽起始点（画布坐标） */
-        this.gridLineDragStart = { x: 0, y: 0 };
 
         /**
          * 裁剪区域（相对图片坐标，非画布坐标）
@@ -89,15 +87,33 @@ class CropApp {
         /** @type {number} 当前多边形拖拽的顶点索引 */
         this.dragPointIndex = -1;
 
-        /** @type {number} 图片在画布上的缩放比例 */
-        this.scale = 1;
-        /** @type {number} 图片在画布上的 X 偏移 */
-        this.offsetX = 0;
-        /** @type {number} 图片在画布上的 Y 偏移 */
-        this.offsetY = 0;
-
         /** @type {boolean} 是否已加载图片 */
         this.isImageLoaded = false;
+
+        /** @type {number} 缩放倍数（在基础适配比例之上） */
+        this.zoomScale = 1;
+        /** @type {number} 最小缩放 */
+        this.minZoom = 0.2;
+        /** @type {number} 最大缩放 */
+        this.maxZoom = 10;
+        /** @type {number} 缩放步进 */
+        this.zoomStep = 0.1;
+
+        /** @type {number} 平移偏移 X（画布像素） */
+        this.panX = 0;
+        /** @type {number} 平移偏移 Y（画布像素） */
+        this.panY = 0;
+
+        /** @type {boolean} 是否正在平移拖拽 */
+        this.isPanning = false;
+        /** @type {number} 平移拖拽起始 X */
+        this.panStartX = 0;
+        /** @type {number} 平移拖拽起始 Y */
+        this.panStartY = 0;
+        /** @type {number} 平移拖拽起始偏移 X */
+        this.panStartOffsetX = 0;
+        /** @type {number} 平移拖拽起始偏移 Y */
+        this.panStartOffsetY = 0;
 
         /** 存储导出用的裁剪后 blob */
         this._lastCropBlob = null;
@@ -145,6 +161,11 @@ class CropApp {
             cropInfoRow: document.getElementById('cropInfoRow'),
             cropSizeInfo: document.getElementById('cropSizeInfo'),
             originalSizeInfo: document.getElementById('originalSizeInfo'),
+
+            zoomInBtn: document.getElementById('zoomInBtn'),
+            zoomOutBtn: document.getElementById('zoomOutBtn'),
+            zoomResetBtn: document.getElementById('zoomResetBtn'),
+            zoomLevel: document.getElementById('zoomLevel'),
 
             gridCellsPanel: document.getElementById('gridCellsPanel'),
             gridCellsGrid: document.getElementById('gridCellsGrid'),
@@ -212,6 +233,14 @@ class CropApp {
                 this._render();
             }
         });
+
+        // 缩放控制
+        this.dom.zoomInBtn.addEventListener('click', () => this._zoomIn());
+        this.dom.zoomOutBtn.addEventListener('click', () => this._zoomOut());
+        this.dom.zoomResetBtn.addEventListener('click', () => this._resetZoom());
+
+        // Canvas 滚轮缩放
+        this.dom.canvasContainer.addEventListener('wheel', (e) => this._handleWheel(e), { passive: false });
 
         // 重置
         this.dom.resetCropBtn.addEventListener('click', () => this._resetCrop());
@@ -479,27 +508,24 @@ class CropApp {
         if (!this.image) return;
 
         const container = this.dom.canvasContainer;
-        const maxWidth = container.clientWidth - 32;
-        const maxHeight = Math.min(window.innerHeight * 0.7, 800);
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
 
-        const imgRatio = this.image.width / this.image.height;
-        let canvasWidth = maxWidth;
-        let canvasHeight = canvasWidth / imgRatio;
+        const padding = 16;
+        const scaleX = (cw - padding * 2) / this.image.width;
+        const scaleY = (ch - padding * 2) / this.image.height;
+        const fitScale = Math.min(scaleX, scaleY, 1);
 
-        if (canvasHeight > maxHeight) {
-            canvasHeight = maxHeight;
-            canvasWidth = canvasHeight * imgRatio;
-        }
+        this.zoomScale = fitScale;
+        this.panX = (cw - this.image.width * fitScale) / 2;
+        this.panY = (ch - this.image.height * fitScale) / 2;
 
-        this.scale = canvasWidth / this.image.width;
-        this.offsetX = 0;
-        this.offsetY = 0;
+        this.canvas.width = cw;
+        this.canvas.height = ch;
+        this.canvas.style.width = cw + 'px';
+        this.canvas.style.height = ch + 'px';
 
-        this.canvas.width = canvasWidth;
-        this.canvas.height = canvasHeight;
-        this.canvas.style.width = canvasWidth + 'px';
-        this.canvas.style.height = canvasHeight + 'px';
-
+        this._updateZoomDisplay();
         this._render();
     }
 
@@ -514,10 +540,13 @@ class CropApp {
         const cw = this.canvas.width;
         const ch = this.canvas.height;
 
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, cw, ch);
 
-        // 1. 绘制图片
-        ctx.drawImage(this.image, 0, 0, cw, ch);
+        ctx.setTransform(this.zoomScale, 0, 0, this.zoomScale, this.panX, this.panY);
+
+        // 1. 以原始尺寸绘制图片（transform处理缩放）
+        ctx.drawImage(this.image, 0, 0, this.image.width, this.image.height);
 
         // 2. 如果是多边形模式
         if (this.shape === SHAPE_POLYGON) {
@@ -530,21 +559,98 @@ class CropApp {
         if (this.gridMode !== 'none') {
             this._renderGridLines(ctx, cw, ch);
         }
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     /**
-     * 在画布坐标与图片坐标之间转换裁剪区域
+     * 更新缩放百分比显示
      * @private
-     * @returns {{x:number,y:number,width:number,height:number}} 画布坐标下的裁剪区域
+     */
+    _updateZoomDisplay() {
+        const pct = Math.round(this.zoomScale * 100);
+        this.dom.zoomLevel.textContent = pct + '%';
+    }
+
+    /**
+     * 放大
+     * @private
+     */
+    _zoomIn() {
+        const newScale = Math.min(this.maxZoom, this.zoomScale + this.zoomStep);
+        if (newScale !== this.zoomScale) {
+            this.zoomScale = newScale;
+            this._render();
+            this._updateZoomDisplay();
+        }
+    }
+
+    /**
+     * 缩小
+     * @private
+     */
+    _zoomOut() {
+        const newScale = Math.max(this.minZoom, this.zoomScale - this.zoomStep);
+        if (newScale !== this.zoomScale) {
+            this.zoomScale = newScale;
+            this._render();
+            this._updateZoomDisplay();
+        }
+    }
+
+    /**
+     * 重置缩放为适应窗口
+     * @private
+     */
+    _resetZoom() {
+        this.zoomScale = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this._render();
+        this._updateZoomDisplay();
+    }
+
+    /**
+     * 处理滚轮缩放
+     * @private
+     * @param {WheelEvent} e - 滚轮事件
+     */
+    _handleWheel(e) {
+        e.preventDefault();
+
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const isPinchZoom = e.ctrlKey && !e.metaKey;
+
+        let delta;
+        if (isPinchZoom) {
+            delta = -e.deltaY * 0.01;
+        } else {
+            delta = e.deltaY > 0 ? -this.zoomStep : this.zoomStep;
+        }
+
+        const newScale = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoomScale + delta));
+
+        if (newScale !== this.zoomScale) {
+            const scaleRatio = newScale / this.zoomScale;
+            this.panX = mouseX - (mouseX - this.panX) * scaleRatio;
+            this.panY = mouseY - (mouseY - this.panY) * scaleRatio;
+            this.zoomScale = newScale;
+            this._render();
+            this._updateZoomDisplay();
+        }
+    }
+
+    /**
+     * 获取裁剪区域的浅拷贝（图片坐标空间）
+     * @private
+     * @returns {{x:number,y:number,width:number,height:number}}
      */
     _getCropRegionCanvas() {
         const r = this.cropRegion;
-        return {
-            x: r.x * this.scale,
-            y: r.y * this.scale,
-            width: r.width * this.scale,
-            height: r.height * this.scale
-        };
+        return { ...r };
     }
 
     /**
@@ -557,10 +663,10 @@ class CropApp {
     _renderShapeMode(ctx, cw, ch) {
         const cr = this._getCropRegionCanvas();
 
-        // 暗色遮罩（裁剪区域外）
+        // 暗色遮罩（覆盖全画布，含缩放平移后的区域）
         ctx.save();
         ctx.fillStyle = MASK_COLOR;
-        ctx.fillRect(0, 0, cw, ch);
+        ctx.fillRect(-100000, -100000, 200000, 200000);
 
         // 裁剪区域镂空
         ctx.globalCompositeOperation = 'destination-out';
@@ -640,7 +746,7 @@ class CropApp {
      * @param {{x:number,y:number}[]} handles - 手柄坐标列表
      */
     _drawHandles(ctx, handles) {
-        const hs = HANDLE_SIZE;
+        const hs = Math.max(4, HANDLE_SIZE / this.zoomScale);
         handles.forEach(h => {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
@@ -769,7 +875,7 @@ class CropApp {
      * @param {boolean} isDragging - 是否正在拖拽
      */
     _drawGridLineHandle(ctx, x, y, type, isDragging) {
-        const hs = HANDLE_SIZE + 4; // 稍大的手柄
+        const hs = Math.max(4, (HANDLE_SIZE + 4) / this.zoomScale);
         ctx.save();
         
         // 手柄背景
@@ -806,20 +912,15 @@ class CropApp {
     _renderPolygonMode(ctx, cw, ch) {
         if (this.polygonPoints.length < 2) return;
 
-        const scaledPoints = this.polygonPoints.map(p => ({
-            x: p.x * this.scale,
-            y: p.y * this.scale
-        }));
-
-        // 暗色遮罩 + 多边形镂空
+        // 暗色遮罩（覆盖全画布，含缩放平移后的区域）
         ctx.save();
         ctx.fillStyle = MASK_COLOR;
-        ctx.fillRect(0, 0, cw, ch);
+        ctx.fillRect(-100000, -100000, 200000, 200000);
         ctx.globalCompositeOperation = 'destination-out';
         ctx.beginPath();
-        ctx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
-        for (let i = 1; i < scaledPoints.length; i++) {
-            ctx.lineTo(scaledPoints[i].x, scaledPoints[i].y);
+        ctx.moveTo(this.polygonPoints[0].x, this.polygonPoints[0].y);
+        for (let i = 1; i < this.polygonPoints.length; i++) {
+            ctx.lineTo(this.polygonPoints[i].x, this.polygonPoints[i].y);
         }
         ctx.closePath();
         ctx.fill();
@@ -831,19 +932,20 @@ class CropApp {
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 3]);
         ctx.beginPath();
-        ctx.moveTo(scaledPoints[0].x, scaledPoints[0].y);
-        for (let i = 1; i < scaledPoints.length; i++) {
-            ctx.lineTo(scaledPoints[i].x, scaledPoints[i].y);
+        ctx.moveTo(this.polygonPoints[0].x, this.polygonPoints[0].y);
+        for (let i = 1; i < this.polygonPoints.length; i++) {
+            ctx.lineTo(this.polygonPoints[i].x, this.polygonPoints[i].y);
         }
         ctx.closePath();
         ctx.stroke();
         ctx.restore();
 
         // 顶点手柄
-        scaledPoints.forEach((p, idx) => {
+        const pointRadius = Math.max(2, HANDLE_SIZE / 2 / this.zoomScale);
+        this.polygonPoints.forEach((p, idx) => {
             ctx.fillStyle = idx === this.dragPointIndex ? '#ffffff' : POLYGON_POINT_COLOR;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, HANDLE_SIZE / 2, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, pointRadius, 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
@@ -859,8 +961,20 @@ class CropApp {
     _onMouseDown(e) {
         if (!this.isImageLoaded) return;
 
+        // 中键平移
+        if (e.button === 1) {
+            this.isPanning = true;
+            this.panStartX = e.clientX;
+            this.panStartY = e.clientY;
+            this.panStartOffsetX = this.panX;
+            this.panStartOffsetY = this.panY;
+            this.canvas.style.cursor = 'grabbing';
+            e.preventDefault();
+            return;
+        }
+
         const pos = this._getCanvasPos(e);
-        const imagePos = { x: pos.x / this.scale, y: pos.y / this.scale };
+        const imagePos = { x: (pos.x - this.panX) / this.zoomScale, y: (pos.y - this.panY) / this.zoomScale };
 
         // 宫格模式下检测宫格线拖拽
         if (this.gridMode !== 'none') {
@@ -868,7 +982,6 @@ class CropApp {
             if (gridLineHit) {
                 this.draggingGridLine = gridLineHit.type;
                 this.draggingGridLineIndex = gridLineHit.index;
-                this.gridLineDragStart = { ...pos };
                 this._render();
                 return;
             }
@@ -943,8 +1056,16 @@ class CropApp {
     _onMouseMove(e) {
         if (!this.isImageLoaded) return;
 
+        if (this.isPanning) {
+            this.panX = this.panStartOffsetX + (e.clientX - this.panStartX);
+            this.panY = this.panStartOffsetY + (e.clientY - this.panStartY);
+            this._render();
+            this._updateZoomDisplay();
+            return;
+        }
+
         const pos = this._getCanvasPos(e);
-        const imagePos = { x: pos.x / this.scale, y: pos.y / this.scale };
+        const imagePos = { x: (pos.x - this.panX) / this.zoomScale, y: (pos.y - this.panY) / this.zoomScale };
 
         // 宫格线拖拽处理
         if (this.draggingGridLine !== null) {
@@ -999,6 +1120,12 @@ class CropApp {
      * @param {MouseEvent} e - 鼠标事件
      */
     _onMouseUp(e) {
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.canvas.style.cursor = '';
+            return;
+        }
+
         // 宫格线拖拽结束
         if (this.draggingGridLine !== null) {
             this.draggingGridLine = null;
@@ -1053,8 +1180,10 @@ class CropApp {
                 break;
 
             case 'move': {
-                const dx = imagePos.x - this.dragStart.x / this.scale;
-                const dy = imagePos.y - this.dragStart.y / this.scale;
+                const startImageX = (this.dragStart.x - this.panX) / this.zoomScale;
+                const startImageY = (this.dragStart.y - this.panY) / this.zoomScale;
+                const dx = imagePos.x - startImageX;
+                const dy = imagePos.y - startImageY;
                 this.cropRegion = {
                     x: Math.max(0, Math.min(this.image.width - r.width, r.x + dx)),
                     y: Math.max(0, Math.min(this.image.height - r.height, r.y + dy)),
@@ -1152,8 +1281,10 @@ class CropApp {
                 y: Math.max(0, Math.min(this.image.height, imagePos.y))
             };
         } else if (this.dragHandle === 'move' && this._dragPolygonStart) {
-            const dx = imagePos.x - this.dragStart.x / this.scale;
-            const dy = imagePos.y - this.dragStart.y / this.scale;
+            const startImageX = (this.dragStart.x - this.panX) / this.zoomScale;
+            const startImageY = (this.dragStart.y - this.panY) / this.zoomScale;
+            const dx = imagePos.x - startImageX;
+            const dy = imagePos.y - startImageY;
             const bbox = this._getPolygonBBox(this._dragPolygonStart.points);
             const clampDx = Math.max(-bbox.minX, Math.min(this.image.width - bbox.maxX, dx));
             const clampDy = Math.max(-bbox.minY, Math.min(this.image.height - bbox.maxY, dy));
@@ -1178,14 +1309,16 @@ class CropApp {
         const cropY = cr.y;
         const cropW = cr.width;
         const cropH = cr.height;
-        const hs = HANDLE_SIZE + 8; // 稍大的命中区域
+        const imgX = (pos.x - this.panX) / this.zoomScale;
+        const imgY = (pos.y - this.panY) / this.zoomScale;
+        const hs = Math.max(4, (HANDLE_SIZE + 8) / this.zoomScale);
 
         // 检测竖线
         for (let i = 0; i < this.gridVerticalLines.length; i++) {
             const linePos = this.gridVerticalLines[i];
             const x = cropX + linePos * cropW;
             const y = cropY + cropH / 2;
-            if (Math.abs(pos.x - x) <= hs / 2 && Math.abs(pos.y - y) <= hs / 2) {
+            if (Math.abs(imgX - x) <= hs / 2 && Math.abs(imgY - y) <= hs / 2) {
                 return { type: 'vertical', index: i };
             }
         }
@@ -1195,7 +1328,7 @@ class CropApp {
             const linePos = this.gridHorizontalLines[i];
             const x = cropX + cropW / 2;
             const y = cropY + linePos * cropH;
-            if (Math.abs(pos.x - x) <= hs / 2 && Math.abs(pos.y - y) <= hs / 2) {
+            if (Math.abs(imgX - x) <= hs / 2 && Math.abs(imgY - y) <= hs / 2) {
                 return { type: 'horizontal', index: i };
             }
         }
@@ -1214,11 +1347,13 @@ class CropApp {
         const cropY = cr.y;
         const cropW = cr.width;
         const cropH = cr.height;
+        const imgX = (pos.x - this.panX) / this.zoomScale;
+        const imgY = (pos.y - this.panY) / this.zoomScale;
 
         if (this.draggingGridLine === 'vertical') {
             // 限制在裁剪框内且与相邻线保持最小距离
             const minDistance = 0.05; // 最小5%的距离
-            let newPos = (pos.x - cropX) / cropW;
+            let newPos = (imgX - cropX) / cropW;
             
             // 限制在裁剪框内
             newPos = Math.max(0.01, Math.min(0.99, newPos));
@@ -1239,7 +1374,7 @@ class CropApp {
         } else if (this.draggingGridLine === 'horizontal') {
             // 限制在裁剪框内且与相邻线保持最小距离
             const minDistance = 0.05; // 最小5%的距离
-            let newPos = (pos.y - cropY) / cropH;
+            let newPos = (imgY - cropY) / cropH;
             
             // 限制在裁剪框内
             newPos = Math.max(0.01, Math.min(0.99, newPos));
@@ -1289,13 +1424,13 @@ class CropApp {
         e.preventDefault();
 
         const pos = this._getCanvasPos(e);
-        const imagePos = { x: pos.x / this.scale, y: pos.y / this.scale };
+        const imagePos = { x: (pos.x - this.panX) / this.zoomScale, y: (pos.y - this.panY) / this.zoomScale };
 
         // 如果双击靠近第一个点，闭合多边形
         if (this.polygonPoints.length >= 3) {
             const first = this.polygonPoints[0];
             const dist = Math.hypot(imagePos.x - first.x, imagePos.y - first.y);
-            if (dist < 15 / this.scale) {
+            if (dist < 15 / this.zoomScale) {
                 // 已经闭合，不操作
                 return;
             }
@@ -1317,6 +1452,24 @@ class CropApp {
      */
     _onKeyDown(e) {
         if (!this.isImageLoaded) return;
+
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key) {
+                case '=':
+                case '+':
+                    e.preventDefault();
+                    this._zoomIn();
+                    return;
+                case '-':
+                    e.preventDefault();
+                    this._zoomOut();
+                    return;
+                case '0':
+                    e.preventDefault();
+                    this._resetZoom();
+                    return;
+            }
+        }
 
         if (e.key === 'Enter' && this.shape === SHAPE_POLYGON) {
             e.preventDefault();
@@ -1364,11 +1517,12 @@ class CropApp {
      * @returns {number} 顶点索引，-1 表示未命中
      */
     _hitTestPolygonPoints(canvasPos) {
+        const imgX = (canvasPos.x - this.panX) / this.zoomScale;
+        const imgY = (canvasPos.y - this.panY) / this.zoomScale;
+        const hitRadius = Math.max(4, HANDLE_SIZE / this.zoomScale);
         for (let i = 0; i < this.polygonPoints.length; i++) {
             const p = this.polygonPoints[i];
-            const sx = p.x * this.scale;
-            const sy = p.y * this.scale;
-            if (Math.hypot(canvasPos.x - sx, canvasPos.y - sy) < HANDLE_SIZE) {
+            if (Math.hypot(imgX - p.x, imgY - p.y) < hitRadius) {
                 return i;
             }
         }
@@ -1409,7 +1563,9 @@ class CropApp {
      */
     _hitTestHandle(canvasPos) {
         const cr = this._getCropRegionCanvas();
-        const hs = HANDLE_SIZE + 4; // 稍大的命中区域
+        const imgX = (canvasPos.x - this.panX) / this.zoomScale;
+        const imgY = (canvasPos.y - this.panY) / this.zoomScale;
+        const hs = Math.max(4, (HANDLE_SIZE + 4) / this.zoomScale);
 
         if (this.shape === SHAPE_CIRCLE || this.shape === SHAPE_ELLIPSE) {
             const cx = cr.x + cr.width / 2;
@@ -1427,7 +1583,7 @@ class CropApp {
                 { id: 'se', x: cx + rx, y: cy + ry }
             ];
             for (const tp of testPoints) {
-                if (Math.abs(canvasPos.x - tp.x) <= hs / 2 && Math.abs(canvasPos.y - tp.y) <= hs / 2) {
+                if (Math.abs(imgX - tp.x) <= hs / 2 && Math.abs(imgY - tp.y) <= hs / 2) {
                     return tp.id;
                 }
             }
@@ -1443,7 +1599,7 @@ class CropApp {
                 { id: 'e', x: cr.x + cr.width, y: cr.y + cr.height / 2 }
             ];
             for (const hd of handleDefs) {
-                if (Math.abs(canvasPos.x - hd.x) <= hs / 2 && Math.abs(canvasPos.y - hd.y) <= hs / 2) {
+                if (Math.abs(imgX - hd.x) <= hs / 2 && Math.abs(imgY - hd.y) <= hs / 2) {
                     return hd.id;
                 }
             }
@@ -1870,6 +2026,9 @@ class CropApp {
         this.image = null;
         this.polygonPoints = [];
         this.selectedCell = null;
+        this.zoomScale = 1;
+        this.panX = 0;
+        this.panY = 0;
         this.dom.cropWorkspace.classList.remove('visible');
         this.dom.uploadSection.classList.add('visible');
         this.dom.cropInfoRow.style.display = 'none';
