@@ -93,7 +93,7 @@ class CropApp {
         /** @type {number} 缩放倍数（在基础适配比例之上） */
         this.zoomScale = 1;
         /** @type {number} 最小缩放 */
-        this.minZoom = 0.2;
+        this.minZoom = 0.05;
         /** @type {number} 最大缩放 */
         this.maxZoom = 10;
         /** @type {number} 缩放步进 */
