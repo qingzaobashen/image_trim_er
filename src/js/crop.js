@@ -7,6 +7,7 @@
  */
 
 import i18n from './i18n/i18n.js';
+import { createZip } from './zip-writer.js';
 
 /** 裁剪形状常量 */
 const SHAPE_RECT = 'rect';
@@ -53,6 +54,16 @@ class CropApp {
         this.gridRows = 1;
         /** @type {{row:number,col:number}|null} 当前选中的宫格单元格 */
         this.selectedCell = null;
+        /** @type {number[]} 宫格竖线位置（相对裁剪框的百分比，0-1） */
+        this.gridVerticalLines = [];
+        /** @type {number[]} 宫格横线位置（相对裁剪框的百分比，0-1） */
+        this.gridHorizontalLines = [];
+        /** @type {string|null} 当前拖拽的宫格线类型：'vertical' | 'horizontal' */
+        this.draggingGridLine = null;
+        /** @type {number} 当前拖拽的宫格线索引 */
+        this.draggingGridLineIndex = -1;
+        /** @type {{x:number,y:number}} 拖拽起始点（画布坐标） */
+        this.gridLineDragStart = { x: 0, y: 0 };
 
         /**
          * 裁剪区域（相对图片坐标，非画布坐标）
@@ -435,8 +446,29 @@ class CropApp {
             this.gridRows = rows;
             this.dom.gridCustomInputs.classList.remove('visible');
         }
+        
+        // 初始化宫格线位置（均匀分布）
+        this._initializeGridLines();
         this.selectedCell = null;
         this._updateGridCellsPanel();
+    }
+
+    /**
+     * 初始化宫格线位置
+     * @private
+     */
+    _initializeGridLines() {
+        // 竖线位置（不包括边界）
+        this.gridVerticalLines = [];
+        for (let i = 1; i < this.gridCols; i++) {
+            this.gridVerticalLines.push(i / this.gridCols);
+        }
+        
+        // 横线位置（不包括边界）
+        this.gridHorizontalLines = [];
+        for (let i = 1; i < this.gridRows; i++) {
+            this.gridHorizontalLines.push(i / this.gridRows);
+        }
     }
 
     /**
@@ -626,39 +658,141 @@ class CropApp {
      * @param {number} ch - 画布高度
      */
     _renderGridLines(ctx, cw, ch) {
-        const cellW = cw / this.gridCols;
-        const cellH = ch / this.gridRows;
+        const cr = this._getCropRegionCanvas();
+        const cropX = cr.x;
+        const cropY = cr.y;
+        const cropW = cr.width;
+        const cropH = cr.height;
 
         ctx.save();
         ctx.strokeStyle = GRID_COLOR;
         ctx.lineWidth = 1;
 
-        // 竖线
-        for (let i = 1; i < this.gridCols; i++) {
+        // 绘制竖线（限制在裁剪框内）
+        for (let i = 0; i < this.gridVerticalLines.length; i++) {
+            const linePos = this.gridVerticalLines[i];
+            const x = cropX + linePos * cropW;
+            
+            // 检查是否是当前拖拽的线
+            const isDragging = this.draggingGridLine === 'vertical' && this.draggingGridLineIndex === i;
+            
             ctx.beginPath();
-            ctx.moveTo(i * cellW, 0);
-            ctx.lineTo(i * cellW, ch);
+            ctx.moveTo(x, cropY);
+            ctx.lineTo(x, cropY + cropH);
             ctx.stroke();
+            
+            // 如果是拖拽中的线，添加高亮效果
+            if (isDragging) {
+                ctx.save();
+                ctx.strokeStyle = OVERLAY_COLOR;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, cropY);
+                ctx.lineTo(x, cropY + cropH);
+                ctx.stroke();
+                ctx.restore();
+            }
+            
+            // 绘制可拖拽的手柄
+            this._drawGridLineHandle(ctx, x, cropY + cropH / 2, 'vertical', isDragging);
         }
-        // 横线
-        for (let i = 1; i < this.gridRows; i++) {
+        
+        // 绘制横线（限制在裁剪框内）
+        for (let i = 0; i < this.gridHorizontalLines.length; i++) {
+            const linePos = this.gridHorizontalLines[i];
+            const y = cropY + linePos * cropH;
+            
+            // 检查是否是当前拖拽的线
+            const isDragging = this.draggingGridLine === 'horizontal' && this.draggingGridLineIndex === i;
+            
             ctx.beginPath();
-            ctx.moveTo(0, i * cellH);
-            ctx.lineTo(cw, i * cellH);
+            ctx.moveTo(cropX, y);
+            ctx.lineTo(cropX + cropW, y);
             ctx.stroke();
+            
+            // 如果是拖拽中的线，添加高亮效果
+            if (isDragging) {
+                ctx.save();
+                ctx.strokeStyle = OVERLAY_COLOR;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(cropX, y);
+                ctx.lineTo(cropX + cropW, y);
+                ctx.stroke();
+                ctx.restore();
+            }
+            
+            // 绘制可拖拽的手柄
+            this._drawGridLineHandle(ctx, cropX + cropW / 2, y, 'horizontal', isDragging);
         }
 
         // 高亮选中单元格
         if (this.selectedCell) {
-            const sx = this.selectedCell.col * cellW;
-            const sy = this.selectedCell.row * cellH;
+            // 计算竖线位置（包括边界）
+            let xPositions = [0];
+            xPositions.push(...this.gridVerticalLines);
+            xPositions.push(1);
+            
+            // 计算横线位置（包括边界）
+            let yPositions = [0];
+            yPositions.push(...this.gridHorizontalLines);
+            yPositions.push(1);
+            
+            // 获取当前单元格的边界
+            const x1 = xPositions[this.selectedCell.col];
+            const x2 = xPositions[this.selectedCell.col + 1];
+            const y1 = yPositions[this.selectedCell.row];
+            const y2 = yPositions[this.selectedCell.row + 1];
+            
+            const sx = cropX + x1 * cropW;
+            const sy = cropY + y1 * cropH;
+            const sw = (x2 - x1) * cropW;
+            const sh = (y2 - y1) * cropH;
+            
             ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
-            ctx.fillRect(sx, sy, cellW, cellH);
+            ctx.fillRect(sx, sy, sw, sh);
             ctx.strokeStyle = OVERLAY_COLOR;
             ctx.lineWidth = 2;
-            ctx.strokeRect(sx, sy, cellW, cellH);
+            ctx.strokeRect(sx, sy, sw, sh);
         }
 
+        ctx.restore();
+    }
+
+    /**
+     * 绘制宫格线拖拽手柄
+     * @private
+     * @param {CanvasRenderingContext2D} ctx - 画布上下文
+     * @param {number} x - X坐标
+     * @param {number} y - Y坐标
+     * @param {string} type - 线类型：'vertical' | 'horizontal'
+     * @param {boolean} isDragging - 是否正在拖拽
+     */
+    _drawGridLineHandle(ctx, x, y, type, isDragging) {
+        const hs = HANDLE_SIZE + 4; // 稍大的手柄
+        ctx.save();
+        
+        // 手柄背景
+        ctx.fillStyle = isDragging ? OVERLAY_COLOR : '#ffffff';
+        ctx.beginPath();
+        if (type === 'vertical') {
+            ctx.ellipse(x, y, hs / 2, hs / 3, 0, 0, Math.PI * 2);
+        } else {
+            ctx.ellipse(x, y, hs / 3, hs / 2, 0, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        
+        // 手柄边框
+        ctx.strokeStyle = OVERLAY_COLOR;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (type === 'vertical') {
+            ctx.ellipse(x, y, hs / 2, hs / 3, 0, 0, Math.PI * 2);
+        } else {
+            ctx.ellipse(x, y, hs / 3, hs / 2, 0, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+        
         ctx.restore();
     }
 
@@ -727,6 +861,18 @@ class CropApp {
 
         const pos = this._getCanvasPos(e);
         const imagePos = { x: pos.x / this.scale, y: pos.y / this.scale };
+
+        // 宫格模式下检测宫格线拖拽
+        if (this.gridMode !== 'none') {
+            const gridLineHit = this._hitTestGridLine(pos);
+            if (gridLineHit) {
+                this.draggingGridLine = gridLineHit.type;
+                this.draggingGridLineIndex = gridLineHit.index;
+                this.gridLineDragStart = { ...pos };
+                this._render();
+                return;
+            }
+        }
 
         if (this.shape === SHAPE_POLYGON) {
             // 检查是否点击了现有多边形顶点
@@ -800,6 +946,12 @@ class CropApp {
         const pos = this._getCanvasPos(e);
         const imagePos = { x: pos.x / this.scale, y: pos.y / this.scale };
 
+        // 宫格线拖拽处理
+        if (this.draggingGridLine !== null) {
+            this._handleGridLineDrag(pos);
+            return;
+        }
+
         if (this.isDragging) {
             this._handleDrag(imagePos);
             return;
@@ -815,6 +967,15 @@ class CropApp {
                 this.canvas.style.cursor = 'crosshair';
             }
         } else {
+            // 宫格线手柄检测
+            if (this.gridMode !== 'none') {
+                const gridLineHit = this._hitTestGridLine(pos);
+                if (gridLineHit) {
+                    this.canvas.style.cursor = gridLineHit.type === 'vertical' ? 'ew-resize' : 'ns-resize';
+                    return;
+                }
+            }
+            
             const handle = this._hitTestHandle(pos);
             if (handle) {
                 const cursors = {
@@ -838,6 +999,15 @@ class CropApp {
      * @param {MouseEvent} e - 鼠标事件
      */
     _onMouseUp(e) {
+        // 宫格线拖拽结束
+        if (this.draggingGridLine !== null) {
+            this.draggingGridLine = null;
+            this.draggingGridLineIndex = -1;
+            this._updateGridCellsPanel();
+            this._render();
+            return;
+        }
+
         if (!this.isDragging) return;
 
         // 如果是绘制模式且区域太小，重置为初始
@@ -993,6 +1163,102 @@ class CropApp {
             }));
         }
         this._updateInfoDisplay();
+        this._render();
+    }
+
+    /**
+     * 检测宫格线手柄点击
+     * @private
+     * @param {{x:number,y:number}} pos - 画布坐标
+     * @returns {object|null} 点击信息或null
+     */
+    _hitTestGridLine(pos) {
+        const cr = this._getCropRegionCanvas();
+        const cropX = cr.x;
+        const cropY = cr.y;
+        const cropW = cr.width;
+        const cropH = cr.height;
+        const hs = HANDLE_SIZE + 8; // 稍大的命中区域
+
+        // 检测竖线
+        for (let i = 0; i < this.gridVerticalLines.length; i++) {
+            const linePos = this.gridVerticalLines[i];
+            const x = cropX + linePos * cropW;
+            const y = cropY + cropH / 2;
+            if (Math.abs(pos.x - x) <= hs / 2 && Math.abs(pos.y - y) <= hs / 2) {
+                return { type: 'vertical', index: i };
+            }
+        }
+
+        // 检测横线
+        for (let i = 0; i < this.gridHorizontalLines.length; i++) {
+            const linePos = this.gridHorizontalLines[i];
+            const x = cropX + cropW / 2;
+            const y = cropY + linePos * cropH;
+            if (Math.abs(pos.x - x) <= hs / 2 && Math.abs(pos.y - y) <= hs / 2) {
+                return { type: 'horizontal', index: i };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 处理宫格线拖拽
+     * @private
+     * @param {{x:number,y:number}} pos - 当前画布坐标
+     */
+    _handleGridLineDrag(pos) {
+        const cr = this._getCropRegionCanvas();
+        const cropX = cr.x;
+        const cropY = cr.y;
+        const cropW = cr.width;
+        const cropH = cr.height;
+
+        if (this.draggingGridLine === 'vertical') {
+            // 限制在裁剪框内且与相邻线保持最小距离
+            const minDistance = 0.05; // 最小5%的距离
+            let newPos = (pos.x - cropX) / cropW;
+            
+            // 限制在裁剪框内
+            newPos = Math.max(0.01, Math.min(0.99, newPos));
+            
+            // 与前一条线保持最小距离
+            if (this.draggingGridLineIndex > 0) {
+                const prevLine = this.gridVerticalLines[this.draggingGridLineIndex - 1];
+                newPos = Math.max(prevLine + minDistance, newPos);
+            }
+            
+            // 与后一条线保持最小距离
+            if (this.draggingGridLineIndex < this.gridVerticalLines.length - 1) {
+                const nextLine = this.gridVerticalLines[this.draggingGridLineIndex + 1];
+                newPos = Math.min(nextLine - minDistance, newPos);
+            }
+            
+            this.gridVerticalLines[this.draggingGridLineIndex] = newPos;
+        } else if (this.draggingGridLine === 'horizontal') {
+            // 限制在裁剪框内且与相邻线保持最小距离
+            const minDistance = 0.05; // 最小5%的距离
+            let newPos = (pos.y - cropY) / cropH;
+            
+            // 限制在裁剪框内
+            newPos = Math.max(0.01, Math.min(0.99, newPos));
+            
+            // 与前一条线保持最小距离
+            if (this.draggingGridLineIndex > 0) {
+                const prevLine = this.gridHorizontalLines[this.draggingGridLineIndex - 1];
+                newPos = Math.max(prevLine + minDistance, newPos);
+            }
+            
+            // 与后一条线保持最小距离
+            if (this.draggingGridLineIndex < this.gridHorizontalLines.length - 1) {
+                const nextLine = this.gridHorizontalLines[this.draggingGridLineIndex + 1];
+                newPos = Math.min(nextLine - minDistance, newPos);
+            }
+            
+            this.gridHorizontalLines[this.draggingGridLineIndex] = newPos;
+        }
+        
         this._render();
     }
 
@@ -1357,6 +1623,42 @@ class CropApp {
     }
 
     /**
+     * 获取宫格单元格的位置和大小（相对裁剪框）
+     * @private
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
+     * @returns {{x:number, y:number, width:number, height:number}}
+     */
+    _getGridCellBounds(row, col) {
+        // 计算裁剪框内的宫格单元格位置
+        const cropR = this.cropRegion;
+        
+        // 计算竖线位置（包括边界）
+        let xPositions = [0];
+        xPositions.push(...this.gridVerticalLines);
+        xPositions.push(1);
+        
+        // 计算横线位置（包括边界）
+        let yPositions = [0];
+        yPositions.push(...this.gridHorizontalLines);
+        yPositions.push(1);
+        
+        // 获取当前单元格的边界
+        const x1 = xPositions[col];
+        const x2 = xPositions[col + 1];
+        const y1 = yPositions[row];
+        const y2 = yPositions[row + 1];
+        
+        // 转换为图片坐标
+        return {
+            x: cropR.x + x1 * cropR.width,
+            y: cropR.y + y1 * cropR.height,
+            width: (x2 - x1) * cropR.width,
+            height: (y2 - y1) * cropR.height
+        };
+    }
+
+    /**
      * 绘制宫格单元格缩略图
      * @private
      * @param {HTMLCanvasElement} canvas - 目标画布
@@ -1366,10 +1668,9 @@ class CropApp {
     _drawGridCellThumb(canvas, row, col) {
         if (!this.image) return;
         const ctx = canvas.getContext('2d');
-        const cellW = this.image.width / this.gridCols;
-        const cellH = this.image.height / this.gridRows;
+        const cell = this._getGridCellBounds(row, col);
         ctx.drawImage(this.image,
-            col * cellW, row * cellH, cellW, cellH,
+            cell.x, cell.y, cell.width, cell.height,
             0, 0, canvas.width, canvas.height
         );
     }
@@ -1459,17 +1760,35 @@ class CropApp {
     }
 
     /**
-     * 导出全部宫格单元格
+     * 导出全部宫格单元格（压缩包形式）
      * @private
      */
-    _exportAllCells() {
+    async _exportAllCells() {
         if (!this.image || this.gridMode === 'none') return;
 
-        for (let row = 0; row < this.gridRows; row++) {
-            for (let col = 0; col < this.gridCols; col++) {
-                // 延时逐个下载，避免浏览器拦截多个下载
-                setTimeout(() => this._exportGridCell(row, col), (row * this.gridCols + col) * 200);
+        try {
+            const files = [];
+            
+            // 生成所有单元格的图像
+            for (let row = 0; row < this.gridRows; row++) {
+                for (let col = 0; col < this.gridCols; col++) {
+                    const blob = await this._getGridCellBlob(row, col);
+                    if (blob) {
+                        files.push({
+                            name: `grid_${row + 1}x${col + 1}.png`,
+                            blob: blob
+                        });
+                    }
+                }
             }
+            
+            // 创建压缩包并下载
+            const zipBlob = await createZip(files);
+            const zipName = `cropped_images_${Date.now()}.zip`;
+            this._downloadBlob(zipBlob, zipName);
+        } catch (error) {
+            console.error('Failed to export all cells:', error);
+            alert('批量下载失败，请重试');
         }
     }
 
@@ -1479,24 +1798,37 @@ class CropApp {
      * @param {number} row - 行索引
      * @param {number} col - 列索引
      */
-    _exportGridCell(row, col) {
+    async _exportGridCell(row, col) {
         if (!this.image) return;
+        const blob = await this._getGridCellBlob(row, col);
+        if (blob) {
+            this._downloadBlob(blob, `grid_${row + 1}x${col + 1}.png`);
+        }
+    }
 
-        const cellW = this.image.width / this.gridCols;
-        const cellH = this.image.height / this.gridRows;
-
-        const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = Math.round(cellW);
-        outputCanvas.height = Math.round(cellH);
-        const octx = outputCanvas.getContext('2d');
-        octx.drawImage(this.image,
-            Math.round(col * cellW), Math.round(row * cellH),
-            Math.round(cellW), Math.round(cellH),
-            0, 0,
-            Math.round(cellW), Math.round(cellH)
-        );
-
-        this._downloadCanvas(outputCanvas, `grid_${row + 1}x${col + 1}.png`);
+    /**
+     * 获取宫格单元格的Blob对象
+     * @private
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
+     * @returns {Promise<Blob>}
+     */
+    _getGridCellBlob(row, col) {
+        return new Promise((resolve) => {
+            const cell = this._getGridCellBounds(row, col);
+            
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = Math.round(cell.width);
+            outputCanvas.height = Math.round(cell.height);
+            const octx = outputCanvas.getContext('2d');
+            octx.drawImage(this.image,
+                cell.x, cell.y, cell.width, cell.height,
+                0, 0,
+                Math.round(cell.width), Math.round(cell.height)
+            );
+            
+            outputCanvas.toBlob(resolve, 'image/png');
+        });
     }
 
     /**
@@ -1508,15 +1840,25 @@ class CropApp {
     _downloadCanvas(canvas, filename) {
         canvas.toBlob(blob => {
             if (!blob) return;
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            this._downloadBlob(blob, filename);
         }, 'image/png');
+    }
+
+    /**
+     * 下载 Blob 对象
+     * @private
+     * @param {Blob} blob - Blob 对象
+     * @param {string} filename - 文件名
+     */
+    _downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     /**
