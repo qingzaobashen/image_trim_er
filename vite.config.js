@@ -15,10 +15,9 @@ function getHtmlInputs() {
         main: resolve(__dirname, 'index.html'),
     };
 
-    // 扫描 pages/ 下所有 HTML 文件（排除 articles 目录下包含未转义代码块的页面）
+    // 扫描 pages/ 下所有 HTML 文件作为多页面入口
     const pageFiles = globSync('pages/**/*.html', { cwd: __dirname });
     pageFiles.forEach((file) => {
-        if (file.includes('pages/articles/') || file.includes('pages\\articles\\')) return;
         const name = file.replace(/\.html$/, '').replace(/[\\/]/g, '_');
         inputs[name] = resolve(__dirname, file);
     });
