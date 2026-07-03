@@ -310,6 +310,20 @@ class App {
         this.edgeBrushAddModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('add'));
         this.edgeBrushSubtractModeBtn.addEventListener('click', () => this.handleEdgeBrushModeChange('subtract'));
 
+        this.inpaintingBrushSizeInput = document.getElementById('inpaintingBrushSize');
+        this.inpaintingBrushHardnessInput = document.getElementById('inpaintingBrushHardness');
+        this.inpaintingAlgorithmTeleaBtn = document.getElementById('inpaintingAlgorithmTelea');
+        this.inpaintingAlgorithmNsBtn = document.getElementById('inpaintingAlgorithmNs');
+        this.applyInpaintingBtn = document.getElementById('applyInpainting');
+        this.clearInpaintingBtn = document.getElementById('clearInpainting');
+
+        this.inpaintingBrushSizeInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.inpaintingBrushHardnessInput.addEventListener('input', (e) => this.updateParamValue(e));
+        this.inpaintingAlgorithmTeleaBtn.addEventListener('click', () => this.handleInpaintingAlgorithmChange('telea'));
+        this.inpaintingAlgorithmNsBtn.addEventListener('click', () => this.handleInpaintingAlgorithmChange('ns'));
+        this.applyInpaintingBtn.addEventListener('click', () => this.handleApplyInpainting());
+        this.clearInpaintingBtn.addEventListener('click', () => this.handleClearInpainting());
+
         this.overlayCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         
         this.canvasWrapper.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
@@ -693,6 +707,25 @@ class App {
             return;
         }
 
+        if (this.currentTool === 'inpainting') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            
+            const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
+            const x = canvasPos.x;
+            const y = canvasPos.y;
+            const scale = this.zoomManager.getScale();
+
+            const size = parseInt(this.inpaintingBrushSizeInput.value);
+            this.processor.setInpaintingSize(size);
+            const hardness = parseInt(this.inpaintingBrushHardnessInput.value);
+            this.processor.setInpaintingHardness(hardness);
+            
+            this.processor.startInpaintingDraw(x, y, scale);
+            return;
+        }
+
         if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
@@ -786,6 +819,20 @@ class App {
             return;
         }
 
+        if (this.currentTool === 'inpainting') {
+            const rect = this.canvasWrapper.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+
+            const canvasPos = this.zoomManager.screenToCanvas(screenX, screenY);
+            const x = canvasPos.x;
+            const y = canvasPos.y;
+            const scale = this.zoomManager.getScale();
+
+            this.processor.inpaintingDraw(x, y, scale);
+            return;
+        }
+
         if (this.currentTool !== 'brush' && this.currentTool !== 'shadowProcess' && !this.processor.isShadowBrushActive && !this.processor.isEdgeBrushActive) return;
 
         const rect = this.canvasWrapper.getBoundingClientRect();
@@ -842,6 +889,11 @@ class App {
                 return;
             }
             this.processor.finishShapeDrawing();
+            return;
+        }
+
+        if (this.currentTool === 'inpainting') {
+            this.processor.stopInpaintingDraw();
             return;
         }
 
@@ -1675,6 +1727,54 @@ class App {
                 this.hideLoading();
             }
         }, 10);
+    }
+
+    /**
+     * 处理修复算法切换
+     * @param {string} algorithm - 'telea' 或 'ns'
+     */
+    handleInpaintingAlgorithmChange(algorithm) {
+        this.inpaintingAlgorithmTeleaBtn.classList.toggle('active', algorithm === 'fast');
+        this.inpaintingAlgorithmNsBtn.classList.toggle('active', algorithm === 'highQuality');
+        this.processor.setInpaintingAlgorithm(algorithm);
+
+        const algorithmText = algorithm === 'fast' ? '快速修复' : '高质量修复';
+        this.showNotification(`修复算法：${algorithmText}`, 'info');
+    }
+
+    /**
+     * 处理应用修复
+     */
+    async handleApplyInpainting() {
+        if (!this.isImageLoaded) return;
+        if (this.isLoading) return;
+
+        this.showLoading('应用修复中...');
+
+        try {
+            const success = await this.processor.applyInpainting();
+
+            if (success) {
+                this.updateButtons();
+                this.showNotification('修复完成', 'success');
+            } else {
+                this.showNotification('请先在图片上涂抹需要修复的区域', 'warning');
+            }
+        } catch (error) {
+            console.error('修复失败:', error);
+            this.showNotification('修复失败', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * 处理清除修复绘制
+     */
+    handleClearInpainting() {
+        if (!this.isImageLoaded) return;
+        this.processor.clearInpainting();
+        this.showNotification('已清除绘制', 'info');
     }
 
     /**

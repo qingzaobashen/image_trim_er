@@ -12,6 +12,7 @@ import { RegionSelector } from './tools/regionSelector.js';
 import { EdgeSmoother } from './tools/edgeSmoother.js';
 import { ShadowProcessor } from './tools/shadowProcessor.js';
 import { EdgeBrushTool } from './tools/edgeBrush.js';
+import { InpaintingTool } from './tools/inpaintingTool.js';
 import { UndoRedoManager } from './utils/undoRedoManager.js';
 
 /**
@@ -51,6 +52,7 @@ export class ImageProcessor {
         this.edgeSmoother = new EdgeSmoother(mainCanvas);
         this.shadowProcessor = new ShadowProcessor(mainCanvas);
         this.edgeBrush = new EdgeBrushTool(mainCanvas, overlayCanvas);
+        this.inpaintingTool = new InpaintingTool(mainCanvas, overlayCanvas);
     }
 
     /**
@@ -1190,6 +1192,100 @@ export class ImageProcessor {
         this.showEdgeLines = false;
         this.edgeBrush.reset();
         this.renderSelection();
+    }
+
+    // ==================== 修复工具方法 ====================
+
+    /**
+     * 设置修复画笔大小
+     * @param {number} size - 画笔大小 (5-100)
+     */
+    setInpaintingSize(size) {
+        this.inpaintingTool.setSize(size);
+    }
+
+    /**
+     * 设置修复画笔硬度
+     * @param {number} hardness - 硬度值 (0-100)
+     */
+    setInpaintingHardness(hardness) {
+        this.inpaintingTool.setHardness(hardness);
+    }
+
+    /**
+     * 设置修复算法
+     * @param {string} algorithm - 'telea' 或 'ns'
+     */
+    setInpaintingAlgorithm(algorithm) {
+        this.inpaintingTool.setAlgorithm(algorithm);
+    }
+
+    /**
+     * 开始修复绘制
+     * @param {number} x - X坐标（canvas坐标）
+     * @param {number} y - Y坐标（canvas坐标）
+     * @param {number} scale - 当前缩放比例
+     */
+    startInpaintingDraw(x, y, scale = 1) {
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        this.inpaintingTool.startDrawing(x, y, scale);
+    }
+
+    /**
+     * 修复绘制中
+     * @param {number} x - X坐标（canvas坐标）
+     * @param {number} y - Y坐标（canvas坐标）
+     * @param {number} scale - 当前缩放比例
+     */
+    inpaintingDraw(x, y, scale = 1) {
+        this.inpaintingTool.draw(x, y, scale);
+    }
+
+    /**
+     * 停止修复绘制
+     */
+    stopInpaintingDraw() {
+        this.inpaintingTool.stopDrawing();
+    }
+
+    /**
+     * 应用修复效果
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async applyInpainting() {
+        const mask = this.inpaintingTool.getInpaintMask();
+        const success = await this.inpaintingTool.applyInpainting(mask);
+        if (success) {
+            this.saveToHistory(true, 'inpainting');
+            this.inpaintingTool.clear();
+        }
+        return success;
+    }
+
+    /**
+     * 清除修复绘制
+     */
+    clearInpainting() {
+        this.inpaintingTool.clear();
+    }
+
+    /**
+     * 绘制修复光标
+     * @param {CanvasRenderingContext2D} ctx - Canvas上下文
+     * @param {number} x - X坐标
+     * @param {number} y - Y坐标
+     * @param {number} scale - 当前缩放比例
+     */
+    drawInpaintingCursor(ctx, x, y, scale = 1) {
+        this.inpaintingTool.drawCursor(ctx, x, y, scale);
+    }
+
+    /**
+     * 检查OpenCV.js是否已加载
+     * @returns {boolean}
+     */
+    isOpenCVReady() {
+        return this.inpaintingTool.isOpenCVReady();
     }
 
     /**

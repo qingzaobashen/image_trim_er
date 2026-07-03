@@ -183,6 +183,21 @@ export default {
         selectionInfo2: '• Pink = shadow semi-transparent area',
         selectionInfo3: '• Cyan line = edge contour',
 
+        /** AI Inpainting params */
+        inpainting: 'AI Inpainting',
+        inpaintingBrushSize: 'Brush Size',
+        inpaintingBrushHardness: 'Brush Hardness',
+        inpaintingAlgorithm: 'Algorithm',
+        inpaintingTelea: 'Fast',
+        inpaintingNs: 'High Quality',
+        applyInpainting: 'Apply Inpainting',
+        clearInpainting: 'Clear Drawing',
+        inpaintingHintTitle: 'Tips:',
+        inpaintingHint1: '• Paint over areas that need repairing',
+        inpaintingHint2: '• Click "Apply Inpainting" to process',
+        inpaintingHint3: '• Fast: quick processing for simple cases',
+        inpaintingHint4: '• High Quality: better results but slower',
+
         /** Operation buttons */
         clearSelection: 'Clear Selection',
         invertSelection: 'Invert Selection',

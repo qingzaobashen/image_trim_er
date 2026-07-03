@@ -183,6 +183,21 @@ export default {
         selectionInfo2: '• 粉色 = 阴影半透明区域',
         selectionInfo3: '• 青色细线 = 边缘轮廓',
 
+        /** AI修复参数 */
+        inpainting: 'AI修复',
+        inpaintingBrushSize: '画笔大小',
+        inpaintingBrushHardness: '画笔硬度',
+        inpaintingAlgorithm: '修复算法',
+        inpaintingTelea: '快速修复',
+        inpaintingNs: '高质量',
+        applyInpainting: '应用修复',
+        clearInpainting: '清除绘制',
+        inpaintingHintTitle: '提示：',
+        inpaintingHint1: '• 使用画笔涂抹需要修复的区域',
+        inpaintingHint2: '• 点击"应用修复"执行AI修复',
+        inpaintingHint3: '• 快速修复：速度快，适合简单场景',
+        inpaintingHint4: '• 高质量：效果更好，但处理较慢',
+
         /** 操作按钮 */
         clearSelection: '清除选区',
         invertSelection: '反选',
