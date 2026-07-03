@@ -1166,7 +1166,7 @@ export default {
         summaryDoneWithError: '完成，{error} 张失败',
         summaryDone: '全部完成',
         invalidType: '请选择 JPG、PNG 或 WebP 格式的图片',
-        exceedLimit: '批量模式最多 {max} 张，超出的图片已忽略',
+        exceedLimit: '最多 {max} 张，请先移除现有图片或切换至批量模式',
         decodeFailed: '图片解码失败',
         restoreTooLarge: '压缩结果超过 2MB，无法直接传回抠图工具；已下载压缩后的文件，请到抠图工具中手动加载。',
         restoreFailed: '传递到抠图工具失败，已下载压缩后的文件',

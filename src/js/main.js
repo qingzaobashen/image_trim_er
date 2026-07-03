@@ -1289,8 +1289,6 @@ class App {
         const result = this.processor.removeSmallRegionsFromSelection(minArea);
         
         this.updateButtons();
-        this.currentTool = 'smartCut';
-        this.handleToolSelect('smartCut');
         this.showNotification(
             `已选噪点：${result.removedSelectedRegions}个区域/${result.removedSelectedPixels}像素；未选噪点：${result.removedUnselectedRegions}个区域/${result.removedUnselectedPixels}像素`,
             'success'
@@ -1309,8 +1307,6 @@ class App {
         const result = this.processor.removeSmallRegions(minArea);
         
         this.updateButtons();
-        this.currentTool = 'smartCut';
-        this.handleToolSelect('smartCut');
         this.showNotification(
             `透明噪点：${result.removedOpaqueRegions}个区域/${result.removedOpaquePixels}像素；不透明噪点：${result.removedTransparentRegions}个区域/${result.removedTransparentPixels}像素`,
             'success'
