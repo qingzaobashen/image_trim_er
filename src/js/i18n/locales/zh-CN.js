@@ -109,6 +109,8 @@ export default {
         brushHintAdd: '• 添加模式：涂抹添加选区',
         brushHintSubtract: '• 减去模式：涂抹减去选区',
         brushHintAlt: '• 按住 Alt 键临时切换模式',
+        brushEraseCut: '恢复已抠区域',
+        brushEraseCutHelp: '减去模式下勾选后，画笔将涂抹到的任意位置从原图恢复为不透明，把已抠（透明）区域还原成原图，不限制在选区内。',
 
         /** 形状抠图参数 */
         shapeType: '形状类型',

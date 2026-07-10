@@ -440,12 +440,14 @@ export class ImageProcessor {
      * @param {number} hardness - 画笔硬度
      * @param {string} mode - 模式
      * @param {number} scale - 当前缩放比例
+     * @param {boolean} eraseCut - 是否开启"擦除已抠"（仅在 subtract 模式下生效）
      */
-    startBrushDrawing(x, y, size = 20, hardness = 50, mode = 'add', scale = 1) {
+    startBrushDrawing(x, y, size = 20, hardness = 50, mode = 'add', scale = 1, eraseCut = false) {
         const canvasSize = size / scale;
         this.brushTool.setSize(canvasSize);
         this.brushTool.setHardness(hardness);
         this.brushTool.setMode(mode);
+        this.brushTool.setEraseCut(eraseCut);
         this.brushTool.startDrawing(x, y);
     }
 
@@ -465,13 +467,56 @@ export class ImageProcessor {
     stopBrushDrawing() {
         this.brushTool.stopDrawing();
         const brushMask = this.brushTool.getBrushMask();
-        
+
+        // "擦除已抠"模式：在减去模式下，将画笔涂抹到的任意位置从原始图片备份中
+        // 恢复为不透明，等效于把已抠（透明）区域恢复成原图，不限是否在选区内
+        if (this.brushTool.mode === 'subtract' && this.brushTool.eraseCut) {
+            this._restoreCutRegion(brushMask);
+            this.brushTool.clear();
+            this.renderSelection();
+            // 图像像素已变更，需以 imageChanged=true 入账，保证可撤销/重做
+            this.saveToHistory(true, 'restoreCut', { size: this.brushTool.size, hardness: this.brushTool.hardness });
+            return;
+        }
+
         this.currentMask = this.brushTool.applyToMask(this.currentMask, brushMask);
         const mode = this.brushTool.mode === 'add' ? 'brush' : 'erase';
-        
+
         this.brushTool.clear();
         this.renderSelection();
         this.saveToHistory(false, mode, { size: this.brushTool.size, hardness: this.brushTool.hardness });
+    }
+
+    /**
+     * 恢复已抠区域（擦除已抠）
+     * 画笔"减去 + 擦除已抠"模式下，将涂抹到的任意位置从原始图片备份
+     * （originImgBackup）恢复为不透明像素，并把该位置标记为保留（mask 置 0）。
+     * 用于把已抠（透明）区域恢复成原始不透明图像；不限制在选区内，任意位置均可。
+     * @param {Uint8ClampedArray} brushMask - 画笔蒙版（255 表示涂抹到的像素）
+     * @private
+     */
+    _restoreCutRegion(brushMask) {
+        this._ensureOriginImgBackup();
+        if (!this.originImgBackup) return;
+
+        const imageData = canvasUtils.getImageData(this.mainCanvas);
+        const data = imageData.data;
+        const backup = this.originImgBackup;
+        const mask = this.currentMask;
+
+        for (let i = 0; i < brushMask.length; i++) {
+            if (brushMask[i] !== 255) continue;
+            // 任意位置：用原始备份像素恢复为不透明（恢复已抠区域）
+            const pi = i * 4;
+            data[pi] = backup[pi];
+            data[pi + 1] = backup[pi + 1];
+            data[pi + 2] = backup[pi + 2];
+            data[pi + 3] = 255;
+            // 该位置视为保留/前景，从背景（已抠）选区中移除
+            if (mask) mask[i] = 0;
+        }
+
+        canvasUtils.putImageData(this.mainCanvas, imageData);
     }
 
     /**

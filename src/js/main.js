@@ -19,6 +19,8 @@ class App {
         this.zoomManager = null;
         this.currentTool = 'smartCut';
         this.brushMode = 'add';
+        /** @type {boolean} 画笔"擦除已抠"开关（仅在减去模式下生效） */
+        this.brushEraseCut = false;
         this.isImageLoaded = false;
         this.isLoading = false;
     }
@@ -145,6 +147,8 @@ class App {
         this.brushHardnessInput = document.getElementById('brushHardness');
         this.brushAddModeBtn = document.getElementById('brushAddMode');
         this.brushSubtractModeBtn = document.getElementById('brushSubtractMode');
+        this.brushEraseCutItem = document.getElementById('brushEraseCutItem');
+        this.brushEraseCutCheckbox = document.getElementById('brushEraseCut');
 
         this.shapeButtons = document.querySelectorAll('.shape-btn');
 
@@ -260,6 +264,12 @@ class App {
 
         this.brushAddModeBtn.addEventListener('click', () => this.handleBrushModeChange('add'));
         this.brushSubtractModeBtn.addEventListener('click', () => this.handleBrushModeChange('subtract'));
+
+        if (this.brushEraseCutCheckbox) {
+            this.brushEraseCutCheckbox.addEventListener('change', (e) => {
+                this.brushEraseCut = e.target.checked;
+            });
+        }
 
         this.shapeButtons.forEach(btn => {
             btn.addEventListener('click', () => this.handleShapeSelect(btn.dataset.shape));
@@ -634,6 +644,12 @@ class App {
             group.classList.toggle('active', group.dataset.tool === tool);
         });
 
+        // 仅在画笔工具 + 减去模式下显示"擦除已抠"选项
+        if (this.brushEraseCutItem) {
+            this.brushEraseCutItem.style.display =
+                (tool === 'brush' && this.brushMode === 'subtract') ? '' : 'none';
+        }
+
         // 切换工具时收起边缘线显示，避免在其他工具操作时青线持续渲染
         if (this.processor && typeof this.processor.setShowEdgeLines === 'function') {
             this.processor.setShowEdgeLines(false);
@@ -667,6 +683,11 @@ class App {
 
         this.brushAddModeBtn.classList.toggle('active', mode === 'add');
         this.brushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
+
+        // 仅在"减去"模式下显示"擦除已抠"选项
+        if (this.brushEraseCutItem) {
+            this.brushEraseCutItem.style.display = mode === 'subtract' ? '' : 'none';
+        }
 
         const key = mode === 'add' ? 'notifications.brushModeAdd' : 'notifications.brushModeSubtract';
         this.showNotification(i18n.t(key), 'info');
@@ -847,7 +868,7 @@ class App {
         const mode = e.altKey ? (this.brushMode === 'add' ? 'subtract' : 'add') : this.brushMode;
         const scale = this.zoomManager.getScale();
 
-        this.processor.startBrushDrawing(x, y, size, hardness, mode, scale);
+        this.processor.startBrushDrawing(x, y, size, hardness, mode, scale, this.brushEraseCut);
     }
 
     /**

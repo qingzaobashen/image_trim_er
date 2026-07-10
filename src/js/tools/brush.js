@@ -35,6 +35,8 @@ export class BrushTool {
         this.lastX = 0;
         this.lastY = 0;
         this.mode = 'add';
+        /** @type {boolean} 擦除已抠：减去模式下是否将涂抹位置恢复为原始不透明像素（恢复已抠区域） */
+        this.eraseCut = false;
     }
 
     /**
@@ -70,6 +72,16 @@ export class BrushTool {
      */
     setMode(mode) {
         this.mode = mode;
+    }
+
+    /**
+     * 设置"擦除已抠"开关
+     * 仅在 subtract 模式下，勾选后画笔会把涂抹到的任意位置从原始图片中
+     * 恢复为不透明，用于把已抠（透明）区域恢复成原图
+     * @param {boolean} value - 是否开启擦除已抠
+     */
+    setEraseCut(value) {
+        this.eraseCut = !!value;
     }
 
     /**

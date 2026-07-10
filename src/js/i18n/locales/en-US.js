@@ -109,6 +109,8 @@ export default {
         brushHintAdd: '• Add mode: paint to add selection',
         brushHintSubtract: '• Subtract mode: paint to remove selection',
         brushHintAlt: '• Hold Alt to temporarily switch mode',
+        brushEraseCut: 'Erase cut-out area',
+        brushEraseCutHelp: 'When enabled in Subtract mode, the brush restores any painted area to the original opaque image from the backup, recovering cut-out (transparent) regions to their original pixels. Not limited to the selection.',
 
         /** Shape cut params */
         shapeType: 'Shape Type',
