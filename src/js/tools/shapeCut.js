@@ -30,6 +30,13 @@ export class ShapeCutTool {
         this.transformManager = new SelectionTransformManager(overlayCanvas);
         this.lastMask = null;
         this.lastBounds = null;
+
+        /** 多边形边数（3-12） */
+        this.polygonSides = 6;
+        /** 多边形归一化顶点（相对包围盒 0..1），绘制完成后填充 */
+        this.polygonNormVerts = null;
+        /** 正在拖拽的多边形顶点索引，-1 表示无 */
+        this.draggingVertex = -1;
     }
 
     /**
@@ -38,6 +45,8 @@ export class ShapeCutTool {
      */
     setShapeType(type) {
         this.shapeType = type;
+        this.polygonNormVerts = null;
+        this.draggingVertex = -1;
     }
 
     /**
@@ -48,6 +57,8 @@ export class ShapeCutTool {
     startDrawing(x, y) {
         this.transformManager.clear();
         this.isDrawing = true;
+        this.polygonNormVerts = null;
+        this.draggingVertex = -1;
         this.startX = x;
         this.startY = y;
         this.currentX = x;
@@ -82,9 +93,14 @@ export class ShapeCutTool {
             return null;
         }
 
-        this.lastMask = this.createShapeMask();
         this.lastBounds = bounds;
 
+        // 多边形：根据包围盒生成正多边形归一化顶点
+        if (this.shapeType === 'polygon') {
+            this.polygonNormVerts = this._computePolygonNormVerts(bounds);
+        }
+
+        this.lastMask = this.createShapeMask();
         this.transformManager.setSelectionBounds(bounds);
 
         return {
@@ -115,6 +131,35 @@ export class ShapeCutTool {
         const width = this.mainCanvas.width;
         const height = this.mainCanvas.height;
         const mask = new Uint8ClampedArray(width * height);
+
+        // 多边形：按新包围盒重算归一化顶点对应的绝对多边形
+        if (this.shapeType === 'polygon') {
+            const verts = this.getPolygonAbsoluteVerts(newBounds);
+            if (verts.length > 0) {
+                // 仅遍历多边形外接框，避免全图扫描
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const v of verts) {
+                    minX = Math.min(minX, v.x);
+                    minY = Math.min(minY, v.y);
+                    maxX = Math.max(maxX, v.x);
+                    maxY = Math.max(maxY, v.y);
+                }
+                const x0 = Math.max(0, Math.floor(minX));
+                const y0 = Math.max(0, Math.floor(minY));
+                const x1 = Math.min(width - 1, Math.ceil(maxX));
+                const y1 = Math.min(height - 1, Math.ceil(maxY));
+                for (let py = y0; py <= y1; py++) {
+                    for (let px = x0; px <= x1; px++) {
+                        if (this.isPointInPolygon(px, py, verts)) {
+                            mask[py * width + px] = 255;
+                        }
+                    }
+                }
+            }
+            this.lastMask = mask;
+            this.lastBounds = newBounds;
+            return mask;
+        }
 
         const shapeWidth = newBounds.width;
         const shapeHeight = newBounds.height;
@@ -209,6 +254,9 @@ export class ShapeCutTool {
                 break;
             case 'heart':
                 this.drawHeart(this.startX, this.startY, width, height);
+                break;
+            case 'polygon':
+                this.drawPolygonPreview(this.startX, this.startY, width, height);
                 break;
         }
         
@@ -382,6 +430,36 @@ export class ShapeCutTool {
     }
 
     /**
+     * 绘制多边形预览（正多边形，由拖拽包围盒推导）
+     * @param {number} x - 起始X
+     * @param {number} y - 起始Y
+     * @param {number} width - 宽度
+     * @param {number} height - 高度
+     */
+    drawPolygonPreview(x, y, width, height) {
+        const bounds = {
+            x: width >= 0 ? x : x + width,
+            y: height >= 0 ? y : y + height,
+            width: Math.abs(width),
+            height: Math.abs(height)
+        };
+        const verts = this._computePolygonVerts(bounds, this.polygonSides);
+        const ctx = this.ctx;
+        if (verts.length === 0) return;
+        ctx.beginPath();
+        ctx.moveTo(verts[0].x, verts[0].y);
+        for (let i = 1; i < verts.length; i++) {
+            ctx.lineTo(verts[i].x, verts[i].y);
+        }
+        ctx.closePath();
+
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#6366f1';
+        const label = `${this.polygonSides} 边形`;
+        ctx.fillText(label, bounds.x + bounds.width / 2 - 20, bounds.y - 10);
+    }
+
+    /**
      * 创建形状蒙版
      * @returns {Uint8ClampedArray} 蒙版数据
      */
@@ -428,6 +506,8 @@ export class ShapeCutTool {
                 return this.isPointInStar(px, py, x, y, width, height);
             case 'heart':
                 return this.isPointInHeart(px, py, x, y, width, height);
+            case 'polygon':
+                return this.isPointInPolygon(px, py, this.getPolygonAbsoluteVerts(this._getCurrentBounds()));
             default:
                 return false;
         }
@@ -627,5 +707,202 @@ export class ShapeCutTool {
         const heartEquation = Math.pow(dx * dx + dy * dy - 1, 3) - dx * dx * dy * dy * dy;
 
         return heartEquation <= 0;
+    }
+
+    /**
+     * 设置多边形边数（3-12）
+     * @param {number} sides - 边数
+     */
+    setPolygonSides(sides) {
+        this.polygonSides = Math.max(3, Math.min(12, parseInt(sides) || 6));
+    }
+
+    /**
+     * 获取当前绘制边界：绘制中取实时拖拽框，否则取已完成边界
+     * @returns {Object|null}
+     */
+    _getCurrentBounds() {
+        return this.isDrawing ? this.getSelectionBounds() : this.lastBounds;
+    }
+
+    /**
+     * 根据包围盒与边数计算正多边形绝对顶点
+     * @param {Object} bounds - 包围盒 {x, y, width, height}
+     * @param {number} sides - 边数
+     * @returns {Array<{x:number, y:number}>}
+     */
+    _computePolygonVerts(bounds, sides) {
+        const cx = bounds.x + bounds.width / 2;
+        const cy = bounds.y + bounds.height / 2;
+        const radius = Math.min(bounds.width, bounds.height) / 2;
+        const verts = [];
+        for (let i = 0; i < sides; i++) {
+            const angle = -Math.PI / 2 + (i * 2 * Math.PI) / sides;
+            verts.push({
+                x: cx + radius * Math.cos(angle),
+                y: cy + radius * Math.sin(angle)
+            });
+        }
+        return verts;
+    }
+
+    /**
+     * 根据包围盒计算正多边形的归一化顶点（0..1，相对包围盒）
+     * @param {Object} bounds - 包围盒
+     * @returns {Array<{nx:number, ny:number}>}
+     */
+    _computePolygonNormVerts(bounds) {
+        const verts = this._computePolygonVerts(bounds, this.polygonSides);
+        return verts.map(v => ({
+            nx: (v.x - bounds.x) / bounds.width,
+            ny: (v.y - bounds.y) / bounds.height
+        }));
+    }
+
+    /**
+     * 由归一化顶点与给定包围盒计算绝对顶点
+     * @param {Object} bounds - 包围盒
+     * @returns {Array<{x:number, y:number}>}
+     */
+    getPolygonAbsoluteVerts(bounds) {
+        if (!this.polygonNormVerts || !bounds) return [];
+        return this.polygonNormVerts.map(v => ({
+            x: bounds.x + v.nx * bounds.width,
+            y: bounds.y + v.ny * bounds.height
+        }));
+    }
+
+    /**
+     * 射线法判断点是否在多边形内
+     * @param {number} px - 点X坐标
+     * @param {number} py - 点Y坐标
+     * @param {Array<{x:number, y:number}>} verts - 多边形绝对顶点
+     * @returns {boolean}
+     */
+    isPointInPolygon(px, py, verts) {
+        let inside = false;
+        for (let i = 0, j = verts.length - 1; i < verts.length; j = i++) {
+            const xi = verts[i].x, yi = verts[i].y;
+            const xj = verts[j].x, yj = verts[j].y;
+            const intersect = ((yi > py) !== (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    /**
+     * 命中测试多边形顶点，返回顶点索引，未命中返回 -1
+     * @param {number} mx - 鼠标X坐标
+     * @param {number} my - 鼠标Y坐标
+     * @returns {number}
+     */
+    hitTestVertex(mx, my) {
+        if (!this.polygonNormVerts) return -1;
+        const bounds = this.transformManager.getSelectionBounds();
+        if (!bounds) return -1;
+        const verts = this.getPolygonAbsoluteVerts(bounds);
+        const hitRadius = 12;
+        for (let i = 0; i < verts.length; i++) {
+            const dx = mx - verts[i].x;
+            const dy = my - verts[i].y;
+            if (dx * dx + dy * dy <= hitRadius * hitRadius) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * 开始拖拽指定多边形顶点
+     * @param {number} index - 顶点索引
+     */
+    startVertexDrag(index) {
+        this.draggingVertex = index;
+    }
+
+    /**
+     * 更新被拖拽顶点位置（写入归一化坐标）
+     * @param {number} mx - 鼠标X坐标
+     * @param {number} my - 鼠标Y坐标
+     */
+    updateVertexDrag(mx, my) {
+        if (this.draggingVertex < 0 || !this.polygonNormVerts) return;
+        const bounds = this.transformManager.getSelectionBounds();
+        if (!bounds) return;
+        const nx = (mx - bounds.x) / bounds.width;
+        const ny = (my - bounds.y) / bounds.height;
+        this.polygonNormVerts[this.draggingVertex] = {
+            nx: Math.max(0, Math.min(1, nx)),
+            ny: Math.max(0, Math.min(1, ny))
+        };
+    }
+
+    /**
+     * 结束顶点拖拽
+     */
+    endVertexDrag() {
+        this.draggingVertex = -1;
+    }
+
+    /**
+     * 是否正在拖拽顶点
+     * @returns {boolean}
+     */
+    isVertexDragging() {
+        return this.draggingVertex >= 0;
+    }
+
+    /**
+     * 多边形是否处于已绘制（激活）状态
+     * @returns {boolean}
+     */
+    isPolygonActive() {
+        return this.shapeType === 'polygon' && this.polygonNormVerts !== null;
+    }
+
+    /**
+     * 绘制当前选区：多边形绘制轮廓与可拖拽顶点，其它形状沿用变换管理器
+     */
+    drawSelection() {
+        if (this.isPolygonActive()) {
+            this.drawPolygonOverlay(this.transformManager.getSelectionBounds());
+        } else {
+            this.transformManager.draw();
+        }
+    }
+
+    /**
+     * 在覆盖层绘制多边形轮廓与顶点控制点
+     * @param {Object} bounds - 包围盒
+     */
+    drawPolygonOverlay(bounds) {
+        canvasUtils.clearCanvas(this.overlayCanvas);
+        if (!bounds) return;
+        const verts = this.getPolygonAbsoluteVerts(bounds);
+        if (verts.length === 0) return;
+
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(verts[0].x, verts[0].y);
+        for (let i = 1; i < verts.length; i++) {
+            ctx.lineTo(verts[i].x, verts[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 顶点控制点
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#6366f1';
+        for (const v of verts) {
+            ctx.beginPath();
+            ctx.arc(v.x, v.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
     }
 }

@@ -265,7 +265,7 @@ export class ImageProcessor {
         if (result && result.mask) {
             this.currentMask = result.mask;
             this.renderSelection();
-            this.shapeCutTool.getTransformManager().draw();
+            this.shapeCutTool.drawSelection();
             this.saveToHistory(false, 'shape');
             return true;
         }
@@ -312,9 +312,70 @@ export class ImageProcessor {
         if (mask) {
             this.currentMask = mask;
             this.renderSelection();
-            this.shapeCutTool.getTransformManager().draw();
+            this.shapeCutTool.drawSelection();
         }
         return mask;
+    }
+
+    /**
+     * 设置多边形边数
+     * @param {number} sides - 边数
+     */
+    setPolygonSides(sides) {
+        this.shapeCutTool.setPolygonSides(sides);
+    }
+
+    /**
+     * 多边形是否处于激活（已绘制）状态
+     * @returns {boolean}
+     */
+    isPolygonActive() {
+        return this.shapeCutTool.isPolygonActive();
+    }
+
+    /**
+     * 命中测试多边形顶点
+     * @param {number} x - 鼠标X坐标
+     * @param {number} y - 鼠标Y坐标
+     * @returns {number} 顶点索引，-1 表示未命中
+     */
+    hitPolygonVertex(x, y) {
+        return this.shapeCutTool.hitTestVertex(x, y);
+    }
+
+    /**
+     * 开始拖拽多边形顶点
+     * @param {number} index - 顶点索引
+     * @param {number} x - 鼠标X坐标
+     * @param {number} y - 鼠标Y坐标
+     */
+    startPolygonVertexDrag(index, x, y) {
+        this.shapeCutTool.startVertexDrag(index);
+        this.shapeCutTool.updateVertexDrag(x, y);
+    }
+
+    /**
+     * 更新被拖拽多边形顶点位置
+     * @param {number} x - 鼠标X坐标
+     * @param {number} y - 鼠标Y坐标
+     */
+    updatePolygonVertexDrag(x, y) {
+        this.shapeCutTool.updateVertexDrag(x, y);
+    }
+
+    /**
+     * 结束多边形顶点拖拽
+     */
+    endPolygonVertexDrag() {
+        this.shapeCutTool.endVertexDrag();
+    }
+
+    /**
+     * 是否正在拖拽多边形顶点
+     * @returns {boolean}
+     */
+    isPolygonVertexDragging() {
+        return this.shapeCutTool.isVertexDragging();
     }
 
     /**

@@ -148,6 +148,12 @@ class App {
 
         this.shapeButtons = document.querySelectorAll('.shape-btn');
 
+        // 多边形边数控制
+        this.polygonSidesParams = document.getElementById('polygonSidesParams');
+        this.polygonSidesSlider = document.getElementById('polygonSidesSlider');
+        this.polygonSidesValue = document.getElementById('polygonSidesValue');
+
+
         this.minAreaThresholdInput = document.getElementById('minAreaThreshold');
         this.removeSmallRegionsBtn = document.getElementById('removeSmallRegionsBtn');
         this.boxDenoiseBtn = document.getElementById('boxDenoiseBtn');
@@ -236,6 +242,8 @@ class App {
     initEventListeners() {
         this.uploadBtn.addEventListener('click', () => this.fileInput.click());
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        // 粘贴上传：从剪贴板直接导入图片（Ctrl+V）
+        document.addEventListener('paste', (e) => this.handlePaste(e));
 
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.redoBtn.addEventListener('click', () => this.handleRedo());
@@ -282,6 +290,18 @@ class App {
                 }
             });
         }
+
+        // 多边形边数滑块：调整实时同步到处理器
+        if (this.polygonSidesSlider) {
+            this.polygonSidesSlider.addEventListener('input', (e) => {
+                const sides = parseInt(e.target.value);
+                if (this.polygonSidesValue) {
+                    this.polygonSidesValue.textContent = sides;
+                }
+                this.processor.setPolygonSides(sides);
+            });
+        }
+
 
         this.shadowIntensityInput.addEventListener('input', (e) => this.updateParamValue(e));
         this.shadowMaxDistanceInput.addEventListener('input', (e) => this.updateParamValue(e));
@@ -481,6 +501,43 @@ class App {
             return;
         }
 
+        await this.loadImageFile(file);
+    }
+
+    /**
+     * 处理剪贴板粘贴（Ctrl+V）
+     * 当剪贴板包含图片时，直接作为待处理图片加载
+     * @param {ClipboardEvent} e - 粘贴事件
+     */
+    handlePaste(e) {
+        if (this.isLoading) return;
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData || !clipboardData.items) return;
+
+        let file = null;
+        for (const item of clipboardData.items) {
+            if (item.type && item.type.startsWith('image/')) {
+                file = item.getAsFile();
+                break;
+            }
+        }
+
+        if (file) {
+            e.preventDefault();
+            this.loadImageFile(file);
+        }
+    }
+
+    /**
+     * 加载并渲染图片文件（文件选择/粘贴共用）
+     * @param {File} file - 图片文件
+     */
+    async loadImageFile(file) {
+        if (!file.type.startsWith('image/')) {
+            alert(i18n.t('notifications.selectImageFile'));
+            return;
+        }
+
         try {
             this.showLoading(i18n.t('loading.loadingImage'));
 
@@ -491,7 +548,7 @@ class App {
             this.isImageLoaded = true;
             this.updateButtons();
             this.resetBtn.style.display = 'inline-flex';
-            
+
             setTimeout(() => {
                 this.zoomManager.fitToWindow();
             }, 100);
@@ -611,8 +668,8 @@ class App {
         this.brushAddModeBtn.classList.toggle('active', mode === 'add');
         this.brushSubtractModeBtn.classList.toggle('active', mode === 'subtract');
 
-        const modeText = mode === 'add' ? '添加选区' : '取消选区';
-        this.showNotification(`画笔模式：${modeText}`, 'info');
+        const key = mode === 'add' ? 'notifications.brushModeAdd' : 'notifications.brushModeSubtract';
+        this.showNotification(i18n.t(key), 'info');
     }
 
     /**
@@ -624,6 +681,15 @@ class App {
             btn.classList.toggle('active', btn.dataset.shape === shape);
         });
         this.processor.setShapeType(shape);
+
+        // 仅多边形显示边数滑块，并同步当前边数到处理器
+        const isPolygon = shape === 'polygon';
+        if (this.polygonSidesParams) {
+            this.polygonSidesParams.style.display = isPolygon ? '' : 'none';
+        }
+        if (isPolygon && this.polygonSidesSlider) {
+            this.processor.setPolygonSides(parseInt(this.polygonSidesSlider.value));
+        }
     }
 
     /**
@@ -696,6 +762,16 @@ class App {
             const y = canvasPos.y;
 
             const transformManager = this.processor.getShapeTransformManager();
+
+            // 多边形：命中顶点则进入顶点拖拽（优先于整体移动）
+            if (this.processor.isPolygonActive()) {
+                const vertexIndex = this.processor.hitPolygonVertex(x, y);
+                if (vertexIndex >= 0) {
+                    this.processor.startPolygonVertexDrag(vertexIndex, x, y);
+                    return;
+                }
+            }
+
             if (transformManager.isSelectionActive()) {
                 if (transformManager.startDrag(x, y)) {
                     return;
@@ -801,6 +877,13 @@ class App {
 
             const transformManager = this.processor.getShapeTransformManager();
 
+            // 多边形：拖拽顶点时实时更新蒙版
+            if (this.processor.isPolygonVertexDragging()) {
+                this.processor.updatePolygonVertexDrag(x, y);
+                this.processor.updateShapeMaskFromBounds(transformManager.getSelectionBounds());
+                return;
+            }
+
             if (transformManager.isCurrentlyDragging()) {
                 const newBounds = transformManager.updateDrag(x, y, e.shiftKey);
                 if (newBounds) {
@@ -811,7 +894,12 @@ class App {
 
             if (transformManager.isSelectionActive()) {
                 const handleType = transformManager.hitTest(x, y);
-                this.overlayCanvas.style.cursor = transformManager.getCursor(handleType);
+                // 多边形激活时，命中顶点则显示可拖拽光标
+                if (this.processor.isPolygonActive() && this.processor.hitPolygonVertex(x, y) >= 0) {
+                    this.overlayCanvas.style.cursor = 'pointer';
+                } else {
+                    this.overlayCanvas.style.cursor = transformManager.getCursor(handleType);
+                }
                 return;
             }
 
@@ -881,6 +969,15 @@ class App {
 
         if (this.currentTool === 'shapeCut') {
             const transformManager = this.processor.getShapeTransformManager();
+
+            // 多边形顶点拖拽结束：重算蒙版并保存历史
+            if (this.processor.isPolygonVertexDragging()) {
+                this.processor.endPolygonVertexDrag();
+                this.processor.updateShapeMaskFromBounds(transformManager.getSelectionBounds());
+                this.updateButtons();
+                return;
+            }
+
             if (transformManager.isCurrentlyDragging()) {
                 const finalBounds = transformManager.endDrag();
                 if (finalBounds) {
@@ -934,9 +1031,9 @@ class App {
         
         if (success) {
             this.updateButtons();
-            this.showNotification('已撤销最后一次选择', 'info');
+            this.showNotification(i18n.t('notifications.undoSuccess'), 'info');
         } else {
-            this.showNotification('没有可撤销的选择', 'warning');
+            this.showNotification(i18n.t('notifications.undoEmpty'), 'warning');
         }
     }
 
@@ -950,9 +1047,9 @@ class App {
         
         if (success) {
             this.updateButtons();
-            this.showNotification('已删除选中区域', 'success');
+            this.showNotification(i18n.t('notifications.deleteSuccess'), 'success');
         } else {
-            this.showNotification('没有选中的区域', 'warning');
+            this.showNotification(i18n.t('notifications.deleteEmpty'), 'warning');
         }
     }
 
@@ -1048,7 +1145,7 @@ class App {
         });
         this.paramGroups[0].classList.add('active');
         
-        this.showNotification('正在打开文件选择器...', 'info');
+        this.showNotification(i18n.t('notifications.openingFilePicker'), 'info');
         
         setTimeout(() => {
             this.fileInput.click();
@@ -1341,9 +1438,14 @@ class App {
         const result = this.processor.removeSmallRegionsFromSelection(minArea);
         
         this.updateButtons();
-        this.showNotification(
-            `已选噪点：${result.removedSelectedRegions}个区域/${result.removedSelectedPixels}像素；未选噪点：${result.removedUnselectedRegions}个区域/${result.removedUnselectedPixels}像素`,
-            'success'
+            this.showNotification(
+                i18n.t('notifications.selectionDenoiseDone', {
+                    selectedRegions: result.removedSelectedRegions,
+                    selectedPixels: result.removedSelectedPixels,
+                    unselectedRegions: result.removedUnselectedRegions,
+                    unselectedPixels: result.removedUnselectedPixels
+                }),
+                'success'
         );
     }
 
@@ -1359,9 +1461,14 @@ class App {
         const result = this.processor.removeSmallRegions(minArea);
         
         this.updateButtons();
-        this.showNotification(
-            `透明噪点：${result.removedOpaqueRegions}个区域/${result.removedOpaquePixels}像素；不透明噪点：${result.removedTransparentRegions}个区域/${result.removedTransparentPixels}像素`,
-            'success'
+            this.showNotification(
+                i18n.t('notifications.boxDenoiseDone', {
+                    opaqueRegions: result.removedOpaqueRegions,
+                    opaquePixels: result.removedOpaquePixels,
+                    transparentRegions: result.removedTransparentRegions,
+                    transparentPixels: result.removedTransparentPixels
+                }),
+                'success'
         );
     }
 
@@ -1372,7 +1479,7 @@ class App {
         if (!this.isImageLoaded) return;
         if (this.isLoading) return;
         if (!this.smoothEdgesSlider) {
-            this.showNotification('边缘光滑功能未启用', 'error');
+            this.showNotification(i18n.t('notifications.smoothEdgesDisabled'), 'error');
             return;
         }
 
@@ -1387,13 +1494,13 @@ class App {
                     this.updateButtons();
                     this.currentTool = 'smartCut';
                     this.handleToolSelect('smartCut');
-                    this.showNotification(`边缘光滑处理完成（强度：${strength}）`, 'success');
+                    this.showNotification(i18n.t('notifications.smoothEdgesDone', { strength }), 'success');
                 } else {
-                    this.showNotification('边缘光滑处理失败', 'error');
+                    this.showNotification(i18n.t('notifications.smoothEdgesFailed'), 'error');
                 }
             } catch (error) {
                 console.error('边缘光滑处理失败:', error);
-                this.showNotification('边缘光滑处理失败', 'error');
+                this.showNotification(i18n.t('notifications.smoothEdgesFailed'), 'error');
             } finally {
                 this.hideLoading();
             }
@@ -1426,13 +1533,13 @@ class App {
                 this.edgeBrushAddModeBtn.classList.remove('active');
                 this.edgeBrushSubtractModeBtn.classList.remove('active');
                 this.updateButtons();
-                this.showNotification('边缘检测完成，青色细线为物体轮廓', 'success');
+                this.showNotification(i18n.t('notifications.edgeDetectDone'), 'success');
             } else {
-                this.showNotification('边缘检测失败', 'error');
+                this.showNotification(i18n.t('notifications.edgeDetectFailed'), 'error');
             }
         } catch (error) {
             console.error('边缘检测失败:', error);
-            this.showNotification('边缘检测失败', 'error');
+            this.showNotification(i18n.t('notifications.edgeDetectFailed'), 'error');
         } finally {
             this.hideLoading();
         }
@@ -1446,7 +1553,7 @@ class App {
         if (this.isLoading) return;
 
         if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
-            this.showNotification('请先使用智能抠图或魔术棒确定紫色选区', 'warning');
+            this.showNotification(i18n.t('notifications.needSelectionFirst'), 'warning');
             return;
         }
 
@@ -1469,15 +1576,15 @@ class App {
 
                 if (success) {
                     const tip = this.shadowColorSource === 'manual' && this.userShadowColors.length > 0
-                        ? `阴影检测完成（用户色模式，${this.userShadowColors.length} 个色）`
-                        : '阴影检测完成，粉色区域为阴影选区';
+                        ? i18n.t('notifications.shadowDetectDoneManual', { count: this.userShadowColors.length })
+                        : i18n.t('notifications.shadowDetectDone');
                     this.showNotification(tip, 'success');
                 } else {
-                    this.showNotification('没有活跃的选区，请先进行抠图', 'warning');
+                    this.showNotification(i18n.t('notifications.noActiveSelection'), 'warning');
                 }
             } catch (error) {
                 console.error('阴影检测失败:', error);
-                this.showNotification('阴影检测失败', 'error');
+                this.showNotification(i18n.t('notifications.shadowDetectFailed'), 'error');
             } finally {
                 this.hideLoading();
             }
@@ -1502,8 +1609,8 @@ class App {
         this.edgeBrushAddModeBtn.classList.remove('active');
         this.edgeBrushSubtractModeBtn.classList.remove('active');
 
-        const modeText = mode === 'add' ? '添加阴影选区' : '取消阴影选区';
-        this.showNotification(`阴影画笔模式：${modeText}`, 'info');
+        const key = mode === 'add' ? 'notifications.shadowBrushModeAdd' : 'notifications.shadowBrushModeSubtract';
+        this.showNotification(i18n.t(key), 'info');
     }
 
     // ==================== 阴影色源（自动/手动） ====================
@@ -1532,7 +1639,7 @@ class App {
         if (!rgb) return;
         this.userShadowColors.push(rgb);
         this.renderShadowColorPalette();
-        this.showNotification(`已添加阴影色：${hex}`, 'success');
+        this.showNotification(i18n.t('notifications.shadowColorAdded', { hex }), 'success');
     }
 
     /**
@@ -1559,7 +1666,7 @@ class App {
         this.edgeBrushSubtractModeBtn.classList.remove('active');
         this.shadowBrushAddModeBtn.classList.remove('active');
         this.shadowBrushSubtractModeBtn.classList.remove('active');
-        this.showNotification('取色画笔已开启：在画布上涂抹要采样的阴影区域', 'info');
+        this.showNotification(i18n.t('notifications.colorPickEnabled'), 'info');
     }
 
     exitShadowColorPickMode() {
@@ -1585,7 +1692,7 @@ class App {
         }
         // 给用户一点反馈
         const sampleCount = this.countSamples(this.shadowColorSamples);
-        this.showNotification(`已取样 ${sampleCount} 像素（点击"提取主色"加入色卡）`, 'info');
+        this.showNotification(i18n.t('notifications.sampledPixels', { count: sampleCount }), 'info');
     }
 
     countSamples(mask) {
@@ -1599,21 +1706,21 @@ class App {
      */
     handleExtractShadowColors() {
         if (!this.shadowColorSamples || this.countSamples(this.shadowColorSamples) === 0) {
-            this.showNotification('请先在画布上涂抹要采样的阴影区域', 'warning');
+            this.showNotification(i18n.t('notifications.pleaseSampleShadow'), 'warning');
             return;
         }
         const colors = this.processor.shadowProcessor
             ? this.processor.shadowProcessor.extractShadowColorsFromSamples(this.shadowColorSamples, 3)
             : null;
         if (!colors || colors.length === 0) {
-            this.showNotification('未提取到有效阴影色（取样可能全是白色）', 'warning');
+            this.showNotification(i18n.t('notifications.noValidShadowColor'), 'warning');
             return;
         }
         this.userShadowColors.push(...colors);
         // 一次性涂抹只取样一次，避免重复提取
         this.shadowColorSamples = null;
         this.renderShadowColorPalette();
-        this.showNotification(`已提取 ${colors.length} 个阴影色`, 'success');
+        this.showNotification(i18n.t('notifications.extractedColors', { count: colors.length }), 'success');
     }
 
     /**
@@ -1626,7 +1733,7 @@ class App {
         this.userShadowColors = [];
         this.shadowColorSamples = null;
         this.renderShadowColorPalette();
-        this.showNotification('已清空用户阴影色', 'info');
+        this.showNotification(i18n.t('notifications.clearedShadowColors'), 'info');
     }
 
     /**
@@ -1690,8 +1797,8 @@ class App {
         this.shadowBrushAddModeBtn.classList.remove('active');
         this.shadowBrushSubtractModeBtn.classList.remove('active');
 
-        const modeText = mode === 'add' ? '正画笔（描绘边缘）' : '负画笔（抹除边缘）';
-        this.showNotification(`边缘画笔模式：${modeText}`, 'info');
+        const key = mode === 'add' ? 'notifications.edgeBrushModeAdd' : 'notifications.edgeBrushModeSubtract';
+        this.showNotification(i18n.t(key), 'info');
     }
 
     /**
@@ -1702,7 +1809,7 @@ class App {
         if (this.isLoading) return;
 
         if (!this.processor.currentMask || this.processor.currentMask.every(v => v === 0)) {
-            this.showNotification('请先使用智能抠图或魔术棒确定紫色选区', 'warning');
+            this.showNotification(i18n.t('notifications.needSelectionFirst'), 'warning');
             return;
         }
 
@@ -1716,13 +1823,13 @@ class App {
 
                 if (success) {
                     this.updateButtons();
-                    this.showNotification('阴影处理完成', 'success');
+                    this.showNotification(i18n.t('notifications.shadowProcessDone'), 'success');
                 } else {
-                    this.showNotification('阴影处理失败', 'error');
+                    this.showNotification(i18n.t('notifications.shadowProcessFailed'), 'error');
                 }
             } catch (error) {
                 console.error('阴影处理失败:', error);
-                this.showNotification('阴影处理失败', 'error');
+                this.showNotification(i18n.t('notifications.shadowProcessFailed'), 'error');
             } finally {
                 this.hideLoading();
             }
@@ -1738,8 +1845,8 @@ class App {
         this.inpaintingAlgorithmNsBtn.classList.toggle('active', algorithm === 'highQuality');
         this.processor.setInpaintingAlgorithm(algorithm);
 
-        const algorithmText = algorithm === 'fast' ? '快速修复' : '高质量修复';
-        this.showNotification(`修复算法：${algorithmText}`, 'info');
+        const key = algorithm === 'fast' ? 'notifications.inpaintingAlgorithmFast' : 'notifications.inpaintingAlgorithmHigh';
+        this.showNotification(i18n.t(key), 'info');
     }
 
     /**
@@ -1756,13 +1863,13 @@ class App {
 
             if (success) {
                 this.updateButtons();
-                this.showNotification('修复完成', 'success');
+                this.showNotification(i18n.t('notifications.inpaintingDone'), 'success');
             } else {
-                this.showNotification('请先在图片上涂抹需要修复的区域', 'warning');
+                this.showNotification(i18n.t('notifications.inpaintingNeedArea'), 'warning');
             }
         } catch (error) {
             console.error('修复失败:', error);
-            this.showNotification('修复失败', 'error');
+            this.showNotification(i18n.t('notifications.inpaintingFailed'), 'error');
         } finally {
             this.hideLoading();
         }
@@ -1774,7 +1881,7 @@ class App {
     handleClearInpainting() {
         if (!this.isImageLoaded) return;
         this.processor.clearInpainting();
-        this.showNotification('已清除绘制', 'info');
+        this.showNotification(i18n.t('notifications.inpaintingCleared'), 'info');
     }
 
     /**
@@ -1787,11 +1894,11 @@ class App {
         if (this.currentTool === 'regionSelect') {
             this.currentTool = 'smartCut';
             this.processor.regionSelector.destroy();
-            this.showNotification('已取消框选', 'info');
+            this.showNotification(i18n.t('notifications.boxSelectCancelled'), 'info');
         } else {
             this.currentTool = 'regionSelect';
             this.processor.regionSelector.clearSelection();
-            this.showNotification('请在图片上框选要处理的区域', 'info');
+            this.showNotification(i18n.t('notifications.boxSelectPrompt'), 'info');
         }
 
         this.handleToolSelect(this.currentTool);

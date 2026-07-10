@@ -6,7 +6,7 @@
  *  - 质量 30-100%，输出 JPEG / PNG / WebP
  *  - 等比缩放至最大宽度
  *  - 压缩前后大小对比、实时进度、单张 / 全部下载
- *  - "替换原图" 通过 sessionStorage 传递给首页
+ *  - "抠本图" 通过 sessionStorage 传递给首页
  */
 
 import i18n from './i18n/i18n.js';
