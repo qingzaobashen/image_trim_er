@@ -128,10 +128,15 @@ class App {
         this.mainCanvas = document.getElementById('mainCanvas');
         this.overlayCanvas = document.getElementById('overlayCanvas');
         this.canvasWrapper = document.getElementById('canvasWrapper');
+        this.canvasArea = document.getElementById('canvasArea');
         this.uploadPrompt = document.getElementById('uploadPrompt');
+        this.dropOverlay = document.getElementById('dropOverlay');
         this.fileInput = document.getElementById('fileInput');
         this.uploadBtn = document.getElementById('uploadBtn');
         this.loadingOverlay = document.getElementById('loadingOverlay');
+
+        /** @type {number} 拖拽进入/离开计数，避免子元素冒泡导致高亮闪烁 */
+        this._dragDepth = 0;
 
         this.undoBtn = document.getElementById('undoBtn');
         this.redoBtn = document.getElementById('redoBtn');
@@ -248,6 +253,12 @@ class App {
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         // 粘贴上传：从剪贴板直接导入图片（Ctrl+V）
         document.addEventListener('paste', (e) => this.handlePaste(e));
+
+        // 拖拽上传：将图片文件拖入画布区域即可加载（无论是否已存在图片，均替换加载）
+        this.canvasArea.addEventListener('dragenter', (e) => this.handleDragEnter(e));
+        this.canvasArea.addEventListener('dragover', (e) => this.handleDragOver(e));
+        this.canvasArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        this.canvasArea.addEventListener('drop', (e) => this.handleDrop(e));
 
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.redoBtn.addEventListener('click', () => this.handleRedo());
@@ -536,6 +547,99 @@ class App {
             e.preventDefault();
             this.loadImageFile(file);
         }
+    }
+
+    /**
+     * 处理拖拽进入画布区域
+     * 必须 preventDefault 才会触发后续 drop 事件；用计数避免子元素冒泡导致高亮闪烁
+     * @param {DragEvent} e - 拖拽事件
+     */
+    handleDragEnter(e) {
+        if (this.isLoading) return;
+        e.preventDefault();
+        this._dragDepth++;
+        this.setDragOver(true);
+    }
+
+    /**
+     * 处理拖拽在画布区域上方移动
+     * 持续 preventDefault 并提示将以"复制"方式放置
+     * @param {DragEvent} e - 拖拽事件
+     */
+    handleDragOver(e) {
+        if (this.isLoading) return;
+        e.preventDefault();
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy';
+        }
+    }
+
+    /**
+     * 处理拖拽离开画布区域
+     * 计数归零时才取消高亮，避免经过子元素时误关
+     * @param {DragEvent} e - 拖拽事件
+     */
+    handleDragLeave(e) {
+        if (this.isLoading) return;
+        e.preventDefault();
+        this._dragDepth = Math.max(0, this._dragDepth - 1);
+        if (this._dragDepth === 0) {
+            this.setDragOver(false);
+        }
+    }
+
+    /**
+     * 处理图片拖放到画布区域
+     * 取首个图片文件加载；加载前复位拖拽状态并取消高亮
+     * @param {DragEvent} e - 拖拽事件
+     */
+    handleDrop(e) {
+        if (this.isLoading) return;
+        e.preventDefault();
+        this._dragDepth = 0;
+        this.setDragOver(false);
+
+        const file = this.getImageFileFromDataTransfer(e.dataTransfer);
+        if (file) {
+            this.loadImageFile(file);
+        } else {
+            this.showNotification(i18n.t('notifications.selectImageFile'), 'warning');
+        }
+    }
+
+    /**
+     * 从 DataTransfer 中取出首个图片文件
+     * 依次尝试 files 与 items（部分浏览器拖入时仅 items 可用）
+     * @param {DataTransfer} dataTransfer - 拖拽数据
+     * @returns {File|null} 图片文件或 null
+     */
+    getImageFileFromDataTransfer(dataTransfer) {
+        if (!dataTransfer) return null;
+
+        if (dataTransfer.files && dataTransfer.files.length) {
+            for (const f of dataTransfer.files) {
+                if (f.type && f.type.startsWith('image/')) return f;
+            }
+        }
+
+        if (dataTransfer.items && dataTransfer.items.length) {
+            for (const item of dataTransfer.items) {
+                if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+                    return item.getAsFile();
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 切换画布区域的拖拽高亮态
+     * @param {boolean} active - 是否处于拖拽悬停
+     */
+    setDragOver(active) {
+        if (!this.canvasArea) return;
+        this.canvasArea.classList.toggle('drag-over', active);
     }
 
     /**

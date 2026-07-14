@@ -214,7 +214,8 @@ export default {
         zoomOut: 'Zoom Out (Ctrl+-)',
         zoomIn: 'Zoom In (Ctrl++)',
         fitWindow: 'Fit Window',
-        resetZoom: 'Reset Zoom (Ctrl+0)'
+        resetZoom: 'Reset Zoom (Ctrl+0)',
+        dropHere: 'Drop image here'
     },
 
     /** Upload prompt */

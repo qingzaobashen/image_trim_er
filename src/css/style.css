@@ -825,6 +825,28 @@ body.shadow-color-pick-mode {
     display: none;
 }
 
+/* ==================== 拖拽图片放置提示 ==================== */
+/* 拖拽文件悬停在画布区域时，显示虚线边框 + 半透明遮罩 + 文案提示 */
+.drop-overlay {
+    position: absolute;
+    inset: 12px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--primary-color);
+    border-radius: var(--radius-lg);
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.canvas-area.drag-over .drop-overlay {
+    display: flex;
+}
+
 /* ==================== 上传提示 ==================== */
 .upload-prompt {
     text-align: center;

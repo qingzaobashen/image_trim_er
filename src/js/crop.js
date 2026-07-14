@@ -402,13 +402,12 @@ class CropApp {
         this.image = img;
         this.isImageLoaded = true;
 
-        // 初始化裁剪区域为图片的 80% 居中
-        const margin = 0.1;
+        // 初始化裁剪区域占满整张图片
         this.cropRegion = {
-            x: Math.round(img.width * margin),
-            y: Math.round(img.height * margin),
-            width: Math.round(img.width * (1 - margin * 2)),
-            height: Math.round(img.height * (1 - margin * 2))
+            x: 0,
+            y: 0,
+            width: img.width,
+            height: img.height
         };
         this.polygonPoints = [];
         this.selectedCell = null;
@@ -1662,12 +1661,12 @@ class CropApp {
     _resetCrop() {
         if (!this.image) return;
 
-        const margin = 0.1;
+        // 重置裁剪区域为占满整张图片
         this.cropRegion = {
-            x: Math.round(this.image.width * margin),
-            y: Math.round(this.image.height * margin),
-            width: Math.round(this.image.width * (1 - margin * 2)),
-            height: Math.round(this.image.height * (1 - margin * 2))
+            x: 0,
+            y: 0,
+            width: this.image.width,
+            height: this.image.height
         };
 
         if (this.shape === SHAPE_POLYGON) {

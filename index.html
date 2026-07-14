@@ -631,7 +631,7 @@
             </aside>
 
             <!-- 画布区域 -->
-            <div class="canvas-area">
+            <div class="canvas-area" id="canvasArea">
                 <!-- 缩放控制 -->
                 <div class="zoom-controls" id="zoomControls">
                     <button class="zoom-btn" id="zoomOutBtn" data-i18n-title="canvas.zoomOut" title="缩小 (Ctrl+-)">
@@ -687,6 +687,8 @@
                     </div>
                     <canvas id="mainCanvas"></canvas>
                     <canvas id="overlayCanvas"></canvas>
+                    <!-- 拖拽图片到画布时显示的放置提示层（默认隐藏） -->
+                    <div class="drop-overlay" id="dropOverlay" data-i18n="canvas.dropHere">拖拽图片到此处</div>
                 </div>
             </div>
 

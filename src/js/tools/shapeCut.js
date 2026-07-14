@@ -821,6 +821,8 @@ export class ShapeCutTool {
 
     /**
      * 更新被拖拽顶点位置（写入归一化坐标）
+     * 不限制坐标范围：顶点可拖出包围盒 [0,1] 之外，从而自由放大/变形形状。
+     * 渲染与蒙版采样均基于归一化坐标换算绝对位置，支持顶点超出包围盒。
      * @param {number} mx - 鼠标X坐标
      * @param {number} my - 鼠标Y坐标
      */
@@ -831,8 +833,8 @@ export class ShapeCutTool {
         const nx = (mx - bounds.x) / bounds.width;
         const ny = (my - bounds.y) / bounds.height;
         this.polygonNormVerts[this.draggingVertex] = {
-            nx: Math.max(0, Math.min(1, nx)),
-            ny: Math.max(0, Math.min(1, ny))
+            nx,
+            ny
         };
     }
 

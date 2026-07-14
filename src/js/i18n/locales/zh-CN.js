@@ -214,7 +214,8 @@ export default {
         zoomOut: '缩小 (Ctrl+-)',
         zoomIn: '放大 (Ctrl++)',
         fitWindow: '适应窗口',
-        resetZoom: '重置缩放 (Ctrl+0)'
+        resetZoom: '重置缩放 (Ctrl+0)',
+        dropHere: '拖拽图片到此处'
     },
 
     /** 上传提示区域 */
