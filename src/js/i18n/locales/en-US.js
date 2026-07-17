@@ -206,7 +206,8 @@ export default {
         /** Operation buttons */
         clearSelection: 'Clear Selection',
         invertSelection: 'Invert Selection',
-        deleteSelection: 'Cut Out Selection'
+        deleteSelection: 'Cut Out Selection',
+        deleteOpacity: 'Opacity'
     },
 
     /** Canvas area */

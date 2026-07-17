@@ -17,7 +17,7 @@ class App {
     constructor() {
         this.processor = null;
         this.zoomManager = null;
-        this.currentTool = 'smartCut';
+        this.currentTool = 'magicWand';
         this.brushMode = 'add';
         /** @type {boolean} 画笔"擦除已抠"开关（仅在减去模式下生效） */
         this.brushEraseCut = false;
@@ -218,6 +218,7 @@ class App {
         this.invertSelectionBtn = document.getElementById('invertSelection');
         this.deleteSelectionBtn = document.getElementById('deleteSelection');
         this.selectionDenoiseBtn = document.getElementById('selectionDenoiseBtn');
+        this.deleteOpacityInput = document.getElementById('deleteOpacity');
 
         // AI 模型相关元素
         this.aiModelStatus = document.getElementById('aiModelStatus');
@@ -295,6 +296,9 @@ class App {
         this.invertSelectionBtn.addEventListener('click', () => this.handleInvertSelection());
         this.deleteSelectionBtn.addEventListener('click', () => this.handleDeleteSelection());
         this.selectionDenoiseBtn.addEventListener('click', () => this.handleSelectionDenoise());
+        if (this.deleteOpacityInput) {
+            this.deleteOpacityInput.addEventListener('input', (e) => this.updateParamValue(e));
+        }
 
         // AI 模型相关事件
         this.loadAIModelBtn.addEventListener('click', () => this.handleLoadAIModel());
@@ -1168,7 +1172,8 @@ class App {
     async handleMiddleClick() {
         if (!this.isImageLoaded || this.isLoading) return;
 
-        const success = await this.processor.confirmDeleteSelection();
+        const opacity = parseInt(this.deleteOpacityInput.value) / 100;
+        const success = await this.processor.confirmDeleteSelection(opacity);
         
         if (success) {
             this.updateButtons();
@@ -1242,7 +1247,7 @@ class App {
         this.overlayCanvas.classList.add('hidden');
         
         this.isImageLoaded = false;
-        this.currentTool = 'smartCut';
+        this.currentTool = 'magicWand';
         
         this.processor.originalImage = null;
         this.processor.currentMask = null;
@@ -1263,12 +1268,12 @@ class App {
         this.toolButtons.forEach(btn => {
             btn.classList.remove('active');
         });
-        this.toolButtons[0].classList.add('active');
+        this.toolButtons[1].classList.add('active');
         
         this.paramGroups.forEach(group => {
             group.classList.remove('active');
         });
-        this.paramGroups[0].classList.add('active');
+        this.paramGroups[1].classList.add('active');
         
         this.showNotification(i18n.t('notifications.openingFilePicker'), 'info');
         
@@ -1545,7 +1550,8 @@ class App {
     handleDeleteSelection() {
         if (!this.isImageLoaded) return;
 
-        this.processor.deleteSelection();
+        const opacity = parseInt(this.deleteOpacityInput.value) / 100;
+        this.processor.deleteSelection(opacity);
         this.updateButtons();
         this.currentTool = 'smartCut';
         this.handleToolSelect('smartCut');

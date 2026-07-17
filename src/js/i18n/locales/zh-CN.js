@@ -206,7 +206,8 @@ export default {
         /** 操作按钮 */
         clearSelection: '清除选区',
         invertSelection: '反选',
-        deleteSelection: '抠除选区'
+        deleteSelection: '抠除选区',
+        deleteOpacity: '抠除透明度'
     },
 
     /** 画布区域 */

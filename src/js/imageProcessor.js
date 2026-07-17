@@ -530,16 +530,17 @@ export class ImageProcessor {
 
     /**
      * 确认删除选区（中键功能）
+     * @param {number} opacity - 透明度（0-1）
      * @returns {Promise<boolean>} 是否成功删除
      */
-    async confirmDeleteSelection() {
+    async confirmDeleteSelection(opacity = 1) {
         if (!this.currentMask || this.currentMask.every(v => v === 0)) {
             return false;
         }
 
         await this.animateDeletion();
 
-        this.deleteSelection();
+        this.deleteSelection(opacity);
         
         return true;
     }
@@ -598,8 +599,9 @@ export class ImageProcessor {
 
     /**
      * 删除选中区域
+     * @param {number} opacity - 透明度（0-1），1表示完全透明，0表示不透明
      */
-    deleteSelection() {
+    deleteSelection(opacity = 1) {
         if (!this.currentMask || this.currentMask.every(v => v === 0)) {
             return;
         }
@@ -610,7 +612,8 @@ export class ImageProcessor {
         for (let i = 0; i < this.currentMask.length; i++) {
             if (this.currentMask[i] > 0) {
                 const index = i * 4;
-                imageData.data[index + 3] = 1;   // 仅将选中区域的alpha通道设为0，实现透明效果，但canvas会自动将该区域的像素设为0
+                const originalAlpha = imageData.data[index + 3];
+                imageData.data[index + 3] = Math.round(originalAlpha * (1 - opacity));
             }
         }
 
